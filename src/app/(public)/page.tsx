@@ -9,11 +9,15 @@ export const revalidate = 3600
 
 export default async function HomePage() {
   const supabase = await createClient()
-  const { data: courses } = await supabase
+  const { data: courses, error: coursesError } = await supabase
     .from('awa_courses')
     .select('id, name, slug, description, mrp')
     .eq('is_active', true)
     .order('sort_order')
+
+  if (coursesError) {
+    console.error('Failed to fetch courses:', coursesError.message)
+  }
   return (
     <>
       <HeroSection />

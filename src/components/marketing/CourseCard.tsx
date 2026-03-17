@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils'
 
 interface CourseCardProps {
@@ -17,7 +17,7 @@ export function CourseCard({ course }: CourseCardProps) {
   return (
     <Card className="flex flex-col h-full hover:shadow-lg transition-shadow">
       <CardHeader>
-        <h3 className="font-semibold text-lg leading-tight">{course.name}</h3>
+        <CardTitle className="font-semibold text-lg leading-tight">{course.name}</CardTitle>
       </CardHeader>
       <CardContent className="flex-1">
         {course.description && (

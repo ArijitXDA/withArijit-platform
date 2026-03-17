@@ -22,17 +22,23 @@ export function CoursesSection({ courses }: CoursesSectionProps) {
             From foundational skills to advanced certifications — programs for every career stage.
           </p>
         </div>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {courses.slice(0, 6).map(course => (
-            <CourseCard key={course.id} course={course} />
-          ))}
-        </div>
-        {courses.length > 6 && (
-          <div className="text-center mt-12">
-            <Link href="/courses" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
-              View All Courses
-            </Link>
-          </div>
+        {courses.length === 0 ? (
+          <p className="text-center text-gray-500 py-12">Courses coming soon. Check back shortly.</p>
+        ) : (
+          <>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {courses.slice(0, 6).map(course => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+            </div>
+            {courses.length > 6 && (
+              <div className="text-center mt-12">
+                <Link href="/courses" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
+                  View All Courses
+                </Link>
+              </div>
+            )}
+          </>
         )}
       </div>
     </section>

@@ -11,7 +11,10 @@ export function verifyWebhookSignature(body: string, signature: string): boolean
     .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET!)
     .update(body)
     .digest('hex')
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
+  const expectedBuf = Buffer.from(expected)
+  const sigBuf = Buffer.from(signature)
+  if (expectedBuf.length !== sigBuf.length) return false
+  return crypto.timingSafeEqual(expectedBuf, sigBuf)
 }
 
 export function verifyPaymentSignature(orderId: string, paymentId: string, signature: string): boolean {
@@ -19,5 +22,8 @@ export function verifyPaymentSignature(orderId: string, paymentId: string, signa
     .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
     .update(`${orderId}|${paymentId}`)
     .digest('hex')
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
+  const expectedBuf = Buffer.from(expected)
+  const sigBuf = Buffer.from(signature)
+  if (expectedBuf.length !== sigBuf.length) return false
+  return crypto.timingSafeEqual(expectedBuf, sigBuf)
 }

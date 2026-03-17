@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyPaymentSignature } from '@/lib/razorpay'
+import { verifyPaymentSchema } from '@/lib/validations/payment'
 
 export async function POST(request: NextRequest) {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = await request.json()
-
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      return NextResponse.json({ error: 'Missing payment fields' }, { status: 400 })
+    const body = await request.json()
+    const parsed = verifyPaymentSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
     }
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = parsed.data
 
     const valid = verifyPaymentSignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)
     if (!valid) {

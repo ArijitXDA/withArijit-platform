@@ -25,6 +25,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Course not found' }, { status: 404 })
     }
 
+    if (payment_frequency === 'monthly') {
+      return NextResponse.json({ error: 'Monthly installments are not yet available for online payment' }, { status: 400 })
+    }
+
     // Calculate amount with 18% GST (default, as gst_percent column not confirmed in schema)
     const gstPercent = 18
     let baseAmount = ((course.mrp as number) ?? 0) * (1 + gstPercent / 100)

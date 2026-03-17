@@ -35,6 +35,11 @@ export function PaymentModal({ open, onClose, courseId, courseName, price }: Pay
       return
     }
 
+    if (mode === 'gift' && !friendEmail.trim()) {
+      setError("Please enter your friend's email address.")
+      return
+    }
+
     setLoading(true)
     try {
       const res = await fetch('/api/payments/create-order', {
@@ -47,6 +52,8 @@ export function PaymentModal({ open, onClose, courseId, courseName, price }: Pay
           name,
           email,
           mobile,
+          mode,
+          friend_email: mode === 'gift' ? friendEmail : undefined,
         }),
       })
       const data = await res.json()
@@ -58,6 +65,11 @@ export function PaymentModal({ open, onClose, courseId, courseName, price }: Pay
       }
 
       const { orderId, amount, currency } = data
+      if (typeof (window as any).Razorpay === 'undefined') {
+        setError('Payment system is still loading. Please wait a moment and try again.')
+        setLoading(false)
+        return
+      }
       const rzp = new (window as any).Razorpay({
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         order_id: orderId,

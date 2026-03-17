@@ -1,8 +1,26 @@
-export default function Home() {
+import { HeroSection } from '@/components/marketing/HeroSection'
+import { StatsBar } from '@/components/marketing/StatsBar'
+import { CoursesSection } from '@/components/marketing/CoursesSection'
+import { WebinarCTASection } from '@/components/marketing/WebinarCTASection'
+import { TestimonialsSection } from '@/components/marketing/TestimonialsSection'
+import { createClient } from '@/lib/supabase/server'
+
+export const revalidate = 3600
+
+export default async function HomePage() {
+  const supabase = await createClient()
+  const { data: courses } = await supabase
+    .from('awa_courses')
+    .select('id, name, slug, description, mrp')
+    .eq('is_active', true)
+    .order('sort_order')
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center">
-      <h1 className="text-4xl font-bold">withArijit</h1>
-      <p className="mt-4 text-gray-500">AI Education Platform — coming soon</p>
-    </main>
+    <>
+      <HeroSection />
+      <StatsBar />
+      <CoursesSection courses={courses ?? []} />
+      <WebinarCTASection />
+      <TestimonialsSection />
+    </>
   )
 }

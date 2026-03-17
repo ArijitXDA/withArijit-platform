@@ -1,10 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { buttonVariants } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { PaymentModalTrigger } from '@/components/shared/PaymentModalTrigger'
 
 export const revalidate = 3600
 
@@ -55,9 +54,11 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
             {formatCurrency(course.mrp)}
           </span>
         )}
-        <Link href="/signup" className={buttonVariants({ size: 'lg' })}>
-          Enrol Now →
-        </Link>
+        <PaymentModalTrigger
+          courseId={course.id}
+          courseName={course.name}
+          price={course.mrp ?? undefined}
+        />
       </div>
     </div>
   )

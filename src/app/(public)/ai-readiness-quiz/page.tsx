@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { buttonVariants } from '@/components/ui/button'
+import { buttonVariants } from '@/lib/button-variants'
 import { cn } from '@/lib/utils'
 
 const QUESTIONS = [

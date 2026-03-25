@@ -1,7 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { PaymentModal } from './PaymentModal'
-import { buttonVariants } from '@/components/ui/button'
+import { buttonVariants } from '@/lib/button-variants'
 import { cn } from '@/lib/utils'
 
 interface PaymentModalTriggerProps {
@@ -10,6 +11,11 @@ interface PaymentModalTriggerProps {
   price?: number
   label?: string
   className?: string
+  // Pre-fill overrides (e.g. from server-side deep link page)
+  defaultName?: string
+  defaultEmail?: string
+  defaultMobile?: string
+  defaultPartnerCode?: string
 }
 
 export function PaymentModalTrigger({
@@ -18,8 +24,30 @@ export function PaymentModalTrigger({
   price,
   label = 'Enrol Now →',
   className,
+  defaultName,
+  defaultEmail,
+  defaultMobile,
+  defaultPartnerCode,
 }: PaymentModalTriggerProps) {
   const [open, setOpen] = useState(false)
+  const searchParams    = useSearchParams()
+
+  // Also read partner_code / email from URL query params (webinar deep link)
+  const urlPartnerCode = searchParams.get('partner') ?? searchParams.get('utm_source') ?? ''
+  const urlEmail       = searchParams.get('email') ?? ''
+  const urlName        = searchParams.get('name') ?? ''
+  const urlMobile      = searchParams.get('mobile') ?? ''
+
+  // Props win over URL params
+  const resolvedPartnerCode = defaultPartnerCode || urlPartnerCode || ''
+  const resolvedEmail       = defaultEmail || urlEmail || ''
+  const resolvedName        = defaultName  || urlName  || ''
+  const resolvedMobile      = defaultMobile || urlMobile || ''
+
+  // Auto-open if ?enrol=1 is in the URL
+  useEffect(() => {
+    if (searchParams.get('enrol') === '1') setOpen(true)
+  }, [searchParams])
 
   return (
     <>
@@ -35,6 +63,10 @@ export function PaymentModalTrigger({
         courseId={courseId}
         courseName={courseName}
         price={price}
+        defaultName={resolvedName}
+        defaultEmail={resolvedEmail}
+        defaultMobile={resolvedMobile}
+        defaultPartnerCode={resolvedPartnerCode}
       />
     </>
   )

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { buttonVariants } from '@/components/ui/button'
+import { buttonVariants } from '@/lib/button-variants'
 
 export default async function BecomePartnerDashboardPage() {
   const supabase = await createClient()

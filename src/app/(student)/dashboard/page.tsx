@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { formatDate } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
-import { buttonVariants } from '@/components/ui/button'
+import { buttonVariants } from '@/lib/button-variants'
 import { cn } from '@/lib/utils'
 import { Calendar, BookOpen, Award } from 'lucide-react'
 

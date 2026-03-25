@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { buttonVariants } from '@/components/ui/button'
+import { buttonVariants } from '@/lib/button-variants'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 

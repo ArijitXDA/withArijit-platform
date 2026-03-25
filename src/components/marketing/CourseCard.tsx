@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { buttonVariants } from '@/components/ui/button'
+import { buttonVariants } from '@/lib/button-variants'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils'
 

@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, BookOpen, Calendar, Library,
-  Award, CreditCard, User, Briefcase, Gift, Users, LogOut,
+  Award, CreditCard, User, Briefcase, Gift, Users, LogOut, Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/career',           label: 'Career',         icon: Briefcase },
   { href: '/dashboard/referrals',        label: 'Referrals',      icon: Gift },
   { href: '/dashboard/become-partner',   label: 'Become Partner', icon: Users },
+  { href: '/dashboard/ai-monitor',        label: 'Class Monitor AI', icon: Sparkles },
 ]
 
 export function DashboardSidebar() {
@@ -61,11 +62,15 @@ export function DashboardSidebar() {
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
                 isActive
                   ? 'text-white'
-                  : 'text-gray-500 hover:text-gray-200 hover:bg-white/5'
+                  : href === '/dashboard/ai-monitor'
+                    ? 'text-violet-400 hover:text-violet-300 hover:bg-violet-500/10'
+                    : 'text-gray-500 hover:text-gray-200 hover:bg-white/5'
               )}
               style={isActive ? {
-                background: 'linear-gradient(90deg, rgba(99,102,241,0.2), rgba(99,102,241,0.05))',
-                borderLeft: '3px solid #6366f1',
+                background: href === '/dashboard/ai-monitor'
+                  ? 'linear-gradient(90deg, rgba(139,92,246,0.25), rgba(139,92,246,0.05))'
+                  : 'linear-gradient(90deg, rgba(99,102,241,0.2), rgba(99,102,241,0.05))',
+                borderLeft: href === '/dashboard/ai-monitor' ? '3px solid #8b5cf6' : '3px solid #6366f1',
               } : {}}
             >
               <Icon size={16} className={cn('shrink-0', isActive ? 'text-indigo-400' : '')} />

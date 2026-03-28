@@ -21,9 +21,10 @@ const FOOTER_LINKS = {
   ],
   Legal: [
     { href: '/privacy', label: 'Privacy Policy' },
-    { href: '/terms', label: 'Terms of Service' },
+    { href: '/terms', label: 'Terms & Conditions' },
     { href: '/refund-policy', label: 'Refund Policy' },
     { href: '/shipping-policy', label: 'Shipping Policy' },
+    { href: '/contact', label: 'Contact Us' },
   ],
 }
 

@@ -99,12 +99,19 @@ export function PaymentModal({
         return
       }
 
-      const { orderId, amount, currency, discountApplied: disc, discountLabel: discLbl, displayAmount } = orderData
+      const {
+        orderId, amount, currency,
+        discountApplied: disc,
+        discountLabel: discLbl,
+        displayAmount,
+        partnerDiscountApplied,
+        autoDiscountPct,
+      } = orderData
 
       // Show discount feedback in UI
       if (disc && disc > 0) {
         setDiscountApplied(disc)
-        setDiscountLabel(discLbl ?? discountCode)
+        setDiscountLabel(discLbl ?? (partnerDiscountApplied ? `Partner discount (${autoDiscountPct}% off)` : discountCode))
         setFinalAmount(displayAmount)
       }
 

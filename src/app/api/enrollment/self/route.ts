@@ -167,9 +167,10 @@ export async function POST(request: NextRequest) {
         course_id:          course_id,
         enrolment_type:     normEnrolmentType,
         mrp,
-        discount_pct:       0,
-        discount_amount:    0,
-        net_after_discount: mrp,
+        // discount_pct: back-calculate from MRP vs amount paid
+        discount_pct:       mrp > 0 ? Math.round((1 - amount / mrp) * 100) / 100 : 0,
+        discount_amount:    Math.max(0, mrp - amount),
+        net_after_discount: amount,
         gst_pct:            gstPct,
         gst_amount:         gstAmount,
         net_taxable:        netTaxable,

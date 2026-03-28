@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     // ── 1. Fetch course ────────────────────────────────────────────────────
     const { data: course, error: courseError } = await supabase
       .from('awa_courses')
-      .select('id, name, mrp, gst_percent, discount_percent')
+      .select('id, name, mrp, gst_percent, discount_percent, partner_pool_percent')
       .eq('id', course_id)
       .single()
 
@@ -32,87 +32,114 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ── 2. Base amount ─────────────────────────────────────────────────────
-    // MRP is the final price students pay (already includes GST).
-    // For half payment: charge 50% upfront.
     const mrp = Number(course.mrp ?? 0)
-    let finalAmount = payment_frequency === 'half' ? mrp / 2 : mrp
+    const courseDiscountPct = Number(course.discount_percent ?? 0) / 100  // e.g. 0.40 for 40%
 
-    // ── 3. Resolve partner code ────────────────────────────────────────────
-    // Partner code is passed in the body (from URL ?partner= param).
-    // It doesn't affect the price — partner earns commission post-payment.
-    // We include it in the Razorpay order notes so the webhook can use it.
-    const partnerCode = (body.partner_code as string | undefined) || null
+    // ── 2. Auto-discount: check if student was referred by a partner ────────
+    // Rule: if student's email is in qr_landing_registrations with a non-null
+    // utm_source (partner code), auto-apply the course's discount_percent.
+    // This is the "student discount" for partner-referred webinar registrants.
+    let autoDiscountPct  = 0
+    let autoDiscountLabel = ''
+    let resolvedPartnerCode = (body.partner_code as string | undefined) || null
 
-    // ── 4. Apply discount code ─────────────────────────────────────────────
-    // Table: discount_codes
-    // Relevant columns: code (text), discount_value (numeric), type (text),
-    //                   status (text — 'active' | 'inactive'), valid_from, valid_to
-    let discountApplied = 0
-    let discountLabel = ''
+    // Look up by email in registrations
+    const { data: reg } = await supabase
+      .from('qr_landing_registrations')
+      .select('utm_source')
+      .eq('email', email.toLowerCase())
+      .not('utm_source', 'is', null)
+      .order('registered_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
+    if (reg?.utm_source) {
+      // Student was referred by a partner → apply course discount
+      autoDiscountPct   = courseDiscountPct
+      autoDiscountLabel = `Partner Referral Discount (${Math.round(courseDiscountPct * 100)}% off)`
+      if (!resolvedPartnerCode) resolvedPartnerCode = reg.utm_source
+    }
+
+    // ── 3. Base amount after auto-discount ─────────────────────────────────
+    const baseAfterAutoDiscount = mrp * (1 - autoDiscountPct)
+    let finalAmount = payment_frequency === 'half' ? baseAfterAutoDiscount / 2 : baseAfterAutoDiscount
+
+    let manualDiscountApplied = 0
+    let manualDiscountLabel   = ''
+
+    // ── 4. Additional manual discount code (stackable) ─────────────────────
     if (discount_code) {
-      const now = new Date().toISOString()
+      const now = new Date()
       const { data: discount } = await supabase
         .from('discount_codes')
-        .select('code, label, type, discount_value, valid_from, valid_to, max_uses, uses_count')
+        .select('code, label, type, discount_value, valid_from, valid_to, max_uses, uses_count, is_stackable')
         .eq('code', discount_code.trim().toUpperCase())
         .eq('status', 'active')
         .single()
 
       if (discount) {
-        // Check validity window
-        const validFrom = discount.valid_from ? new Date(discount.valid_from) : null
-        const validTo   = discount.valid_to   ? new Date(discount.valid_to)   : null
-        const nowDate   = new Date(now)
         const withinWindow =
-          (!validFrom || nowDate >= validFrom) &&
-          (!validTo   || nowDate <= validTo)
-
-        // Check usage limit
+          (!discount.valid_from || now >= new Date(discount.valid_from)) &&
+          (!discount.valid_to   || now <= new Date(discount.valid_to))
         const withinUsage =
           !discount.max_uses || (discount.uses_count ?? 0) < discount.max_uses
 
         if (withinWindow && withinUsage) {
           if (discount.type === 'percentage') {
-            discountApplied = finalAmount * (Number(discount.discount_value) / 100)
+            manualDiscountApplied = finalAmount * (Number(discount.discount_value) / 100)
           } else if (discount.type === 'fixed') {
-            discountApplied = Math.min(Number(discount.discount_value), finalAmount)
+            manualDiscountApplied = Math.min(Number(discount.discount_value), finalAmount)
           }
-          discountLabel   = discount.label ?? discount.code
-          finalAmount     = Math.max(0, finalAmount - discountApplied)
+          manualDiscountLabel = discount.label ?? discount.code
+          finalAmount = Math.max(0, finalAmount - manualDiscountApplied)
         }
       }
     }
 
-    // ── 5. Create Razorpay order ───────────────────────────────────────────
-    // Razorpay expects amount in paise (× 100), must be an integer
+    // ── 5. Total discount for display ──────────────────────────────────────
+    const originalAmount      = payment_frequency === 'half' ? mrp / 2 : mrp
+    const autoDiscountAmount  = Math.round(originalAmount - (payment_frequency === 'half' ? baseAfterAutoDiscount / 2 : baseAfterAutoDiscount))
+    const totalDiscountApplied = autoDiscountAmount + Math.round(manualDiscountApplied)
+
+    // Combined label for display
+    const discountLabel = [
+      autoDiscountLabel && `${autoDiscountLabel} (−₹${autoDiscountAmount.toLocaleString('en-IN')})`,
+      manualDiscountLabel && `${manualDiscountLabel} (−₹${Math.round(manualDiscountApplied).toLocaleString('en-IN')})`,
+    ].filter(Boolean).join(' + ')
+
+    // ── 6. Create Razorpay order ───────────────────────────────────────────
     const order = await getRazorpay().orders.create({
-      amount:   Math.round(finalAmount * 100),
+      amount:   Math.round(finalAmount * 100),  // paise
       currency: 'INR',
       receipt:  `rcpt_${Date.now()}`,
       notes: {
         course_id,
-        course_name:        course.name,
+        course_name:           course.name,
         name,
         email,
         mobile,
         payment_frequency,
-        partner_code:       partnerCode ?? '',
-        discount_code:      discount_code ?? '',
-        discount_applied:   String(Math.round(discountApplied)),
+        partner_code:          resolvedPartnerCode ?? '',
+        discount_code:         discount_code ?? '',
+        auto_discount_pct:     String(Math.round(autoDiscountPct * 100)),
+        manual_discount_applied: String(Math.round(manualDiscountApplied)),
       },
     })
 
     return NextResponse.json({
-      orderId:          order.id,
-      amount:           order.amount,
-      currency:         order.currency,
-      courseName:       course.name,
-      displayAmount:    finalAmount,
-      discountApplied:  Math.round(discountApplied),
-      discountLabel:    discountLabel || null,
-      originalAmount:   payment_frequency === 'half' ? mrp / 2 : mrp,
+      orderId:              order.id,
+      amount:               order.amount,
+      currency:             order.currency,
+      courseName:           course.name,
+      displayAmount:        Math.round(finalAmount),
+      originalAmount:       Math.round(originalAmount),
+      autoDiscountPct:      Math.round(autoDiscountPct * 100),
+      autoDiscountAmount,
+      discountApplied:      totalDiscountApplied,
+      discountLabel:        discountLabel || null,
+      partnerCode:          resolvedPartnerCode,
+      // Whether the student was eligible for partner discount
+      partnerDiscountApplied: autoDiscountPct > 0,
     })
 
   } catch (error: any) {

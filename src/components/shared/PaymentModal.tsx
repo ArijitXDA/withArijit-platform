@@ -165,14 +165,23 @@ export function PaymentModal({
               }),
             })
 
+            // Parse once — used for error logging and for the redirect
+            const enrolJson = await enrolRes.json().catch(() => ({}))
             if (!enrolRes.ok) {
-              const d = await enrolRes.json().catch(() => ({}))
-              console.error('Enrolment recording failed (non-fatal):', d.error)
+              console.error('Enrolment recording failed (non-fatal):', enrolJson.error)
             }
 
             setSuccess(true)
             setLoading(false)
-            setTimeout(() => { onClose(); window.location.href = '/dashboard' }, 2000)
+            // Redirect to batch selection page
+            const enrolmentId = enrolJson.enrolment_id ?? ''
+            setTimeout(() => {
+              onClose()
+              const params = new URLSearchParams()
+              if (courseId)    params.set('course_id', courseId)
+              if (enrolmentId) params.set('enrolment_id', enrolmentId)
+              window.location.href = `/select-batch?${params.toString()}`
+            }, 2000)
 
           } catch (err: any) {
             setError('Enrolment recording failed. Payment was successful. Contact support with payment ID: ' + response.razorpay_payment_id)

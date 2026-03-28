@@ -1,36 +1,26 @@
 'use client'
 
-import { Bell, Menu } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Bell } from 'lucide-react'
+import Image from 'next/image'
 
-interface Props {
-  studentName?: string
-}
-
-export function DashboardTopNav({ studentName }: Props) {
-  const initials = studentName
-    ?.split(' ')
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase() ?? 'S'
-
+export function DashboardTopNav() {
   return (
-    <header className="h-14 bg-white border-b border-gray-100 flex items-center justify-between px-6 shrink-0">
-      <button className="md:hidden text-gray-600">
-        <Menu size={20} />
-      </button>
+    <header className="h-14 flex items-center justify-between px-6 shrink-0 border-b"
+      style={{ background: '#07090f', borderColor: 'rgba(255,255,255,0.06)' }}>
+      {/* Mobile — show logos */}
+      <div className="flex items-center gap-2 md:hidden">
+        <Image src="/ostaran-logo.png" alt="oStaran" width={70} height={23} className="h-5 w-auto" />
+      </div>
       <div className="flex-1" />
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell size={18} />
-        </Button>
-        <Avatar className="h-8 w-8">
-          <AvatarFallback className="bg-indigo-100 text-indigo-600 text-xs font-semibold">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
+        <button className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/5 transition-all">
+          <Bell size={16} />
+        </button>
+        {/* Avatar placeholder */}
+        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+          style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
+          S
+        </div>
       </div>
     </header>
   )

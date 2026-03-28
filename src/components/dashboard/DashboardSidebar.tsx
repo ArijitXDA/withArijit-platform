@@ -1,40 +1,32 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard,
-  BookOpen,
-  Calendar,
-  Library,
-  Award,
-  CreditCard,
-  User,
-  Briefcase,
-  Gift,
-  Users,
-  LogOut,
+  LayoutDashboard, BookOpen, Calendar, Library,
+  Award, CreditCard, User, Briefcase, Gift, Users, LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Home', icon: LayoutDashboard, exact: true },
-  { href: '/dashboard/courses', label: 'My Courses', icon: BookOpen },
-  { href: '/dashboard/sessions', label: 'Sessions', icon: Calendar },
-  { href: '/dashboard/library', label: 'Library', icon: Library },
-  { href: '/dashboard/certificates', label: 'Certificates', icon: Award },
-  { href: '/dashboard/payments', label: 'Payments', icon: CreditCard },
-  { href: '/dashboard/profile', label: 'Profile', icon: User },
-  { href: '/dashboard/career', label: 'Career', icon: Briefcase },
-  { href: '/dashboard/referrals', label: 'Referrals', icon: Gift },
-  { href: '/dashboard/become-partner', label: 'Become Partner', icon: Users },
+  { href: '/dashboard',                  label: 'Home',           icon: LayoutDashboard, exact: true },
+  { href: '/dashboard/courses',          label: 'My Courses',     icon: BookOpen },
+  { href: '/dashboard/sessions',         label: 'Sessions',       icon: Calendar },
+  { href: '/dashboard/library',          label: 'Library',        icon: Library },
+  { href: '/dashboard/certificates',     label: 'Certificates',   icon: Award },
+  { href: '/dashboard/payments',         label: 'Payments',       icon: CreditCard },
+  { href: '/dashboard/profile',          label: 'Profile',        icon: User },
+  { href: '/dashboard/career',           label: 'Career',         icon: Briefcase },
+  { href: '/dashboard/referrals',        label: 'Referrals',      icon: Gift },
+  { href: '/dashboard/become-partner',   label: 'Become Partner', icon: Users },
 ]
 
 export function DashboardSidebar() {
   const pathname = usePathname()
-  const router = useRouter()
+  const router   = useRouter()
   const supabase = createClient()
 
   async function handleSignOut() {
@@ -43,16 +35,22 @@ export function DashboardSidebar() {
   }
 
   return (
-    <aside className="hidden md:flex flex-col w-60 min-h-screen bg-gray-950 text-gray-300 border-r border-gray-800 shrink-0">
-      {/* Logo */}
-      <div className="px-5 h-16 flex items-center border-b border-gray-800">
-        <Link href="/" className="font-extrabold text-lg text-white">
-          with<span className="text-indigo-400">Arijit</span>
+    <aside className="hidden md:flex flex-col w-60 min-h-screen shrink-0"
+      style={{ background: '#07090f', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+
+      {/* Brand */}
+      <div className="px-4 h-16 flex items-center justify-between border-b"
+        style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+        <Link href="/" className="flex items-center gap-2">
+          <Image src="/ostaran-logo.png" alt="oStaran" width={90} height={30} className="h-6 w-auto object-contain" />
+        </Link>
+        <Link href="/" className="opacity-70 hover:opacity-100 transition-opacity">
+          <Image src="/awa-logo.jpg" alt="AIwithArijit" width={60} height={16} className="h-4 w-auto rounded" />
         </Link>
       </div>
 
-      {/* Nav items */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      {/* Nav */}
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
           const isActive = exact ? pathname === href : pathname.startsWith(href)
           return (
@@ -60,24 +58,39 @@ export function DashboardSidebar() {
               key={href}
               href={href}
               className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
                 isActive
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-600/30'
-                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  ? 'text-white'
+                  : 'text-gray-500 hover:text-gray-200 hover:bg-white/5'
               )}
+              style={isActive ? {
+                background: 'linear-gradient(90deg, rgba(99,102,241,0.2), rgba(99,102,241,0.05))',
+                borderLeft: '3px solid #6366f1',
+              } : {}}
             >
-              <Icon size={16} className="shrink-0" />
+              <Icon size={16} className={cn('shrink-0', isActive ? 'text-indigo-400' : '')} />
               {label}
             </Link>
           )
         })}
       </nav>
 
-      {/* Sign out */}
-      <div className="px-3 py-4 border-t border-gray-800">
+      {/* Footer — trainer + signout */}
+      <div className="px-3 py-4 border-t space-y-3"
+        style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+        {/* Trainer mini card */}
+        <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl"
+          style={{ background: 'rgba(255,255,255,0.03)' }}>
+          <Image src="/arijit-image.png" alt="Arijit" width={28} height={28}
+            className="w-7 h-7 rounded-full object-cover object-top shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs text-white font-semibold truncate">Arijit Chowdhury</p>
+            <p className="text-xs text-gray-600 truncate">Your Trainer</p>
+          </div>
+        </div>
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
+          className="flex items-center gap-3 px-3 py-2.5 w-full rounded-xl text-sm text-gray-500 hover:bg-white/5 hover:text-gray-200 transition-all"
         >
           <LogOut size={16} />
           Sign Out

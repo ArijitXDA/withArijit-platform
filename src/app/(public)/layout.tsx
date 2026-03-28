@@ -5,9 +5,10 @@ import { VisitorChatWidget } from '@/components/shared/VisitorChatWidget'
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | withArijit',
-    default: 'withArijit — AI Education Platform',
+    template: '%s | oStaran',
+    default: 'oStaran — AI Education Platform',
   },
+  description: 'India\'s premier AI education platform. Enterprise-grade AI certification programmes for professionals, students, entrepreneurs & leaders.',
 }
 
 export default function PublicLayout({

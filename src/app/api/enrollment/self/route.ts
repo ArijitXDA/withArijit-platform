@@ -257,7 +257,14 @@ export async function POST(request: NextRequest) {
       console.warn('[enrolment] student_master_table update failed (non-fatal):', legacyErr.message)
     }
 
-    // ── 6. Mark qr_landing_registrations as enrolled ──────────────────────────
+    // ── 6. Increment discount code usage counter ────────────────────────────
+    if (discount_code) {
+      await supabase
+        .rpc('increment_discount_uses', { p_code: discount_code.trim().toUpperCase() })
+        .catch((e: any) => console.warn('[enrolment] discount increment failed (non-fatal):', e?.message))
+    }
+
+    // ── 7. Mark qr_landing_registrations as enrolled ──────────────────────────
     await supabase
       .from('qr_landing_registrations')
       .update({ is_enrolled: true, enrolled_at: now.toISOString() })

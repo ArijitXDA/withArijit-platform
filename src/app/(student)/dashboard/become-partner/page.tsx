@@ -1,31 +1,55 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import { buttonVariants } from '@/lib/button-variants'
+import { ExternalLink, Users, TrendingUp, Gift, Star, ChevronRight, Copy, CheckCircle } from 'lucide-react'
+import BecomePartnerClient from './_components/BecomePartnerClient'
 
-export default async function BecomePartnerDashboardPage() {
+export default async function BecomePartnerPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/signin')
 
+  const service = createServiceClient()
+  const email   = user.email!
+
+  // Check if already a partner
+  const { data: existingPartner } = await service
+    .from('partners')
+    .select('id, partner_code, status, level, total_paid_enrolments, total_commission_earned')
+    .eq('email', email)
+    .maybeSingle()
+
+  if (existingPartner) redirect('/dashboard/become-partner/already-partner')
+
+  // Get referring partner from the student's enrolment
+  const { data: enrolment } = await service
+    .from('student_enrolments')
+    .select('partner:partner_id(id, partner_code, full_name, level, hierarchy_path)')
+    .eq('student_email', email)
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const referringPartner = (enrolment?.partner as any) ?? null
+
+  // Build the registration URL with correct downstream UTM
+  let registerUrl = 'https://partner.ostaran.com/register'
+  if (referringPartner?.partner_code) {
+    const params = new URLSearchParams({
+      utm_source:   referringPartner.partner_code,
+      utm_medium:   'student_referral',
+      utm_campaign: referringPartner.partner_code,
+      ref:          referringPartner.partner_code,
+    })
+    registerUrl = `https://partner.ostaran.com/register?${params.toString()}`
+  }
+
   return (
-    <div className="space-y-6 max-w-2xl">
-      <h1 className="text-2xl font-bold">Become a Partner</h1>
-      <p className="text-gray-600">
-        Join our reseller and referral partner network. Earn commissions promoting withArijit programs to your network.
-      </p>
-      <div className="p-6 border rounded-2xl space-y-4">
-        <h3 className="font-semibold">Partner Benefits</h3>
-        <ul className="space-y-2 text-gray-600 text-sm">
-          <li>• 20% commission on every successful enrollment</li>
-          <li>• Dedicated partner dashboard with real-time analytics</li>
-          <li>• Marketing materials and co-branded content</li>
-          <li>• Priority support and partner-only webinars</li>
-        </ul>
-        <Link href="/become-a-partner" className={buttonVariants({ size: 'lg' })}>
-          Apply to Partner Program →
-        </Link>
-      </div>
-    </div>
+    <BecomePartnerClient
+      registerUrl={registerUrl}
+      referringPartner={referringPartner}
+      studentEmail={email}
+    />
   )
 }

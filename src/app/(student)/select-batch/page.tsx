@@ -44,7 +44,25 @@ export default async function SelectBatchPage({
       .select('id')
       .eq('enrolment_id', resolvedEnrolmentId)
       .maybeSingle()
-    if (existing) redirect('/dashboard')
+    if (existing) {
+      // Check if there are other enrolments still pending batch selection
+      const { data: otherPending } = await service
+        .from('student_enrolments')
+        .select('id, course_id')
+        .eq('student_email', user.email!)
+        .eq('is_active', true)
+        .is('batch_id', null)
+        .neq('id', resolvedEnrolmentId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (otherPending) {
+        // Redirect to select batch for the next pending enrolment
+        redirect(`/select-batch?course_id=${otherPending.course_id}&enrolment_id=${otherPending.id}`)
+      }
+      redirect('/dashboard')
+    }
   }
 
   // Fetch course info
@@ -67,9 +85,16 @@ export default async function SelectBatchPage({
     : { data: [] }
 
   if (!course || !batches || batches.length === 0) {
-    // No batches configured — skip straight to dashboard
     redirect('/dashboard')
   }
+
+  // Count how many enrolments still need batch selection
+  const { count: pendingCount } = await service
+    .from('student_enrolments')
+    .select('*', { count: 'exact', head: true })
+    .eq('student_email', user.email!)
+    .eq('is_active', true)
+    .is('batch_id', null)
 
   return (
     <SelectBatchClient
@@ -77,6 +102,7 @@ export default async function SelectBatchPage({
       batches={batches}
       enrolmentId={resolvedEnrolmentId ?? null}
       studentEmail={user.email!}
+      pendingCount={pendingCount ?? 1}
     />
   )
 }

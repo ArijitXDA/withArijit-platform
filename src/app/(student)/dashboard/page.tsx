@@ -21,22 +21,24 @@ export default async function DashboardPage({
 }) {
   const { welcome } = await searchParams
 
-  const supabase  = await createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/signin')
 
-  const service   = createServiceClient()
-  const email     = user.email!
+  const service = createServiceClient()
+  const email   = user.email!
 
-  // ── Fetch student enrolment (new table) ──────────────────────────────────
-  const { data: enrolment } = await service
+  // ── Fetch ALL active enrolments ───────────────────────────────────────────
+  const { data: enrolments } = await service
     .from('student_enrolments')
-    .select('*, course:course_id(name, short_name, total_sessions, session_duration_mins), batch:batch_id(label, day_of_week, start_time, meeting_link)')
+    .select('*, course:course_id(name, short_name, total_sessions), batch:batch_id(label, day_of_week, start_time, meeting_link)')
     .eq('student_email', email)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+
+  // Primary enrolment for hero display (most recent)
+  const enrolment     = enrolments?.[0] ?? null
+  const totalCourses  = enrolments?.length ?? 0
 
   // ── Fallback to legacy users table ───────────────────────────────────────
   const { data: legacyUser } = await service
@@ -45,15 +47,20 @@ export default async function DashboardPage({
     .eq('email', email)
     .maybeSingle()
 
-  const studentName   = enrolment?.student_name ?? legacyUser?.name ?? user.email?.split('@')[0] ?? 'Student'
-  const firstName     = studentName.split(' ')[0]
-  const courseName    = (enrolment?.course as any)?.name ?? legacyUser?.course_name ?? 'AI Mastery Programme'
-  const batchLabel    = (enrolment?.batch as any)?.label ?? legacyUser?.batch_day_time ?? null
-  const batchTime     = (enrolment?.batch as any)?.start_time ?? null
-  const meetingLink   = (enrolment?.batch as any)?.meeting_link ?? null
+  const studentName = enrolment?.student_name ?? legacyUser?.name ?? user.email?.split('@')[0] ?? 'Student'
+  const firstName   = studentName.split(' ')[0]
+
+  // For hero: show first enrolment details
+  const courseName  = (enrolment?.course as any)?.name ?? legacyUser?.course_name ?? 'AI Mastery Programme'
+  const batchLabel  = (enrolment?.batch as any)?.label ?? legacyUser?.batch_day_time ?? null
+  const batchTime   = (enrolment?.batch as any)?.start_time ?? null
+  const meetingLink = (enrolment?.batch as any)?.meeting_link ?? null
   const legacyBatchId = legacyUser?.batch_id ?? null
 
-  // ── Upcoming sessions ────────────────────────────────────────────────────
+  // ── Check for enrolments missing batch selection ─────────────────────────
+  const pendingBatch = enrolments?.filter((e: any) => !e.batch_id) ?? []
+
+  // ── Upcoming sessions ─────────────────────────────────────────────────────
   const today = new Date().toISOString().split('T')[0]
   let upcomingSessions: any[] = []
 
@@ -68,7 +75,7 @@ export default async function DashboardPage({
     upcomingSessions = sessions ?? []
   }
 
-  // ── Certificates ─────────────────────────────────────────────────────────
+  // ── Certificates ──────────────────────────────────────────────────────────
   const { data: certs, count: certCount } = await service
     .from('certificates')
     .select('id, certificate_name, date_of_issuing, certificate_image_link', { count: 'exact' })
@@ -89,6 +96,26 @@ export default async function DashboardPage({
   return (
     <div className="space-y-6 pb-12">
 
+      {/* Pending batch selection alert */}
+      {pendingBatch.length > 0 && (
+        <div className="rounded-2xl border px-5 py-4 flex items-center justify-between gap-4"
+          style={{ background: 'rgba(251,191,36,0.06)', borderColor: 'rgba(251,191,36,0.25)' }}>
+          <div>
+            <p className="text-amber-400 font-semibold text-sm">
+              📅 {pendingBatch.length} enrolment{pendingBatch.length > 1 ? 's' : ''} need{pendingBatch.length === 1 ? 's' : ''} a batch/timeslot
+            </p>
+            <p className="text-amber-400/60 text-xs mt-0.5">
+              {pendingBatch.map((e: any) => (e.course as any)?.name ?? e.course_name).join(' · ')}
+            </p>
+          </div>
+          <Link href={`/select-batch?course_id=${pendingBatch[0].course_id}&enrolment_id=${pendingBatch[0].id}`}
+            className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white"
+            style={{ background: '#d97706' }}>
+            Choose Batch →
+          </Link>
+        </div>
+      )}
+
       {/* Welcome banner */}
       <div className="rounded-2xl overflow-hidden relative"
         style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%)' }}>
@@ -104,8 +131,20 @@ export default async function DashboardPage({
             <h1 className="text-white font-extrabold text-xl">
               Welcome back, {firstName}! 👋
             </h1>
-            <p className="text-indigo-300 text-sm mt-1">{courseName}</p>
-            {batchLabel && (
+            {/* Show all active courses */}
+            {totalCourses > 1 ? (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {enrolments!.map((e: any) => (
+                  <span key={e.id} className="text-xs px-2 py-0.5 rounded-full"
+                    style={{ background: 'rgba(99,102,241,0.3)', color: '#c7d2fe' }}>
+                    {(e.course as any)?.short_name ?? (e.course as any)?.name ?? e.course_name}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-indigo-300 text-sm mt-1">{courseName}</p>
+            )}
+            {batchLabel && totalCourses === 1 && (
               <p className="text-indigo-400/70 text-xs mt-0.5">
                 📅 {batchLabel}{batchTime ? ` · ${fmtTime(batchTime)} IST` : ''}
               </p>
@@ -121,13 +160,52 @@ export default async function DashboardPage({
         </div>
       </div>
 
+      {/* All enrolments summary — shown when more than 1 */}
+      {totalCourses > 1 && (
+        <div className="grid sm:grid-cols-2 gap-3">
+          {enrolments!.map((e: any) => {
+            const b = e.batch as any
+            return (
+              <div key={e.id} className="rounded-2xl border p-4 flex items-center justify-between gap-3"
+                style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.06)' }}>
+                <div>
+                  <p className="text-white font-semibold text-sm">
+                    {(e.course as any)?.name ?? e.course_name}
+                  </p>
+                  {b?.label ? (
+                    <p className="text-slate-500 text-xs mt-0.5">
+                      📅 {b.label} · {fmtTime(b.start_time)} IST
+                    </p>
+                  ) : (
+                    <p className="text-amber-400 text-xs mt-0.5">⚠️ Batch not selected</p>
+                  )}
+                </div>
+                {b?.meeting_link ? (
+                  <a href={b.meeting_link} target="_blank" rel="noopener noreferrer"
+                    className="shrink-0 text-xs px-3 py-1.5 rounded-lg font-semibold text-white"
+                    style={{ background: 'rgba(99,102,241,0.3)' }}>
+                    Join →
+                  </a>
+                ) : !e.batch_id ? (
+                  <Link href={`/select-batch?course_id=${e.course_id}&enrolment_id=${e.id}`}
+                    className="shrink-0 text-xs px-3 py-1.5 rounded-lg font-semibold"
+                    style={{ background: 'rgba(217,119,6,0.2)', color: '#fbbf24' }}>
+                    Pick Batch
+                  </Link>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Sessions Attended',  value: pastCount ?? 0,     icon: BookOpen,  color: '#818cf8' },
-          { label: 'Upcoming Classes',   value: upcomingSessions.length, icon: Calendar,  color: '#34d399' },
-          { label: 'Certificates',       value: certCount ?? 0,     icon: Award,     color: '#fbbf24' },
-          { label: 'Batch Mates',        value: '50+',              icon: Users,     color: '#f472b6' },
+          { label: 'Active Courses',     value: totalCourses || (legacyUser?.course_name ? 1 : 0), icon: BookOpen,  color: '#818cf8' },
+          { label: 'Sessions Attended',  value: pastCount ?? 0,                                    icon: Calendar,  color: '#34d399' },
+          { label: 'Upcoming Classes',   value: upcomingSessions.length,                            icon: Clock,     color: '#60a5fa' },
+          { label: 'Certificates',       value: certCount ?? 0,                                    icon: Award,     color: '#fbbf24' },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="rounded-2xl p-4 border"
             style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.06)' }}>
@@ -174,7 +252,6 @@ export default async function DashboardPage({
               <div className="px-5 py-8 text-center">
                 <Calendar size={28} className="text-gray-700 mx-auto mb-2" />
                 <p className="text-gray-500 text-sm">No upcoming sessions yet</p>
-                <p className="text-gray-600 text-xs mt-1">Check back after your batch starts</p>
               </div>
             )}
           </div>
@@ -218,7 +295,6 @@ export default async function DashboardPage({
               <div className="px-5 py-8 text-center">
                 <Award size={28} className="text-gray-700 mx-auto mb-2" />
                 <p className="text-gray-500 text-sm">No certificates yet</p>
-                <p className="text-gray-600 text-xs mt-1">Complete your course to earn your certificate</p>
               </div>
             )}
           </div>
@@ -230,12 +306,12 @@ export default async function DashboardPage({
         <h2 className="text-white font-bold mb-3">Quick Actions</h2>
         <div className="flex flex-wrap gap-2">
           {[
-            { href: '/dashboard/sessions',     label: '📅 Sessions' },
-            { href: '/dashboard/courses',       label: '📚 My Courses' },
-            { href: '/dashboard/certificates',  label: '🏆 Certificates' },
-            { href: '/dashboard/library',       label: '📖 Library' },
-            { href: '/dashboard/payments',      label: '💳 Payments' },
-            { href: '/dashboard/become-partner',label: '🤝 Become Partner' },
+            { href: '/dashboard/sessions',      label: '📅 Sessions' },
+            { href: '/dashboard/courses',        label: '📚 My Courses' },
+            { href: '/dashboard/certificates',   label: '🏆 Certificates' },
+            { href: '/dashboard/library',        label: '📖 Library' },
+            { href: '/dashboard/payments',       label: '💳 Payments' },
+            { href: '/dashboard/become-partner', label: '🤝 Become Partner' },
           ].map(({ href, label }) => (
             <Link key={href} href={href}
               className="px-4 py-2 rounded-xl text-sm font-medium text-gray-400 hover:text-white transition-all"

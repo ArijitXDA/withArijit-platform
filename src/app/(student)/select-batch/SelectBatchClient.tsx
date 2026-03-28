@@ -38,12 +38,13 @@ function formatDate(d: string) {
 }
 
 export default function SelectBatchClient({
-  course, batches, enrolmentId, studentEmail,
+  course, batches, enrolmentId, studentEmail, pendingCount,
 }: {
   course: Course
   batches: Batch[]
   enrolmentId: string | null
   studentEmail: string
+  pendingCount?: number
 }) {
   const router = useRouter()
   const [selected, setSelected] = useState<string | null>(null)
@@ -88,10 +89,15 @@ export default function SelectBatchClient({
 
           {/* Header */}
           <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-full px-4 py-1.5 mb-6">
+            <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-full px-4 py-1.5 mb-4">
               <CheckCircle className="w-4 h-4 text-green-400" />
               <span className="text-green-400 text-sm font-semibold">Payment Successful — You're In! 🎉</span>
             </div>
+            {pendingCount && pendingCount > 1 && (
+              <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-full px-4 py-1.5 mb-4">
+                <span className="text-amber-400 text-sm font-semibold">📚 {pendingCount} courses need batch selection — this is 1 of {pendingCount}</span>
+              </div>
+            )}
             <h1 className="text-3xl font-extrabold text-white mb-3">
               Choose Your Batch
             </h1>

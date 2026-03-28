@@ -155,7 +155,16 @@ export async function POST(request: NextRequest) {
     const commissionAmount = resolvedPartnerId ? Number((netTaxable * partnerPoolPct).toFixed(2)) : 0
     const oiAmount         = Number((netTaxable - commissionAmount).toFixed(2))
 
-    // ── 3. Write student_enrolments ───────────────────────────────────────────
+    // ── 3. Write student_enrolments ─────────────────────────────────────────
+    // Determine enrolment sequence number for this student + course
+    const { count: existingCount } = await supabase
+      .from('student_enrolments')
+      .select('*', { count: 'exact', head: true })
+      .eq('student_email', email.toLowerCase())
+      .eq('course_id', course_id)
+
+    const enrolmentSeq = (existingCount ?? 0) + 1
+
     const { data: enrolmentRow, error: enrolmentError } = await supabase
       .from('student_enrolments')
       .insert({
@@ -182,6 +191,8 @@ export async function POST(request: NextRequest) {
         commission_amount:  commissionAmount,
         oi_amount:          oiAmount,
         is_active:          true,
+        enrolment_seq:      enrolmentSeq,
+        enrolment_status:   'active',
       })
       .select('id')
       .single()

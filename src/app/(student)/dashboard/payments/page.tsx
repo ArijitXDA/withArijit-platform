@@ -18,7 +18,7 @@ export default async function PaymentsPage() {
   // New enrolments (primary)
   const { data: enrolments } = await service
     .from('student_enrolments')
-    .select('id, created_at, amount_paid, payment_mode, payment_date, payment_reference, enrolment_type, course_name')
+    .select('id, created_at, amount_paid, payment_mode, payment_date, payment_reference, enrolment_type, course_name, enrolment_seq')
     .eq('student_email', email)
     .order('created_at', { ascending: false })
 
@@ -65,7 +65,10 @@ export default async function PaymentsPage() {
                     <CheckCircle size={15} className="text-green-400" />
                   </div>
                   <div>
-                    <p className="text-white font-semibold text-sm">{e.course_name}</p>
+                    <p className="text-white font-semibold text-sm">
+                      {e.course_name}
+                      {e.enrolment_seq > 1 && <span className="text-xs text-indigo-400 ml-1">(Enrolment #{e.enrolment_seq})</span>}
+                    </p>
                     <p className="text-gray-500 text-xs mt-0.5">
                       {e.payment_date
                         ? new Date(e.payment_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })

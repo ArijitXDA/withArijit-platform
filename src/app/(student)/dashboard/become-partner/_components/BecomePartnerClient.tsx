@@ -18,12 +18,59 @@ const BENEFITS = [
   { icon: Zap,        color: '#fb923c', title: 'Ready-made marketing collateral', desc: 'Personalised QR codes, posters, standees, WhatsApp messages, and email templates — all pre-built.' },
 ]
 
-export default function BecomePartnerClient({ registerUrl, referringPartner, studentEmail }: {
+export default function BecomePartnerClient({ registerUrl, referringPartner, studentEmail, existingPartner }: {
   registerUrl: string
   referringPartner: { partner_code: string; full_name: string; level: number } | null
   studentEmail: string
+  existingPartner: { id: string; partner_code: string; status: string; level: number; total_paid_enrolments: number; total_commission_earned: number } | null
 }) {
   const [copied, setCopied] = useState(false)
+
+  // ── Already a partner — show their dashboard link ─────────────────────
+  if (existingPartner) {
+    const dashboardUrl = 'https://partner.ostaran.com/dashboard'
+    const statusColor = existingPartner.status === 'active' ? '#4ade80' : '#fbbf24'
+    return (
+      <div className="space-y-6 max-w-2xl">
+        <div>
+          <h1 className="text-2xl font-extrabold text-white">You're already a Partner! 🎉</h1>
+          <p className="text-slate-400 text-sm mt-1">Manage your network, track earnings, and invite more students from your partner dashboard.</p>
+        </div>
+        <div className="rounded-2xl border overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.07)' }}>
+          <div className="px-6 py-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Partner Code</p>
+                <p className="text-white font-black text-2xl font-mono">{existingPartner.partner_code}</p>
+              </div>
+              <span className="text-xs px-3 py-1 rounded-full font-semibold capitalize"
+                style={{ background: statusColor + '18', color: statusColor, border: `1px solid ${statusColor}30` }}>
+                {existingPartner.status}
+              </span>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 divide-x" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+            {[
+              { label: 'Level',       value: `L${existingPartner.level}` },
+              { label: 'Enrolments', value: existingPartner.total_paid_enrolments },
+              { label: 'Earned',     value: `₹${Math.round(Number(existingPartner.total_commission_earned)).toLocaleString('en-IN')}` },
+            ].map(({ label, value }) => (
+              <div key={label} className="px-5 py-4 text-center">
+                <p className="text-white font-black text-xl">{value}</p>
+                <p className="text-slate-500 text-xs mt-0.5">{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <a href={dashboardUrl} target="_blank" rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-white transition-all hover:opacity-90"
+          style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
+          <ExternalLink className="w-4 h-4" />
+          Open Partner Dashboard →
+        </a>
+      </div>
+    )
+  }
 
   function copyUrl() {
     navigator.clipboard.writeText(registerUrl)

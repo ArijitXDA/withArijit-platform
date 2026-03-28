@@ -19,8 +19,6 @@ export default async function BecomePartnerPage() {
     .eq('email', email)
     .maybeSingle()
 
-  if (existingPartner) redirect('/dashboard/become-partner/already-partner')
-
   // Get referring partner from the student's enrolment
   const { data: enrolment } = await service
     .from('student_enrolments')
@@ -50,6 +48,7 @@ export default async function BecomePartnerPage() {
       registerUrl={registerUrl}
       referringPartner={referringPartner}
       studentEmail={email}
+      existingPartner={existingPartner as any}
     />
   )
 }

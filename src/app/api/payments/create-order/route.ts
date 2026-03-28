@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     // Fetch course pricing
     const { data: course, error: courseError } = await supabase
       .from('awa_courses')
-      .select('mrp, name')
+      .select('id, name, mrp, gst_percent, discount_percent')
       .eq('id', course_id)
       .single()
 
@@ -29,14 +29,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Monthly installments are not yet available for online payment' }, { status: 400 })
     }
 
-    // Calculate amount with 18% GST (default, as gst_percent column not confirmed in schema)
-    const gstPercent = 18
-    let baseAmount = ((course.mrp as number) ?? 0) * (1 + gstPercent / 100)
-    if (payment_frequency === 'half') baseAmount = baseAmount / 2
+    // MRP is the final price the student pays (already includes GST).
+    // For half payment: charge 50% of MRP upfront.
+    const mrp = Number(course.mrp ?? 0)
+    let finalAmount = payment_frequency === 'half' ? mrp / 2 : mrp
 
-    let finalAmount = baseAmount
-
-    // Apply discount if provided
+    // Apply discount code if provided
     if (discount_code) {
       const { data: discount } = await supabase
         .from('discount_codes')
@@ -45,16 +43,18 @@ export async function POST(request: NextRequest) {
         .eq('is_active', true)
         .single()
       if (discount) {
-        finalAmount = finalAmount * (1 - (discount.discount_percent as number) / 100)
+        finalAmount = finalAmount * (1 - Number(discount.discount_percent) / 100)
       }
     }
 
+    // Razorpay expects amount in paise (× 100)
     const order = await getRazorpay().orders.create({
-      amount: Math.round(finalAmount * 100), // paise
+      amount:   Math.round(finalAmount * 100),
       currency: 'INR',
-      receipt: `rcpt_${Date.now()}`,
+      receipt:  `rcpt_${Date.now()}`,
       notes: {
         course_id,
+        course_name: course.name,
         name,
         email,
         mobile,
@@ -63,12 +63,14 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json({
-      orderId: order.id,
-      amount: order.amount,
-      currency: order.currency,
+      orderId:     order.id,
+      amount:      order.amount,
+      currency:    order.currency,
+      courseName:  course.name,
+      displayAmount: finalAmount,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create order error:', error)
-    return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create order', detail: error?.message }, { status: 500 })
   }
 }

@@ -177,10 +177,27 @@ export function PaymentModal({
             const enrolmentId = enrolJson.enrolment_id ?? ''
             setTimeout(() => {
               onClose()
-              const params = new URLSearchParams()
-              if (courseId)    params.set('course_id', courseId)
-              if (enrolmentId) params.set('enrolment_id', enrolmentId)
-              window.location.href = `/select-batch?${params.toString()}`
+              const batchParams = new URLSearchParams()
+              if (courseId)    batchParams.set('course_id', courseId)
+              if (enrolmentId) batchParams.set('enrolment_id', enrolmentId)
+              const selectBatchUrl = `/select-batch?${batchParams.toString()}`
+
+              // Check if user is already signed in
+              import('@/lib/supabase/client').then(({ createClient }) => {
+                const sb = createClient()
+                sb.auth.getUser().then(({ data }) => {
+                  if (data?.user) {
+                    // Already signed in — go straight to batch selection
+                    window.location.href = selectBatchUrl
+                  } else {
+                    // Not signed in — go to signin with next=select-batch and email pre-filled
+                    const signinParams = new URLSearchParams()
+                    signinParams.set('next', selectBatchUrl)
+                    if (email) signinParams.set('email', email)
+                    window.location.href = `/signin?${signinParams.toString()}`
+                  }
+                })
+              })
             }, 2000)
 
           } catch (err: any) {

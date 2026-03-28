@@ -34,6 +34,17 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // ── Select-batch protection (same as student) ────────────────────────────
+  if (pathname.startsWith('/select-batch')) {
+    const { supabaseResponse, user } = await updateSession(request)
+    if (!user) {
+      const redirectUrl = new URL('/signin', request.url)
+      redirectUrl.searchParams.set('next', pathname + '?' + request.nextUrl.searchParams.toString())
+      return NextResponse.redirect(redirectUrl)
+    }
+    return supabaseResponse
+  }
+
   // ── Student route protection ──────────────────────────────────────────────
   if (STUDENT_PROTECTED.test(pathname)) {
     const { supabaseResponse, user } = await updateSession(request)

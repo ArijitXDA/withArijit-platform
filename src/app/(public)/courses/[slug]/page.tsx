@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { createServiceClient } from '@/lib/supabase/service'
 import { notFound } from 'next/navigation'
 import { formatCurrency } from '@/lib/utils'
@@ -166,7 +167,8 @@ export default async function CoursePage({
         <h2 className="text-2xl font-bold text-center mb-8">Your Trainer</h2>
         <div className="rounded-2xl border border-white/8 p-6 flex gap-5 items-start"
           style={{ background: 'rgba(255,255,255,0.03)' }}>
-          <div className="w-16 h-16 rounded-full bg-indigo-600 flex items-center justify-center text-2xl font-black shrink-0">A</div>
+          <Image src="/arijit-image.png" alt="Arijit Chowdhury" width={64} height={64}
+            className="w-16 h-16 rounded-full object-cover object-top shrink-0 border-2 border-indigo-500/30" />
           <div>
             <p className="font-bold text-lg">{TRAINER.name}</p>
             <p className="text-indigo-300 text-sm mb-2">{TRAINER.title}</p>

@@ -19,13 +19,14 @@ export const metadata: Metadata = {
     default: "oStaran — AI Education Platform",
     template: "%s | oStaran",
   },
-  description: "India's premier AI education platform. Enterprise-grade AI certification programs for professionals, students, entrepreneurs, and leaders.",
+  description: "India's premier AI education platform. Enterprise-grade AI certification programmes for professionals, students, entrepreneurs & leaders.",
   icons: {
     icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/favicon.ico",  sizes: "any" },
+      { url: "/favicon.ico",  sizes: "32x32 16x16", type: "image/x-icon" },
+      { url: "/favicon.svg",  type: "image/svg+xml" },
+      { url: "/icon.svg",     type: "image/svg+xml" },
     ],
-    shortcut: "/favicon.svg",
+    shortcut: "/favicon.ico",
     apple:    "/favicon.svg",
   },
   openGraph: {
@@ -34,14 +35,8 @@ export const metadata: Metadata = {
     locale:      "en_IN",
     url:         "https://www.ostaran.com",
     title:       "oStaran — AI Education Platform",
-    description: "India's premier AI education platform. Enterprise-grade AI certification programs for professionals, students, entrepreneurs, and leaders.",
-    images: [{ url: "/ostaran-logo.png", width: 938, height: 313, alt: "oStaran" }],
-  },
-  twitter: {
-    card:        "summary_large_image",
-    title:       "oStaran — AI Education Platform",
     description: "India's premier AI education platform.",
-    images:      ["/ostaran-logo.png"],
+    images: [{ url: "/ostaran-logo.png", width: 938, height: 313, alt: "oStaran" }],
   },
 };
 
@@ -52,13 +47,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        {/* Explicit SVG favicon for all modern browsers */}
-        <link rel="icon"       type="image/svg+xml" href="/favicon.svg" />
-        <link rel="icon"       type="image/x-icon"  href="/favicon.ico" />
-        <link rel="shortcut icon"                   href="/favicon.svg" />
-        <link rel="apple-touch-icon"                href="/favicon.svg" />
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

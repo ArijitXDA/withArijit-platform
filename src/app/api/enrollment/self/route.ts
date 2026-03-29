@@ -300,7 +300,26 @@ export async function POST(request: NextRequest) {
       console.warn('[enrolment] Auth invite failed (non-fatal):', authErr.message)
     }
 
-    // ── 8. Fire payment_confirmed comms (non-blocking) ──────────────────────
+    // ── 8. Create payment_transactions invoice record ───────────────────────
+    try {
+      const isFull = normEnrolmentType === 'full_course'
+      await supabase.rpc('create_payment_transaction', {
+        p_enrolment_id:      enrolmentId,
+        p_payment_type:      isFull ? 'full' : 'first_instalment',
+        p_instalment_number: 1,
+        p_total_instalments: isFull ? 1 : 2,
+        p_amount_paid:       amount,
+        p_payment_mode:      'upi',
+        p_payment_date:      today,
+        p_payment_reference: payment_id,
+        p_razorpay_order_id: order_id,
+        p_partner_code:      resolvedPartnerCode ?? null,
+      })
+    } catch (invoiceErr: any) {
+      console.warn('[enrolment] invoice transaction failed (non-fatal):', invoiceErr.message)
+    }
+
+    // ── 9. Fire payment_confirmed comms (non-blocking) ──────────────────────
     const { sendStudentComm } = await import('@/lib/comms')
     sendStudentComm({
       event_type:    'payment_confirmed',

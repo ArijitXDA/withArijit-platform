@@ -72,6 +72,21 @@ export default async function CoursePage({
 
   if (!course) notFound()
 
+  // Fetch partner name for the gift banner (if ?partner= is present)
+  let partnerName = ''
+  if (partner) {
+    const { data: partnerRow } = await supabase
+      .from('partners')
+      .select('full_name')
+      .eq('partner_code', partner)
+      .eq('status', 'active')
+      .single()
+    partnerName = partnerRow?.full_name ?? ''
+  }
+
+  // Discount percent from course (auto-applied for partner-referred students)
+  const discountPct = partner ? Number(course.discount_percent ?? 0) : 0
+
   const mrp              = Number(course.mrp)
   const gstPct           = Number(course.gst_percent ?? 18) / 100
   const netBeforeGst     = Math.round(mrp / (1 + gstPct))
@@ -111,6 +126,8 @@ export default async function CoursePage({
             courseId={course.id}
             courseName={course.name}
             price={mrp}
+            discountPct={discountPct}
+            partnerName={partnerName}
             label="🎓 Enrol Now — Lock Today's Price →"
             className="text-base px-8 py-4 font-bold shadow-lg shadow-indigo-500/30"
             defaultPartnerCode={partner ?? ''}
@@ -203,6 +220,8 @@ export default async function CoursePage({
           courseId={course.id}
           courseName={course.name}
           price={mrp}
+          discountPct={discountPct}
+          partnerName={partnerName}
           label="🎓 Enrol Now →"
           className="text-base px-8 py-4 font-bold"
           defaultPartnerCode={partner ?? ''}

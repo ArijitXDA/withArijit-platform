@@ -4,14 +4,16 @@ import { useSearchParams } from 'next/navigation'
 import { PaymentModal } from './PaymentModal'
 import { buttonVariants } from '@/lib/button-variants'
 import { cn } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 
 interface PaymentModalTriggerProps {
   courseId?: string
   courseName?: string
   price?: number
+  discountPct?: number      // e.g. 40 for 40% — shows discounted price on CTA button
+  partnerName?: string      // e.g. "Ryan Pinto" — shown in gift banner inside modal
   label?: string
   className?: string
-  // Pre-fill overrides (e.g. from server-side deep link page)
   defaultName?: string
   defaultEmail?: string
   defaultMobile?: string
@@ -22,6 +24,8 @@ export function PaymentModalTrigger({
   courseId,
   courseName,
   price,
+  discountPct = 0,
+  partnerName = '',
   label = 'Enrol Now →',
   className,
   defaultName,
@@ -32,22 +36,32 @@ export function PaymentModalTrigger({
   const [open, setOpen] = useState(false)
   const searchParams    = useSearchParams()
 
-  // Also read partner_code / email from URL query params (webinar deep link)
   const urlPartnerCode = searchParams.get('partner') ?? searchParams.get('utm_source') ?? ''
-  const urlEmail       = searchParams.get('email') ?? ''
-  const urlName        = searchParams.get('name') ?? ''
-  const urlMobile      = searchParams.get('mobile') ?? ''
+  const urlEmail       = searchParams.get('email')   ?? ''
+  const urlName        = searchParams.get('name')    ?? ''
+  const urlMobile      = searchParams.get('mobile')  ?? ''
 
-  // Props win over URL params
   const resolvedPartnerCode = defaultPartnerCode || urlPartnerCode || ''
-  const resolvedEmail       = defaultEmail || urlEmail || ''
-  const resolvedName        = defaultName  || urlName  || ''
-  const resolvedMobile      = defaultMobile || urlMobile || ''
+  const resolvedEmail       = defaultEmail       || urlEmail       || ''
+  const resolvedName        = defaultName        || urlName        || ''
+  const resolvedMobile      = defaultMobile      || urlMobile      || ''
 
-  // Auto-open if ?enrol=1 is in the URL
+  // Auto-open if ?enrol=1 in URL
   useEffect(() => {
     if (searchParams.get('enrol') === '1') setOpen(true)
   }, [searchParams])
+
+  // Compute the discounted price for the CTA button label
+  const discountedPrice =
+    price && discountPct > 0
+      ? Math.round(price * (1 - discountPct / 100))
+      : price
+
+  // Build the button label — if discount, show discounted price prominently
+  const buttonLabel =
+    discountPct > 0 && discountedPrice
+      ? `🎓 Enrol Now — ${formatCurrency(discountedPrice)} (${discountPct}% off) →`
+      : label
 
   return (
     <>
@@ -55,7 +69,7 @@ export function PaymentModalTrigger({
         onClick={() => setOpen(true)}
         className={cn(buttonVariants({ size: 'lg' }), className)}
       >
-        {label}
+        {buttonLabel}
       </button>
       <PaymentModal
         open={open}
@@ -63,6 +77,8 @@ export function PaymentModalTrigger({
         courseId={courseId}
         courseName={courseName}
         price={price}
+        discountPct={discountPct}
+        partnerName={partnerName}
         defaultName={resolvedName}
         defaultEmail={resolvedEmail}
         defaultMobile={resolvedMobile}

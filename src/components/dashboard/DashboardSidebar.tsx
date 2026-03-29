@@ -4,25 +4,23 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, BookOpen, Calendar, Library,
-  Award, CreditCard, User, Briefcase, Gift, Users, LogOut, Sparkles,
+  LayoutDashboard, BookOpen, Library,
+  Award, CreditCard, User, Briefcase, Users, LogOut, Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 const NAV_ITEMS = [
-  { href: '/dashboard',                  label: 'Home',           icon: LayoutDashboard, exact: true },
-  { href: '/dashboard/courses',          label: 'My Courses',     icon: BookOpen },
-  { href: '/dashboard/sessions',         label: 'Sessions',       icon: Calendar },
-  { href: '/dashboard/library',          label: 'Library',        icon: Library },
-  { href: '/dashboard/certificates',     label: 'Certificates',   icon: Award },
-  { href: '/dashboard/payments',         label: 'Payments',       icon: CreditCard },
-  { href: '/dashboard/profile',          label: 'Profile',        icon: User },
-  { href: '/dashboard/career',           label: 'Career',         icon: Briefcase },
-  { href: '/dashboard/referrals',        label: 'Referrals',      icon: Gift },
-  { href: '/dashboard/become-partner',   label: 'Become Partner', icon: Users },
-  { href: '/dashboard/ai-monitor',        label: 'Class Monitor AI', icon: Sparkles },
+  { href: '/dashboard',                label: 'Home',             icon: LayoutDashboard, exact: true },
+  { href: '/dashboard/courses',        label: 'My Courses',       icon: BookOpen },
+  { href: '/dashboard/library',        label: 'Library',          icon: Library },
+  { href: '/dashboard/certificates',   label: 'Certificates',     icon: Award },
+  { href: '/dashboard/payments',       label: 'Payments',         icon: CreditCard },
+  { href: '/dashboard/profile',        label: 'Profile',          icon: User },
+  { href: '/dashboard/career',         label: 'Career',           icon: Briefcase },
+  { href: '/dashboard/become-partner', label: 'Become Partner',   icon: Users },
+  { href: '/dashboard/ai-monitor',     label: 'Class Monitor AI', icon: Sparkles },
 ]
 
 export function DashboardSidebar() {
@@ -83,7 +81,6 @@ export function DashboardSidebar() {
       {/* Footer — trainer + signout */}
       <div className="px-3 py-4 border-t space-y-3"
         style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-        {/* Trainer mini card */}
         <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl"
           style={{ background: 'rgba(255,255,255,0.03)' }}>
           <Image src="/arijit-image.png" alt="Arijit" width={28} height={28}

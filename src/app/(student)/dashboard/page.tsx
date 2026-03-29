@@ -28,6 +28,13 @@ export default async function DashboardPage({
   const service = createServiceClient()
   const email   = user.email!
 
+  // ── Profile summary ──────────────────────────────────────────────────────
+  const { data: profile } = await service
+    .from('student_profiles')
+    .select('full_name, mobile, occupation, profile_photo_url, key_skills')
+    .eq('email', email)
+    .maybeSingle()
+
   // ── Fetch ALL active enrolments ───────────────────────────────────────────
   const { data: enrolments } = await service
     .from('student_enrolments')
@@ -199,6 +206,57 @@ export default async function DashboardPage({
         </div>
       )}
 
+      {/* Profile summary strip */}
+      <div className="rounded-2xl border px-5 py-4 flex items-center gap-4 flex-wrap"
+        style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.06)' }}>
+        {/* Avatar */}
+        <div className="w-12 h-12 rounded-2xl overflow-hidden shrink-0 border-2 border-white/10"
+          style={{ background: 'rgba(99,102,241,0.15)' }}>
+          {profile?.profile_photo_url
+            ? <img src={profile.profile_photo_url} alt="Profile" className="w-full h-full object-cover" />
+            : <div className="w-full h-full flex items-center justify-center text-xl font-black text-indigo-400">
+                {studentName[0]?.toUpperCase() ?? 'S'}
+              </div>
+          }
+        </div>
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-bold text-sm">{profile?.full_name ?? studentName}</p>
+          <p className="text-slate-500 text-xs">{email}</p>
+          {profile?.occupation && (
+            <p className="text-slate-500 text-xs mt-0.5">{profile.occupation}</p>
+          )}
+        </div>
+        {/* Skills */}
+        {profile?.key_skills && profile.key_skills.length > 0 && (
+          <div className="hidden sm:flex flex-wrap gap-1">
+            {profile.key_skills.slice(0, 3).map((s: string) => (
+              <span key={s} className="text-xs px-2 py-0.5 rounded-full"
+                style={{ background: 'rgba(99,102,241,0.1)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.2)' }}>
+                {s}
+              </span>
+            ))}
+            {profile.key_skills.length > 3 && (
+              <span className="text-xs text-slate-600">+{profile.key_skills.length - 3} more</span>
+            )}
+          </div>
+        )}
+        {/* Incomplete profile prompt */}
+        {(!profile?.mobile || !profile?.occupation) && (
+          <Link href="/dashboard/profile"
+            className="shrink-0 text-xs px-3 py-1.5 rounded-lg font-semibold"
+            style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }}>
+            ✏️ Complete Profile
+          </Link>
+        )}
+        {profile?.mobile && profile?.occupation && (
+          <Link href="/dashboard/profile"
+            className="shrink-0 text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-300 transition-colors">
+            Edit Profile →
+          </Link>
+        )}
+      </div>
+
       {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
@@ -306,11 +364,11 @@ export default async function DashboardPage({
         <h2 className="text-white font-bold mb-3">Quick Actions</h2>
         <div className="flex flex-wrap gap-2">
           {[
-            { href: '/dashboard/sessions',      label: '📅 Sessions' },
             { href: '/dashboard/courses',        label: '📚 My Courses' },
             { href: '/dashboard/certificates',   label: '🏆 Certificates' },
             { href: '/dashboard/library',        label: '📖 Library' },
             { href: '/dashboard/payments',       label: '💳 Payments' },
+            { href: '/dashboard/profile',        label: '👤 Profile' },
             { href: '/dashboard/become-partner', label: '🤝 Become Partner' },
           ].map(({ href, label }) => (
             <Link key={href} href={href}

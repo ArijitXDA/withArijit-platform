@@ -1,26 +1,46 @@
 /* Certificate page styles */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 html, body {
   background: #e8e4d8;
   font-family: 'Georgia', 'Times New Roman', serif;
 }
 
+/* ── Print ────────────────────────────────────────────────────────────────── */
 @media print {
   html, body {
     background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
+
   .no-print {
     display: none !important;
   }
-  .cert-page {
-    width: 297mm !important;
-    height: 210mm !important;
-    margin: 0 !important;
+
+  .cert-screen-wrapper {
+    min-height: unset !important;
     padding: 0 !important;
-    page-break-after: avoid;
-    box-shadow: none !important;
+    background: white !important;
+    display: block !important;
   }
+
+  /* The cert card is 950×672px on screen.
+     A4 landscape at 96dpi = 1122.5×793.7px.
+     zoom = 1122.5/950 = 1.1816 → scales the cert up to fill the page exactly.
+     We also nudge it to top-left with margin:0 so nothing gets clipped. */
+  .cert-page {
+    zoom: 1.1816;
+    margin: 0 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    page-break-after: avoid;
+  }
+
   @page {
     size: A4 landscape;
     margin: 0;

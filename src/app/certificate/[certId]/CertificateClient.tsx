@@ -28,13 +28,6 @@ function fmtDuration(mins: number | null): string {
   return m > 0 ? `${h} hr ${m} min` : `${h} hour${h > 1 ? 's' : ''}`
 }
 
-function fmtValidity(issued: string | null): string {
-  if (!issued) return '—'
-  const d = new Date(issued)
-  d.setDate(d.getDate() + 180)
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
-}
-
 export default function CertificateClient({ cert }: { cert: Cert }) {
   const is5Star = cert.is_5_star === true
 
@@ -261,17 +254,22 @@ function Certificate({ cert, is5Star }: { cert: Cert; is5Star: boolean }) {
             path="M10 20 C20 10, 32 24, 46 16 C54 11, 62 22, 74 18 C82 15, 90 22, 100 16 C108 11, 118 20, 130 14"
           />
 
-          {/* Centre cert ID block */}
-          <div style={{ background: '#1a4d2e', borderRadius: 6, padding: '10px 20px', textAlign: 'center', minWidth: 200 }}>
-            <div style={{ color: '#d4a843', fontSize: 8, fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase' }}>Certificate ID</div>
-            <div style={{ color: '#fff', fontSize: 13, fontFamily: "'Courier New', monospace", fontWeight: 700, letterSpacing: 1, marginTop: 3 }}>{cert.cert_id}</div>
-            <div style={{ width: '80%', height: 1, background: '#2d6b42', margin: '5px auto' }} />
-            <div style={{ color: '#9cb89c', fontSize: 9, fontFamily: 'Inter, sans-serif' }}>Issued {fmtDate(cert.issued_at?.slice(0,10))}</div>
-            {/* ── VALIDITY ──────────────────────────────── */}
-            <div style={{ color: '#d4a843', fontSize: 9, fontFamily: 'Inter, sans-serif', marginTop: 2, fontWeight: 600 }}>
-              Valid until {fmtValidity(cert.issued_at?.slice(0,10))}
-            </div>
-            <div style={{ color: '#6b9c6b', fontSize: 8, fontFamily: 'Inter, sans-serif', marginTop: 1 }}>
+          {/* Centre cert ID + QR block */}
+          <div style={{ background: '#1a4d2e', borderRadius: 6, padding: '10px 16px', textAlign: 'center' }}>
+            <div style={{ color: '#d4a843', fontSize: 8, fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 4 }}>Certificate ID</div>
+            <div style={{ color: '#fff', fontSize: 12, fontFamily: "'Courier New', monospace", fontWeight: 700, letterSpacing: 1 }}>{cert.cert_id}</div>
+            <div style={{ width: '100%', height: 1, background: '#2d6b42', margin: '5px 0' }} />
+            {/* QR code pointing to the verification page */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent('https://www.ostaran.com/certificate-verification')}&bgcolor=1a4d2e&color=d4a843&margin=2`}
+              alt="Verify QR"
+              width={80}
+              height={80}
+              style={{ display: 'block', margin: '4px auto', borderRadius: 4 }}
+            />
+            <div style={{ color: '#9cb89c', fontSize: 8, fontFamily: 'Inter, sans-serif', marginTop: 3 }}>Issued {fmtDate(cert.issued_at?.slice(0,10))}</div>
+            <div style={{ color: '#6b9c6b', fontSize: 7.5, fontFamily: 'Inter, sans-serif', marginTop: 1, letterSpacing: 0.3 }}>
               ostaran.com/certificate-verification
             </div>
           </div>
@@ -291,7 +289,7 @@ function Certificate({ cert, is5Star }: { cert: Cert; is5Star: boolean }) {
           Issued by Star Analytix Private Limited, Mumbai — Powered by oStaran AI Education Platform
         </p>
         <p style={{ color: '#9cb89c', fontSize: 8.5, fontFamily: 'Inter, sans-serif', letterSpacing: 1.5, marginTop: 2, textAlign: 'center', textTransform: 'uppercase' }}>
-          Valid for 180 days from issuance · Verify at ostaran.com/certificate-verification
+          Scan QR or visit ostaran.com/certificate-verification to verify authenticity
         </p>
       </div>
     </div>

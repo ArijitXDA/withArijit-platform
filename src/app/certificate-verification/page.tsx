@@ -28,15 +28,19 @@ function fmtDuration(mins: number | null): string {
 }
 
 export default function CertificateVerificationPage() {
-  const [email,   setEmail]   = useState('')
-  const [mobile,  setMobile]  = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState('')
-  const [results, setResults] = useState<Cert[] | null>(null)
+  const [email,    setEmail]    = useState('')
+  const [mobile5,  setMobile5]  = useState('')
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState('')
+  const [results,  setResults]  = useState<Cert[] | null>(null)
 
   async function handleVerify() {
-    if (!email.trim() && !mobile.trim()) {
-      setError('Please enter an email address or mobile number.')
+    if (!email.trim() && !mobile5.trim()) {
+      setError('Please enter an email address or the last 5 digits of mobile.')
+      return
+    }
+    if (mobile5.trim() && !/^\d{5}$/.test(mobile5.trim())) {
+      setError('Mobile suffix must be exactly 5 digits (e.g. 43210).')
       return
     }
     setLoading(true); setError(''); setResults(null)
@@ -44,7 +48,7 @@ export default function CertificateVerificationPage() {
       const res = await fetch('/api/certificate/verify', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ email: email.trim(), mobile: mobile.trim() }),
+        body:    JSON.stringify({ email: email.trim(), mobile_last5: mobile5.trim() }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Verification failed')
@@ -134,15 +138,18 @@ export default function CertificateVerificationPage() {
           </div>
           <div style={{ marginBottom: 20 }}>
             <label style={{ color: '#9cb89c', fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
-              Mobile Number
+              Last 5 Digits of Mobile
             </label>
             <input
-              type="tel" value={mobile}
-              onChange={e => { setMobile(e.target.value); setResults(null) }}
-              placeholder="+91 98765 43210"
-              style={inp}
+              type="tel" value={mobile5} maxLength={5}
+              onChange={e => { setMobile5(e.target.value.replace(/\D/g,'')); setResults(null) }}
+              placeholder="e.g. 43210"
+              style={{ ...inp, letterSpacing: 6, fontSize: 18, fontFamily: "'Courier New', monospace" }}
               onKeyDown={e => e.key === 'Enter' && handleVerify()}
             />
+            <p style={{ color: '#5a6e5a', fontSize: 11, marginTop: 5 }}>
+              Enter only the last 5 digits — e.g. if mobile is 98765 43210, enter <strong style={{color:'#9cb89c'}}>43210</strong>
+            </p>
           </div>
 
           {error && (

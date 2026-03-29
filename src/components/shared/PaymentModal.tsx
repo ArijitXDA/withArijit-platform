@@ -224,27 +224,27 @@ export function PaymentModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl border-0 bg-transparent shadow-2xl">
+      <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl border-0 bg-transparent shadow-2xl w-[calc(100%-2rem)] mx-4 sm:mx-auto">
 
         {/* ── oStaran branded header ──────────────────────────────────────── */}
-        <div className="relative px-6 pt-6 pb-5"
+        <div className="relative px-5 pt-4 pb-3"
           style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4c1d95 100%)' }}>
           {/* Logo + brand */}
-          <div className="flex items-center gap-2.5 mb-3">
-            <OStaranLogo size={32} />
+          <div className="flex items-center gap-2 mb-2">
+            <OStaranLogo size={26} />
             <div>
               <p className="text-white font-extrabold text-sm leading-none">oStaran</p>
-              <p className="text-indigo-300 text-xs mt-0.5">Premium AI Education</p>
+              <p className="text-indigo-300 text-[11px] mt-0.5">Premium AI Education</p>
             </div>
           </div>
           {/* Course name */}
-          <h2 className="text-white font-bold text-base leading-snug">{courseName ?? 'Course Enrolment'}</h2>
+          <h2 className="text-white font-bold text-sm leading-snug">{courseName ?? 'Course Enrolment'}</h2>
 
           {/* Partner gift banner */}
           {defaultPartnerCode && discountPct > 0 && (
-            <div className="mt-3 flex items-start gap-2.5 rounded-xl px-3.5 py-2.5"
+            <div className="mt-2 flex items-start gap-2 rounded-xl px-3 py-2"
               style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.35)' }}>
-              <span className="text-base shrink-0">🎁</span>
+              <span className="text-sm shrink-0">🎁</span>
               <div>
                 <p className="text-amber-300 text-xs font-semibold leading-snug">
                   {partnerName ? `Gift from ${partnerName}` : 'Partner Gift'}
@@ -258,7 +258,7 @@ export function PaymentModal({
 
           {/* Partner code only (no discount) */}
           {defaultPartnerCode && !discountPct && (
-            <div className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2"
+            <div className="mt-2 flex items-center gap-2 rounded-xl px-3 py-1.5"
               style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)' }}>
               <span className="text-indigo-300 text-xs">
                 🤝 Referred by{partnerName ? ` ${partnerName}` : ''}{' '}
@@ -269,7 +269,7 @@ export function PaymentModal({
         </div>
 
         {/* ── Modal body ─────────────────────────────────────────────────── */}
-        <div className="px-6 py-5" style={{ background: '#0f172a' }}>
+        <div className="px-5 py-3 overflow-y-auto" style={{ background: '#0f172a', maxHeight: 'calc(90vh - 130px)' }}>
           {success ? (
             <div className="py-8 text-center space-y-3">
               <div className="text-5xl">🎉</div>
@@ -277,13 +277,13 @@ export function PaymentModal({
               <p className="text-slate-400 text-sm">Redirecting to your dashboard…</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
 
               {/* Self / Gift */}
               <div className="flex gap-2">
                 <button
                   onClick={() => setMode('self')}
-                  className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                     mode === 'self'
                       ? 'bg-indigo-600 text-white'
                       : 'bg-slate-800 text-slate-400 hover:text-white'
@@ -292,7 +292,7 @@ export function PaymentModal({
                 </button>
                 <button
                   onClick={() => setMode('gift')}
-                  className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                     mode === 'gift'
                       ? 'bg-indigo-600 text-white'
                       : 'bg-slate-800 text-slate-400 hover:text-white'
@@ -302,37 +302,37 @@ export function PaymentModal({
               </div>
 
               {/* Fields */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div>
-                  <Label className="text-slate-300 text-xs mb-1 block">Full Name *</Label>
-                  <Input className={inputCls} value={name}
+                  <Label className="text-slate-300 text-[11px] mb-0.5 block">Full Name *</Label>
+                  <Input className={inputCls + ' h-8 text-sm py-1.5'} value={name}
                     onChange={e => setName(e.target.value)} placeholder="Your full name" />
                 </div>
                 <div>
-                  <Label className="text-slate-300 text-xs mb-1 block">Email *</Label>
-                  <Input className={inputCls} type="email" value={email}
+                  <Label className="text-slate-300 text-[11px] mb-0.5 block">Email *</Label>
+                  <Input className={inputCls + ' h-8 text-sm py-1.5'} type="email" value={email}
                     onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
                 </div>
                 <div>
-                  <Label className="text-slate-300 text-xs mb-1 block">Mobile *</Label>
-                  <Input className={inputCls} value={mobile}
+                  <Label className="text-slate-300 text-[11px] mb-0.5 block">Mobile *</Label>
+                  <Input className={inputCls + ' h-8 text-sm py-1.5'} value={mobile}
                     onChange={e => setMobile(e.target.value)} placeholder="+91 98765 43210" />
                 </div>
               </div>
 
               {mode === 'gift' && (
                 <div>
-                  <Label className="text-slate-300 text-xs mb-1 block">Friend&apos;s Email *</Label>
-                  <Input className={inputCls} type="email" value={friendEmail}
+                  <Label className="text-slate-300 text-[11px] mb-0.5 block">Friend&apos;s Email *</Label>
+                  <Input className={inputCls + ' h-8 text-sm py-1.5'} type="email" value={friendEmail}
                     onChange={e => setFriendEmail(e.target.value)} placeholder="friend@example.com" />
                 </div>
               )}
 
               {/* Payment plan */}
               <div>
-                <Label className="text-slate-300 text-xs mb-1 block">Payment Plan</Label>
+                <Label className="text-slate-300 text-[11px] mb-0.5 block">Payment Plan</Label>
                 <Select value={frequency} onValueChange={v => { if (v === 'full' || v === 'half') setFrequency(v) }}>
-                  <SelectTrigger className={inputCls}>
+                  <SelectTrigger className={inputCls + ' h-8 text-sm'}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-slate-700 text-white">
@@ -354,9 +354,9 @@ export function PaymentModal({
 
               {/* Discount code */}
               <div>
-                <Label className="text-slate-300 text-xs mb-1 block">Additional Discount Code (optional)</Label>
+                <Label className="text-slate-300 text-[11px] mb-0.5 block">Discount Code (optional)</Label>
                 <Input
-                  className={inputCls + ' uppercase tracking-wider'}
+                  className={inputCls + ' h-8 text-sm py-1.5 uppercase tracking-wider'}
                   value={discountCode}
                   onChange={e => { setDiscountCode(e.target.value.toUpperCase()); setDiscountApplied(0); setFinalAmount(null) }}
                   placeholder="e.g. ADMINAX"
@@ -365,33 +365,33 @@ export function PaymentModal({
 
               {/* Price breakdown — visible immediately when partner discount exists */}
               {(discountPct > 0 || discountApplied > 0) && price && (
-                <div className="rounded-xl p-3 space-y-1.5"
+                <div className="rounded-xl p-2.5 space-y-1"
                   style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-xs">
                     <span className="text-slate-400">MRP</span>
                     <span className="text-slate-400 line-through">{formatCurrency(mrpForPlan)}</span>
                   </div>
                   {discountPct > 0 && discountApplied === 0 && (
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-xs">
                       <span className="text-green-400">
                         Partner discount ({discountPct}% off)
                         {partnerName && <span className="text-green-400/70 ml-1">· Gift from {partnerName}</span>}
                       </span>
-                      <span className="text-green-400 font-semibold">
+                      <span className="text-green-400 font-semibold text-xs">
                         −{formatCurrency(Math.round(mrpForPlan * discountPct / 100))}
                       </span>
                     </div>
                   )}
                   {discountApplied > 0 && (
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-xs">
                       <span className="text-green-400">🎉 {discountLabel}</span>
                       <span className="text-green-400 font-semibold">−{formatCurrency(discountApplied)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between font-bold text-sm border-t pt-1.5"
+                  <div className="flex justify-between font-bold text-xs border-t pt-1"
                     style={{ borderColor: 'rgba(99,102,241,0.2)' }}>
                     <span className="text-white">You pay{frequency === 'half' ? ' now' : ''}</span>
-                    <span className="text-indigo-300 text-base">{formatCurrency(displayPrice)}</span>
+                    <span className="text-indigo-300 text-sm">{formatCurrency(displayPrice)}</span>
                   </div>
                 </div>
               )}
@@ -407,7 +407,7 @@ export function PaymentModal({
               <button
                 onClick={handlePay}
                 disabled={loading}
-                className="w-full py-3.5 rounded-xl font-bold text-sm text-white transition-all disabled:opacity-50"
+                className="w-full py-3 rounded-xl font-bold text-sm text-white transition-all disabled:opacity-50"
                 style={{ background: loading ? 'rgba(99,102,241,0.6)' : 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
                 {loading
                   ? 'Processing…'

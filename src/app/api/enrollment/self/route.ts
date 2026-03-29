@@ -300,6 +300,14 @@ export async function POST(request: NextRequest) {
       console.warn('[enrolment] Auth invite failed (non-fatal):', authErr.message)
     }
 
+    // ── 8. Fire payment_confirmed comms (non-blocking) ──────────────────────
+    const { sendStudentComm } = await import('@/lib/comms')
+    sendStudentComm({
+      event_type:    'payment_confirmed',
+      enrolment_id:  enrolmentId,
+      triggered_by:  'system',
+    }).catch(e => console.warn('[comms] payment_confirmed failed (non-fatal):', e?.message))
+
     return NextResponse.json({
       success:      true,
       enrolment_id: enrolmentId,

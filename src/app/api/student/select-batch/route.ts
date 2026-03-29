@@ -92,5 +92,15 @@ export async function POST(req: NextRequest) {
   // Increment seats filled
   await service.rpc('increment_batch_seats', { p_batch_id: batch_id })
 
+  // ── Fire batch_confirmed comms (non-blocking) ────────────────────────────
+  if (resolvedEnrolmentId) {
+    const { sendStudentComm } = await import('@/lib/comms')
+    sendStudentComm({
+      event_type:   'batch_confirmed',
+      enrolment_id: resolvedEnrolmentId,
+      triggered_by: 'system',
+    }).catch(e => console.warn('[comms] batch_confirmed failed (non-fatal):', e?.message))
+  }
+
   return NextResponse.json({ success: true })
 }

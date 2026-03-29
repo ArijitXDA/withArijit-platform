@@ -1,0 +1,28 @@
+/* Certificate page styles */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: #e8e4d8;
+  font-family: 'Georgia', 'Times New Roman', serif;
+}
+
+@media print {
+  html, body {
+    background: white !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .cert-page {
+    width: 297mm !important;
+    height: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    page-break-after: avoid;
+    box-shadow: none !important;
+  }
+  @page {
+    size: A4 landscape;
+    margin: 0;
+  }
+}

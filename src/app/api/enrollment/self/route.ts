@@ -230,21 +230,31 @@ export async function POST(request: NextRequest) {
         // Update existing student record
         const newCount  = (existing.total_payments_count ?? 0) + 1
         const newTotal  = Number(existing.total_amount_paid ?? 0) + amount
-        const payCol    = newCount === 1 ? '1st_Course_Payment_Amount' : `${newCount === 2 ? '2nd' : newCount === 3 ? '3rd' : '4th'}_Payment_Amt`
-        const dateCol   = newCount === 1 ? '1st_Pay_Date' : `${newCount === 2 ? '2nd' : newCount === 3 ? '3rd' : '4th'}_Payment_Date`
-        const rzpCol    = newCount === 1 ? '1st_Payment_Razorpay_ID' : `${newCount === 2 ? '2nd' : newCount === 3 ? '3rd' : '4th'}_Payment_Razorpay_ID`
+        // Legacy table only has slots for payments 1-4.
+        // For payment 5+, only update the running totals — don’t attempt
+        // non-existent column names like '5th_Payment_Amt'.
+        const slotIndex = Math.min(newCount, 4)
+        const prefix    = slotIndex === 1 ? '1st' : slotIndex === 2 ? '2nd' : slotIndex === 3 ? '3rd' : '4th'
+        const payCol    = slotIndex === 1 ? '1st_Course_Payment_Amount' : `${prefix}_Payment_Amt`
+        const dateCol   = slotIndex === 1 ? '1st_Pay_Date' : `${prefix}_Payment_Date`
+        const rzpCol    = slotIndex === 1 ? '1st_Payment_Razorpay_ID' : `${prefix}_Payment_Razorpay_ID`
+
+        const updatePayload: Record<string, any> = {
+          total_payments_count: newCount,
+          total_amount_paid:    newTotal,
+          last_payment_date:    now.toISOString(),
+          updated_at:           now.toISOString(),
+        }
+        // Only write to named slot columns for payments 1-4
+        if (newCount <= 4) {
+          updatePayload[payCol]  = amount
+          updatePayload[dateCol] = today
+          updatePayload[rzpCol]  = payment_id
+        }
 
         await supabase
           .from('student_master_table')
-          .update({
-            total_payments_count: newCount,
-            total_amount_paid:    newTotal,
-            last_payment_date:    now.toISOString(),
-            updated_at:           now.toISOString(),
-            [payCol]:             amount,
-            [dateCol]:            today,
-            [rzpCol]:             payment_id,
-          })
+          .update(updatePayload)
           .eq('id', existing.id)
       } else {
         // New student
@@ -284,20 +294,26 @@ export async function POST(request: NextRequest) {
       .update({ is_enrolled: true, enrolled_at: now.toISOString() })
       .eq('email', email.toLowerCase())
 
-    // ── 7. Invite student to Supabase Auth (non-fatal) ────────────────────────
+    // ── 7. Invite student to Supabase Auth if not already registered ──────────
+    // IMPORTANT: Never use listUsers() here — it fetches ALL users and causes
+    // Vercel serverless timeouts as the user base grows. Instead, attempt the
+    // invite and gracefully handle the "already registered" error. This is O(1).
     try {
-      const { data: existingUsers } = await supabase.auth.admin.listUsers()
-      const alreadyExists = existingUsers?.users?.some(u => u.email?.toLowerCase() === email.toLowerCase())
-
-      if (!alreadyExists) {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://with-arijit-platform.vercel.app'
-        await supabase.auth.admin.inviteUserByEmail(email, {
-          data: { full_name: name },
-          redirectTo: `${appUrl}/auth/callback?next=/dashboard`,
-        })
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ostaran.com'
+      const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
+        email.toLowerCase(),
+        {
+          data:       { full_name: name },
+          redirectTo: `${appUrl}/auth/callback?next=/select-batch?course_id=${course_id}&enrolment_id=${enrolmentId}`,
+        }
+      )
+      // "User already registered" is expected for returning students — not an error
+      if (inviteError && !inviteError.message?.toLowerCase().includes('already registered')) {
+        console.warn('[enrolment] Auth invite failed (non-fatal):', inviteError.message)
       }
     } catch (authErr: any) {
-      console.warn('[enrolment] Auth invite failed (non-fatal):', authErr.message)
+      // Non-fatal — student can still sign in manually
+      console.warn('[enrolment] Auth invite threw (non-fatal):', authErr.message)
     }
 
     // ── 8. Create payment_transactions invoice record ───────────────────────

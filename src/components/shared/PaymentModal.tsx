@@ -179,7 +179,20 @@ export function PaymentModal({
               }),
             })
             const enrolJson = await enrolRes.json().catch(() => ({}))
-            if (!enrolRes.ok) console.error('Enrolment recording failed:', enrolJson.error)
+
+            // ── CRITICAL: enrolment failure must NOT be silent ────────────
+            // Payment succeeded but enrolment write failed — show a clear
+            // error with the payment ID so the student can contact support
+            // and we can manually recover. Do NOT call setSuccess(true).
+            if (!enrolRes.ok) {
+              setError(
+                `Your payment of ${formatCurrency(displayAmount ?? basePrice)} was received (Ref: ${response.razorpay_payment_id}) ` +
+                `but we hit an error activating your course. Please WhatsApp us on +91-XXXXXXXXXX or email ai@ostaran.com ` +
+                `with this payment ID and we will activate your course within 1 hour.`
+              )
+              setLoading(false)
+              return  // ← stops here — no success state, no redirect
+            }
 
             setSuccess(true)
             setLoading(false)

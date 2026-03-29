@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
-import Image from 'next/image'
 import Link from 'next/link'
 import { Calendar, BookOpen, Award, Clock, ChevronRight, Video, Users } from 'lucide-react'
 
@@ -132,8 +131,16 @@ export default async function DashboardPage({
           </div>
         )}
         <div className="px-6 py-7 flex items-center gap-5">
-          <Image src="/arijit-image.png" alt="Arijit" width={56} height={56}
-            className="w-14 h-14 rounded-full object-cover object-top border-2 border-indigo-400/40 shrink-0" />
+          {/* Student's own avatar — NOT Arijit's photo */}
+          <div className="w-14 h-14 rounded-full overflow-hidden shrink-0 border-2 border-indigo-400/40"
+            style={{ background: 'rgba(99,102,241,0.25)' }}>
+            {profile?.profile_photo_url
+              ? <img src={profile.profile_photo_url} alt={studentName} className="w-full h-full object-cover" />
+              : <div className="w-full h-full flex items-center justify-center text-2xl font-black text-indigo-300">
+                  {studentName[0]?.toUpperCase() ?? 'S'}
+                </div>
+            }
+          </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-white font-extrabold text-xl">
               Welcome back, {firstName}! 👋

@@ -1,7 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import Image from 'next/image'
-import { Send, Loader2, Bot, User, RefreshCw, Sparkles } from 'lucide-react'
+import { Send, Loader2, RefreshCw, Sparkles } from 'lucide-react'
 
 interface Message { role: 'user' | 'assistant'; content: string }
 
@@ -17,6 +16,28 @@ const QUICK_PROMPTS = [
   'What certificates have I earned?',
   'What study materials are available?',
 ]
+
+// ── Light theme tokens (matches dashboard) ────────────────────────────────────
+const T = {
+  bg:          '#eef3fb',
+  surface:     '#ffffff',
+  surfaceAlt:  '#f8faff',
+  border:      '#dce6f5',
+  borderLight: '#e8f0fc',
+  navy:        '#0f1f3d',
+  blue:        '#2563eb',
+  indigo:      '#4f46e5',
+  indigoDark:  '#4338ca',
+  blueLight:   '#eff6ff',
+  bluePale:    '#dbeafe',
+  textPrimary: '#0f1f3d',
+  textSec:     '#475569',
+  textMuted:   '#94a3b8',
+  green:       '#16a34a',
+  greenBg:     '#f0fdf4',
+  greenBorder: '#bbf7d0',
+  purple:      '#7c3aed',
+}
 
 export default function AiMonitorClient({ studentContext }: { studentContext: any }) {
   const [messages, setMessages] = useState<Message[]>([
@@ -46,111 +67,132 @@ export default function AiMonitorClient({ studentContext }: { studentContext: an
 
     try {
       const res = await fetch('/api/student/ai-monitor', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, studentContext }),
+        body:    JSON.stringify({ messages: newMessages, studentContext }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to get response')
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
     } catch (e: any) {
       setError(e.message)
-      setMessages(prev => prev.slice(0, -1)) // remove the user message on error
+      setMessages(prev => prev.slice(0, -1))
     } finally {
       setLoading(false)
       inputRef.current?.focus()
     }
   }
 
-  function renderMessage(content: string) {
-    // Simple markdown: bold, bullet points, line breaks
-    return content
-      .split('\n')
-      .map((line, i) => {
-        const bolded = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        const bulleted = bolded.startsWith('•') || bolded.startsWith('-')
-        return (
-          <p key={i} className={`${bulleted ? 'pl-2' : ''} ${i > 0 && line === '' ? 'mt-2' : ''} leading-relaxed`}
-            dangerouslySetInnerHTML={{ __html: bolded }} />
-        )
-      })
+  function renderMessage(content: string, role: 'user' | 'assistant') {
+    const isUser = role === 'user'
+    return content.split('\n').map((line, i) => {
+      const bolded   = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      const bulleted = bolded.startsWith('•') || bolded.startsWith('-')
+      return (
+        <p key={i}
+          className={`${bulleted ? 'pl-2' : ''} ${i > 0 && line === '' ? 'mt-2' : ''} leading-relaxed`}
+          style={{ color: isUser ? '#ffffff' : T.textPrimary }}
+          dangerouslySetInnerHTML={{ __html: bolded }} />
+      )
+    })
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] max-w-3xl">
-      {/* Header */}
+    <div className="flex flex-col max-w-3xl" style={{ height: 'calc(100vh - 120px)' }}>
+
+      {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 mb-4 shrink-0">
         <div className="w-10 h-10 rounded-2xl flex items-center justify-center"
-          style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
+          style={{ background: `linear-gradient(135deg, ${T.indigo}, ${T.purple})` }}>
           <Sparkles className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="text-white font-extrabold text-lg leading-tight">oStaran Class Monitor</h1>
-          <p className="text-slate-500 text-xs">Your personal AI course assistant · Strictly your data only</p>
+          <h1 className="font-extrabold text-lg leading-tight" style={{ color: T.navy }}>
+            oStaran Class Monitor
+          </h1>
+          <p className="text-xs" style={{ color: T.textMuted }}>
+            Your personal AI course assistant · Strictly your data only
+          </p>
         </div>
-        <button onClick={() => setMessages([{
-          role: 'assistant',
-          content: `Hello ${studentContext.name?.split(' ')[0]}! How can I help you today?`,
-        }])} className="ml-auto p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-all">
+        <button
+          onClick={() => setMessages([{
+            role: 'assistant',
+            content: `Hello ${studentContext.name?.split(' ')[0]}! How can I help you today?`,
+          }])}
+          className="ml-auto p-2 rounded-lg transition-all hover:bg-blue-50"
+          style={{ color: T.textMuted }}>
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Privacy notice */}
+      {/* ── Privacy notice ───────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 px-3 py-2 rounded-xl mb-4 shrink-0"
-        style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.15)' }}>
-        <span className="text-green-400 text-xs">🔒</span>
-        <p className="text-green-400/80 text-xs">
-          This assistant only has access to <strong className="text-green-400">your own</strong> data — your courses, payments, sessions and certificates. No other student's information is shared.
+        style={{ background: T.greenBg, border: `1px solid ${T.greenBorder}` }}>
+        <span className="text-xs">🔒</span>
+        <p className="text-xs" style={{ color: T.green }}>
+          This assistant only has access to <strong>your own</strong> data — your courses,
+          payments, sessions and certificates. No other student's information is shared.
         </p>
       </div>
 
-      {/* Messages */}
+      {/* ── Messages ─────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto space-y-4 pr-1 mb-4">
         {messages.map((msg, i) => (
           <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+
+            {/* AI avatar */}
             {msg.role === 'assistant' && (
               <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-                style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
+                style={{ background: `linear-gradient(135deg, ${T.indigo}, ${T.purple})` }}>
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
             )}
-            <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
-              msg.role === 'user'
-                ? 'text-white rounded-br-sm'
-                : 'text-slate-200 rounded-bl-sm'
-            }`}
-              style={{
-                background: msg.role === 'user'
-                  ? 'linear-gradient(135deg, #4f46e5, #7c3aed)'
-                  : 'rgba(255,255,255,0.05)',
-                border: msg.role === 'assistant' ? '1px solid rgba(255,255,255,0.07)' : 'none',
+
+            {/* Bubble */}
+            <div
+              className="max-w-[85%] rounded-2xl px-4 py-3 text-sm"
+              style={msg.role === 'user' ? {
+                background:   `linear-gradient(135deg, ${T.blue}, ${T.indigo})`,
+                borderRadius: '16px 16px 4px 16px',
+                boxShadow:    '0 2px 8px rgba(37,99,235,0.2)',
+              } : {
+                background:   T.surface,
+                border:       `1px solid ${T.border}`,
+                borderRadius: '16px 16px 16px 4px',
+                boxShadow:    '0 1px 4px rgba(37,99,235,0.06)',
               }}>
               <div className="space-y-0.5">
-                {renderMessage(msg.content)}
+                {renderMessage(msg.content, msg.role)}
               </div>
             </div>
+
+            {/* User avatar */}
             {msg.role === 'user' && (
               <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold text-white"
-                style={{ background: 'rgba(255,255,255,0.1)' }}>
+                style={{ background: `linear-gradient(135deg, ${T.blue}, ${T.indigo})` }}>
                 {studentContext.name?.[0]?.toUpperCase() ?? 'U'}
               </div>
             )}
           </div>
         ))}
 
+        {/* Thinking dots */}
         {loading && (
           <div className="flex gap-3 justify-start">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
+              style={{ background: `linear-gradient(135deg, ${T.indigo}, ${T.purple})` }}>
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <div className="rounded-2xl rounded-bl-sm px-4 py-3"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div className="rounded-2xl px-4 py-3"
+              style={{
+                background:   T.surface,
+                border:       `1px solid ${T.border}`,
+                borderRadius: '16px 16px 16px 4px',
+              }}>
               <div className="flex gap-1 items-center h-5">
-                {[0,1,2].map(i => (
+                {[0, 1, 2].map(i => (
                   <div key={i} className="w-2 h-2 rounded-full animate-bounce"
-                    style={{ background: '#818cf8', animationDelay: `${i * 0.15}s` }} />
+                    style={{ background: T.blue, animationDelay: `${i * 0.15}s` }} />
                 ))}
               </div>
             </div>
@@ -158,24 +200,28 @@ export default function AiMonitorClient({ studentContext }: { studentContext: an
         )}
 
         {error && (
-          <p className="text-red-400 text-xs text-center py-2">{error}</p>
+          <p className="text-xs text-center py-2" style={{ color: '#dc2626' }}>{error}</p>
         )}
 
         <div ref={bottomRef} />
       </div>
 
-      {/* Quick prompts */}
+      {/* ── Quick prompts ────────────────────────────────────────────────── */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-3 shrink-0 scrollbar-hide">
         {QUICK_PROMPTS.map(p => (
           <button key={p} onClick={() => send(p)}
-            className="shrink-0 text-xs px-3 py-1.5 rounded-full whitespace-nowrap transition-all hover:text-white"
-            style={{ background: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.08)' }}>
+            className="shrink-0 text-xs px-3 py-1.5 rounded-full whitespace-nowrap transition-all hover:shadow-sm"
+            style={{
+              background:  T.surface,
+              color:       T.textSec,
+              border:      `1px solid ${T.border}`,
+            }}>
             {p}
           </button>
         ))}
       </div>
 
-      {/* Input */}
+      {/* ── Input ────────────────────────────────────────────────────────── */}
       <div className="flex gap-2 shrink-0">
         <input
           ref={inputRef}
@@ -183,15 +229,27 @@ export default function AiMonitorClient({ studentContext }: { studentContext: an
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
           placeholder="Ask anything about your course, sessions, payments…"
-          className="flex-1 px-4 py-3 rounded-2xl text-white text-sm focus:outline-none transition-colors"
-          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+          className="flex-1 px-4 py-3 rounded-2xl text-sm focus:outline-none transition-colors"
+          style={{
+            background:  T.surface,
+            border:      `1px solid ${T.border}`,
+            color:       T.textPrimary,
+          }}
+          onFocus={e => { e.target.style.borderColor = T.blue }}
+          onBlur={e  => { e.target.style.borderColor = T.border }}
         />
-        <button onClick={() => send()} disabled={!input.trim() || loading}
-          className="w-12 h-12 rounded-2xl flex items-center justify-center text-white disabled:opacity-40 transition-all"
-          style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
-          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+        <button
+          onClick={() => send()}
+          disabled={!input.trim() || loading}
+          className="w-12 h-12 rounded-2xl flex items-center justify-center text-white disabled:opacity-40 transition-all hover:opacity-90"
+          style={{ background: `linear-gradient(135deg, ${T.blue}, ${T.indigo})` }}>
+          {loading
+            ? <Loader2 className="w-5 h-5 animate-spin" />
+            : <Send className="w-5 h-5" />
+          }
         </button>
       </div>
+
     </div>
   )
 }

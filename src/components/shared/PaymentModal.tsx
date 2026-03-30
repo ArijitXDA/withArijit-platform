@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatCurrency } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 
 interface PaymentModalProps {
   open: boolean
@@ -63,16 +64,45 @@ export function PaymentModal({
   const [finalAmount, setFinalAmount]         = useState<number | null>(null)
 
   useEffect(() => {
-    if (open) {
-      if (defaultName)   setName(defaultName)
-      if (defaultEmail)  setEmail(defaultEmail)
-      if (defaultMobile) setMobile(defaultMobile)
-      setError('')
-      setSuccess(false)
-      setDiscountApplied(0)
-      setDiscountLabel('')
-      setFinalAmount(null)
-    }
+    if (!open) return
+    // Apply props defaults first
+    if (defaultName)   setName(defaultName)
+    if (defaultEmail)  setEmail(defaultEmail)
+    if (defaultMobile) setMobile(defaultMobile)
+    setError('')
+    setSuccess(false)
+    setDiscountApplied(0)
+    setDiscountLabel('')
+    setFinalAmount(null)
+
+    // Auto-fill from signed-in user's existing profile/enrolment
+    // so returning students don't have to retype name/email/mobile
+    const sb = createClient()
+    sb.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      // Fill email from auth
+      if (!defaultEmail && user.email) setEmail(user.email)
+      // Try student_profiles for name + mobile
+      const { data: profile } = await sb
+        .from('student_profiles')
+        .select('full_name, mobile')
+        .eq('email', user.email!)
+        .maybeSingle()
+      if (profile?.full_name && !defaultName)   setName(profile.full_name)
+      if (profile?.mobile    && !defaultMobile) setMobile(profile.mobile)
+      // Fallback: most recent enrolment for name + mobile
+      if (!profile?.mobile || !profile?.full_name) {
+        const { data: enrolment } = await sb
+          .from('student_enrolments')
+          .select('student_name, student_mobile')
+          .eq('student_email', user.email!)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (enrolment?.student_name   && !defaultName)   setName(enrolment.student_name)
+        if (enrolment?.student_mobile && !defaultMobile) setMobile(enrolment.student_mobile)
+      }
+    })
   }, [open, defaultName, defaultEmail, defaultMobile])
 
   // ── Price calculations ────────────────────────────────────────────────────
@@ -93,6 +123,11 @@ export function PaymentModal({
     setError('')
     if (!name.trim() || !email.trim() || !mobile.trim()) {
       setError('Please fill in your name, email, and mobile number.')
+      return
+    }
+    const mobileDigits = mobile.replace(/\D/g, '')
+    if (mobileDigits.length < 10) {
+      setError('Please enter a valid 10-digit mobile number.')
       return
     }
     if (mode === 'gift' && !friendEmail.trim()) {

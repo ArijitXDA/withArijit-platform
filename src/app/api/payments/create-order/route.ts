@@ -8,7 +8,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const parsed = paymentOrderSchema.safeParse(body)
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 })
+      // Extract the first human-readable field error to show in the modal
+      const fieldErrors  = parsed.error.flatten().fieldErrors
+      const firstField   = Object.keys(fieldErrors)[0]
+      const firstMessage = firstField
+        ? (fieldErrors[firstField as keyof typeof fieldErrors]?.[0] ?? 'Invalid input')
+        : 'Invalid input'
+      return NextResponse.json(
+        { error: firstMessage, field: firstField, details: parsed.error.flatten() },
+        { status: 400 }
+      )
     }
 
     const { course_id, payment_frequency, discount_code, name, email, mobile } = parsed.data

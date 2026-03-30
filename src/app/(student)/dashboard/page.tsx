@@ -55,6 +55,17 @@ export default async function DashboardPage({
   const service = createServiceClient()
   const email   = user.email!
 
+  // ── Track dashboard login (fire-and-forget) ──────────────────────────
+  void fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ostaran.com'}/api/track/click`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      link_type:     'dashboard_login',
+      student_email: email,
+      source_app:    'ostaran',
+    }),
+  }).catch(() => {})
+
   const { data: profile } = await service
     .from('student_profiles')
     .select('full_name, mobile, occupation, profile_photo_url, key_skills')

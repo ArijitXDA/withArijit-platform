@@ -87,6 +87,29 @@ export default async function CoursePage({
   // Discount percent from course (auto-applied for partner-referred students)
   const discountPct = partner ? Number(course.discount_percent ?? 0) : 0
 
+  // ── Track enrolment page open (fire-and-forget, never awaited) ──────────────
+  // Only fires when a partner referral or enrol=1 is present — organic visits not tracked
+  if (partner || (await searchParams).enrol) {
+    const sp       = await searchParams
+    const appUrl   = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ostaran.com'
+    void fetch(`${appUrl}/api/track/click`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        link_type:    'enrolment_page',
+        student_email:  sp.email  || null,
+        student_name:   sp.name   || null,
+        student_mobile: sp.mobile || null,
+        partner_code:   partner   || null,
+        utm_medium:     'partner_share',
+        utm_content:    sp.utm_content || null,
+        course_id:      course.id,
+        course_name:    course.name,
+        source_app:     'ostaran',
+      }),
+    }).catch(() => {}) // silently swallow any network error
+  }
+
   const mrp              = Number(course.mrp)
   const gstPct           = Number(course.gst_percent ?? 18) / 100
   const netBeforeGst     = Math.round(mrp / (1 + gstPct))

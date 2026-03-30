@@ -42,5 +42,19 @@ export default async function CertificatePage({
 
   if (!cert) notFound()
 
+  // ── Track certificate view (fire-and-forget) ──────────────────────────
+  // Tells us which certificates are being shared and viewed (viral/social signal)
+  void fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ostaran.com'}/api/track/click`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      link_type:     'certificate_view',
+      student_email: cert.email,
+      student_name:  cert.full_name,
+      course_name:   cert.course_name,
+      source_app:    'ostaran',
+    }),
+  }).catch(() => {})
+
   return <CertificateClient cert={cert} />
 }

@@ -176,7 +176,7 @@ export default function BecomePartnerClient({ registerUrl, referringPartner, stu
         <p className="text-xs mt-2" style={{ color: T.textMuted }}>
           {isDownstream
             ? `ℹ️ This link places you as a downstream partner under ${referringPartner!.full_name}.`
-            : 'ℹ️ No partner referred you — you'll join as a root L1 partner directly under oStaran.'}
+            : "ℹ️ No partner referred you — you'll join as a root L1 partner directly under oStaran."}
         </p>
       </div>
 

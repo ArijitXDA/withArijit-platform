@@ -197,25 +197,15 @@ export function PaymentModal({
             setSuccess(true)
             setLoading(false)
             const enrolmentId = enrolJson.enrolment_id ?? ''
+            const batchParams = new URLSearchParams()
+            if (courseId)    batchParams.set('course_id', courseId)
+            if (enrolmentId) batchParams.set('enrolment_id', enrolmentId)
+            const selectBatchUrl = `/select-batch?${batchParams.toString()}`
+            // Redirect immediately — don't wait for getUser() which can be slow
+            // The select-batch page itself handles auth gating correctly
             setTimeout(() => {
               onClose()
-              const batchParams = new URLSearchParams()
-              if (courseId)    batchParams.set('course_id', courseId)
-              if (enrolmentId) batchParams.set('enrolment_id', enrolmentId)
-              const selectBatchUrl = `/select-batch?${batchParams.toString()}`
-              import('@/lib/supabase/client').then(({ createClient }) => {
-                const sb = createClient()
-                sb.auth.getUser().then(({ data }) => {
-                  if (data?.user) {
-                    window.location.href = selectBatchUrl
-                  } else {
-                    const signinParams = new URLSearchParams()
-                    signinParams.set('next', selectBatchUrl)
-                    if (email) signinParams.set('email', email)
-                    window.location.href = `/signin?${signinParams.toString()}`
-                  }
-                })
-              })
+              window.location.href = selectBatchUrl
             }, 2000)
           } catch (err: any) {
             setError('Enrolment recording failed. Payment was successful. Contact support with payment ID: ' + response.razorpay_payment_id)
@@ -287,7 +277,16 @@ export function PaymentModal({
             <div className="py-8 text-center space-y-3">
               <div className="text-5xl">🎉</div>
               <p className="text-green-400 font-bold text-lg">Payment Successful!</p>
-              <p className="text-slate-400 text-sm">Redirecting to your dashboard…</p>
+              <p className="text-slate-400 text-sm">Redirecting to batch selection…</p>
+              <p className="text-slate-500 text-xs mt-1">
+                Not redirected?{' '}
+                <a
+                  href={courseId && `/select-batch?course_id=${courseId}`}
+                  className="text-indigo-400 underline"
+                >
+                  Click here to choose your batch
+                </a>
+              </p>
             </div>
           ) : (
             <div className="space-y-3">

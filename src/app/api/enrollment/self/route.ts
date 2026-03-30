@@ -2,16 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 
 // ── Commission cascade ────────────────────────────────────────────────────────
-// Walks the partner hierarchy and writes one commission_ledger row per level.
 async function creditPartnerCommission(
   supabase: ReturnType<typeof createServiceClient>,
   enrolmentId: string,
   partnerCode: string,
   courseId: string,
-  netTaxable: number,   // pre-GST amount — the commission base
-  partnerPoolPct: number,   // e.g. 0.40
-  enrollerShare: number,    // e.g. 0.75
-  upstreamShare: number,    // e.g. 0.25
+  netTaxable: number,
+  partnerPoolPct: number,
+  enrollerShare: number,
+  upstreamShare: number,
 ) {
   const { data: enroller } = await supabase
     .from('partners')
@@ -28,7 +27,6 @@ async function creditPartnerCommission(
   const enrollerAmount    = partnerPoolAmount * enrollerShare
   const upstreamPool      = partnerPoolAmount * upstreamShare
 
-  // Level 1 — direct enrolling partner gets 75% of pool
   await supabase.from('commission_ledger').insert({
     enrolment_id:           enrolmentId,
     partner_id:             enroller.id,
@@ -43,7 +41,6 @@ async function creditPartnerCommission(
     status:                 'pending',
   })
 
-  // Upstream levels — each gets 75% of remaining 25%
   let parentId: string | null = enroller.parent_partner_id as string | null
   let level = 2
   let remaining = upstreamPool
@@ -81,21 +78,191 @@ async function creditPartnerCommission(
   }
 }
 
+// ── Background work (non-blocking, fires after response is sent) ──────────────
+// Includes: commission, student_master_table, discount code, qr update,
+// auth invite, invoice, comms. None of these should ever block the student.
+async function runBackgroundWork(params: {
+  supabase:             ReturnType<typeof createServiceClient>
+  enrolmentId:          string
+  enrolmentSeq:         number
+  email:                string
+  name:                 string
+  mobile:               string
+  courseId:             string
+  courseName:           string
+  amount:               number
+  paymentId:            string
+  orderId:              string
+  today:                string
+  now:                  Date
+  normEnrolmentType:    'full_course' | 'monthly'
+  netTaxable:           number
+  gstAmount:            number
+  resolvedPartnerCode:  string | null
+  resolvedPartnerId:    string | null
+  partnerPoolPct:       number
+  enrollerShare:        number
+  upstreamShare:        number
+  discountCode:         string | undefined
+  body:                 any
+}) {
+  const {
+    supabase, enrolmentId, enrolmentSeq, email, name, mobile,
+    courseId, courseName, amount, paymentId, orderId, today, now,
+    normEnrolmentType, netTaxable, gstAmount,
+    resolvedPartnerCode, resolvedPartnerId,
+    partnerPoolPct, enrollerShare, upstreamShare,
+    discountCode, body,
+  } = params
+
+  // ── 1. Commission cascade ─────────────────────────────────────────────────
+  if (resolvedPartnerCode && resolvedPartnerId) {
+    try {
+      await creditPartnerCommission(
+        supabase, enrolmentId, resolvedPartnerCode,
+        courseId, netTaxable, partnerPoolPct, enrollerShare, upstreamShare,
+      )
+    } catch (e: any) {
+      console.warn('[bg] commission failed (non-fatal):', e.message)
+    }
+  }
+
+  // ── 2. student_master_table (legacy admin view) ───────────────────────────
+  try {
+    const { data: existing } = await supabase
+      .from('student_master_table')
+      .select('id, total_payments_count, total_amount_paid')
+      .eq('email', email.toLowerCase())
+      .maybeSingle()
+
+    if (existing) {
+      const newCount = (existing.total_payments_count ?? 0) + 1
+      const newTotal = Number(existing.total_amount_paid ?? 0) + amount
+      const slotIndex = Math.min(newCount, 4)
+      const prefix    = slotIndex === 1 ? '1st' : slotIndex === 2 ? '2nd' : slotIndex === 3 ? '3rd' : '4th'
+      const payCol    = slotIndex === 1 ? '1st_Course_Payment_Amount' : `${prefix}_Payment_Amt`
+      const dateCol   = slotIndex === 1 ? '1st_Pay_Date'             : `${prefix}_Payment_Date`
+      const rzpCol    = slotIndex === 1 ? '1st_Payment_Razorpay_ID'  : `${prefix}_Payment_Razorpay_ID`
+
+      const updatePayload: Record<string, any> = {
+        total_payments_count: newCount,
+        total_amount_paid:    newTotal,
+        last_payment_date:    now.toISOString(),
+        updated_at:           now.toISOString(),
+      }
+      if (newCount <= 4) {
+        updatePayload[payCol]  = amount
+        updatePayload[dateCol] = today
+        updatePayload[rzpCol]  = paymentId
+      }
+      await supabase.from('student_master_table').update(updatePayload).eq('id', existing.id)
+    } else {
+      await supabase.from('student_master_table').insert({
+        student_name:                  name,
+        email:                         email.toLowerCase(),
+        mobile,
+        current_course_name:           courseName,
+        '1st_Course_Payment_Amount':   amount,
+        '1st_Pay_Date':                today,
+        '1st_Pay_Discount_Coupon_Used': discountCode ?? null,
+        '1st_Payment_Razorpay_ID':     paymentId,
+        referred_by:                   resolvedPartnerCode ?? null,
+        total_payments_count:          1,
+        total_amount_paid:             amount,
+        enrollment_date:               now.toISOString(),
+        last_payment_date:             now.toISOString(),
+      })
+    }
+  } catch (e: any) {
+    console.warn('[bg] student_master_table failed (non-fatal):', e.message)
+  }
+
+  // ── 3. Discount code usage counter ───────────────────────────────────────
+  if (discountCode) {
+    try {
+      await supabase.rpc('increment_discount_uses', { p_code: discountCode.trim().toUpperCase() })
+    } catch (e: any) {
+      console.warn('[bg] discount increment failed (non-fatal):', e.message)
+    }
+  }
+
+  // ── 4. Mark qr_landing_registrations as enrolled ─────────────────────────
+  try {
+    await supabase
+      .from('qr_landing_registrations')
+      .update({ is_enrolled: true, enrolled_at: now.toISOString() })
+      .eq('email', email.toLowerCase())
+  } catch (e: any) {
+    console.warn('[bg] qr_landing update failed (non-fatal):', e.message)
+  }
+
+  // ── 5. Invite/notify student via Supabase Auth ───────────────────────────
+  // For new users: sends magic link email with select-batch redirect
+  // For existing users: silently no-ops (they're already registered)
+  try {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ostaran.com'
+    const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
+      email.toLowerCase(),
+      {
+        data:       { full_name: name },
+        redirectTo: `${appUrl}/auth/callback?next=/select-batch?course_id=${courseId}&enrolment_id=${enrolmentId}`,
+      }
+    )
+    if (inviteError && !inviteError.message?.toLowerCase().includes('already registered')) {
+      console.warn('[bg] Auth invite failed (non-fatal):', inviteError.message)
+    }
+  } catch (e: any) {
+    console.warn('[bg] Auth invite threw (non-fatal):', e.message)
+  }
+
+  // ── 6. Invoice / payment_transactions record ─────────────────────────────
+  try {
+    const isFull = normEnrolmentType === 'full_course'
+    await supabase.rpc('create_payment_transaction', {
+      p_enrolment_id:      enrolmentId,
+      p_payment_type:      isFull ? 'full' : 'first_instalment',
+      p_instalment_number: 1,
+      p_total_instalments: isFull ? 1 : 2,
+      p_amount_paid:       amount,
+      p_payment_mode:      'upi',
+      p_payment_date:      today,
+      p_payment_reference: paymentId,
+      p_razorpay_order_id: orderId,
+      p_partner_code:      resolvedPartnerCode ?? null,
+    })
+  } catch (e: any) {
+    console.warn('[bg] invoice transaction failed (non-fatal):', e.message)
+  }
+
+  // ── 7. Payment confirmed comms ────────────────────────────────────────────
+  try {
+    const { sendStudentComm } = await import('@/lib/comms')
+    await sendStudentComm({
+      event_type:   'payment_confirmed',
+      enrolment_id: enrolmentId,
+      triggered_by: 'system',
+    })
+  } catch (e: any) {
+    console.warn('[bg] payment_confirmed comms failed (non-fatal):', e.message)
+  }
+}
+
 // ── POST /api/enrollment/self ─────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
+  let body: any = null
   try {
-    const body = await request.json()
+    body = await request.json()
     const {
-      payment_id,       // Razorpay payment ID
-      order_id,         // Razorpay order ID
-      course_id,        // awa_courses.id (uuid)
+      payment_id,
+      order_id,
+      course_id,
       name,
       email,
       mobile,
-      amount,           // total amount paid incl. GST (in INR)
+      amount,
       discount_code,
-      partner_code,     // may be null for walk-ins
-      enrolment_type,   // 'full_course' | 'monthly'  (from PaymentModal)
+      partner_code,
+      enrolment_type,
     } = body
 
     if (!payment_id || !order_id || !course_id || !name || !email || !mobile || !amount) {
@@ -121,11 +288,10 @@ export async function POST(request: NextRequest) {
     const netTaxable     = Number((amount / (1 + gstPct)).toFixed(2))
     const gstAmount      = Number((amount - netTaxable).toFixed(2))
 
-    // Normalise enrolment_type to valid enum value
     const normEnrolmentType: 'full_course' | 'monthly' =
       enrolment_type === 'monthly' ? 'monthly' : 'full_course'
 
-    // ── 2. Resolve partner code (passed in URL, or look up from registrations) ─
+    // ── 2. Resolve partner ────────────────────────────────────────────────────
     let resolvedPartnerCode = (partner_code as string | null) || null
 
     if (!resolvedPartnerCode) {
@@ -140,7 +306,6 @@ export async function POST(request: NextRequest) {
       if (reg?.utm_source) resolvedPartnerCode = reg.utm_source
     }
 
-    // Resolve partner UUID from code
     let resolvedPartnerId: string | null = null
     if (resolvedPartnerCode) {
       const { data: partner } = await supabase
@@ -155,8 +320,7 @@ export async function POST(request: NextRequest) {
     const commissionAmount = resolvedPartnerId ? Number((netTaxable * partnerPoolPct).toFixed(2)) : 0
     const oiAmount         = Number((netTaxable - commissionAmount).toFixed(2))
 
-    // ── 3. Write student_enrolments ─────────────────────────────────────────
-    // Determine enrolment sequence number for this student + course
+    // ── 3. Count existing enrolments (for sequence number) ───────────────────
     const { count: existingCount } = await supabase
       .from('student_enrolments')
       .select('*', { count: 'exact', head: true })
@@ -165,10 +329,13 @@ export async function POST(request: NextRequest) {
 
     const enrolmentSeq = (existingCount ?? 0) + 1
 
+    // ── 4. CRITICAL: Write student_enrolments ────────────────────────────────
+    // This is the ONLY step that must succeed before returning to the student.
+    // Everything else runs in background after this succeeds.
     const { data: enrolmentRow, error: enrolmentError } = await supabase
       .from('student_enrolments')
       .insert({
-        partner_id:         resolvedPartnerId,   // nullable — OK if null
+        partner_id:         resolvedPartnerId,
         student_name:       name,
         student_email:      email.toLowerCase(),
         student_mobile:     mobile,
@@ -176,7 +343,6 @@ export async function POST(request: NextRequest) {
         course_id:          course_id,
         enrolment_type:     normEnrolmentType,
         mrp,
-        // discount_pct: back-calculate from MRP vs amount paid
         discount_pct:       mrp > 0 ? Math.round((1 - amount / mrp) * 100) / 100 : 0,
         discount_amount:    Math.max(0, mrp - amount),
         net_after_discount: amount,
@@ -184,7 +350,7 @@ export async function POST(request: NextRequest) {
         gst_amount:         gstAmount,
         net_taxable:        netTaxable,
         amount_paid:        amount,
-        payment_mode:       'upi',               // Razorpay default; can be refined
+        payment_mode:       'upi',
         payment_date:       today,
         payment_reference:  payment_id,
         commission_pct:     commissionPct,
@@ -198,150 +364,67 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (enrolmentError) {
+      // Enrolment failed — log to recovery table and return error
+      // (payment was successful but we couldn't create the enrolment)
       console.error('[enrolment] student_enrolments insert failed:', enrolmentError.message)
-      return NextResponse.json({ error: `Enrolment insert failed: ${enrolmentError.message}` }, { status: 500 })
+      try {
+        await supabase.from('payment_recovery_log').insert({
+          razorpay_payment_id: payment_id,
+          razorpay_order_id:   order_id,
+          student_name:        name,
+          student_email:       email.toLowerCase(),
+          student_mobile:      mobile,
+          course_id:           course_id,
+          course_name:         course?.name ?? null,
+          amount,
+          enrolment_type:      normEnrolmentType,
+          discount_code:       discount_code ?? null,
+          partner_code:        resolvedPartnerCode ?? null,
+          failure_stage:       'enrolment_insert',
+          failure_reason:      enrolmentError.message,
+          raw_payload:         body,
+        })
+      } catch { /* recovery log failure is non-fatal */ }
+      return NextResponse.json(
+        { error: `Enrolment insert failed: ${enrolmentError.message}` },
+        { status: 500 }
+      )
     }
 
     const enrolmentId = enrolmentRow!.id
 
-    // ── 4. Fire commission cascade ────────────────────────────────────────────
-    if (resolvedPartnerCode && resolvedPartnerId) {
-      await creditPartnerCommission(
-        supabase,
-        enrolmentId,
-        resolvedPartnerCode,
-        course_id,
-        netTaxable,
-        partnerPoolPct,
-        enrollerShare,
-        upstreamShare,
-      )
-    }
-
-    // ── 5. Upsert student_master_table (legacy admin — keep working) ──────────
-    try {
-      const { data: existing } = await supabase
-        .from('student_master_table')
-        .select('id, total_payments_count, total_amount_paid')
-        .eq('email', email.toLowerCase())
-        .maybeSingle()
-
-      if (existing) {
-        // Update existing student record
-        const newCount  = (existing.total_payments_count ?? 0) + 1
-        const newTotal  = Number(existing.total_amount_paid ?? 0) + amount
-        // Legacy table only has slots for payments 1-4.
-        // For payment 5+, only update the running totals — don’t attempt
-        // non-existent column names like '5th_Payment_Amt'.
-        const slotIndex = Math.min(newCount, 4)
-        const prefix    = slotIndex === 1 ? '1st' : slotIndex === 2 ? '2nd' : slotIndex === 3 ? '3rd' : '4th'
-        const payCol    = slotIndex === 1 ? '1st_Course_Payment_Amount' : `${prefix}_Payment_Amt`
-        const dateCol   = slotIndex === 1 ? '1st_Pay_Date' : `${prefix}_Payment_Date`
-        const rzpCol    = slotIndex === 1 ? '1st_Payment_Razorpay_ID' : `${prefix}_Payment_Razorpay_ID`
-
-        const updatePayload: Record<string, any> = {
-          total_payments_count: newCount,
-          total_amount_paid:    newTotal,
-          last_payment_date:    now.toISOString(),
-          updated_at:           now.toISOString(),
-        }
-        // Only write to named slot columns for payments 1-4
-        if (newCount <= 4) {
-          updatePayload[payCol]  = amount
-          updatePayload[dateCol] = today
-          updatePayload[rzpCol]  = payment_id
-        }
-
-        await supabase
-          .from('student_master_table')
-          .update(updatePayload)
-          .eq('id', existing.id)
-      } else {
-        // New student
-        await supabase.from('student_master_table').insert({
-          student_name:                  name,
-          email:                         email.toLowerCase(),
-          mobile,
-          current_course_name:           course?.name ?? 'AI Mastery Programme',
-          '1st_Course_Payment_Amount':   amount,
-          '1st_Pay_Date':                today,
-          '1st_Pay_Discount_Coupon_Used': discount_code ?? null,
-          '1st_Payment_Razorpay_ID':     payment_id,
-          referred_by:                   resolvedPartnerCode ?? null,
-          total_payments_count:          1,
-          total_amount_paid:             amount,
-          enrollment_date:               now.toISOString(),
-          last_payment_date:             now.toISOString(),
-        })
-      }
-    } catch (legacyErr: any) {
-      // Non-fatal — legacy table update failure shouldn't block enrolment
-      console.warn('[enrolment] student_master_table update failed (non-fatal):', legacyErr.message)
-    }
-
-    // ── 6. Increment discount code usage counter ────────────────────────────
-    if (discount_code) {
-      try {
-        await supabase.rpc('increment_discount_uses', { p_code: discount_code.trim().toUpperCase() })
-      } catch (e: any) {
-        console.warn('[enrolment] discount increment failed (non-fatal):', e?.message)
-      }
-    }
-
-    // ── 7. Mark qr_landing_registrations as enrolled ──────────────────────────
-    await supabase
-      .from('qr_landing_registrations')
-      .update({ is_enrolled: true, enrolled_at: now.toISOString() })
-      .eq('email', email.toLowerCase())
-
-    // ── 7. Invite student to Supabase Auth if not already registered ──────────
-    // IMPORTANT: Never use listUsers() here — it fetches ALL users and causes
-    // Vercel serverless timeouts as the user base grows. Instead, attempt the
-    // invite and gracefully handle the "already registered" error. This is O(1).
-    try {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ostaran.com'
-      const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
-        email.toLowerCase(),
-        {
-          data:       { full_name: name },
-          redirectTo: `${appUrl}/auth/callback?next=/select-batch?course_id=${course_id}&enrolment_id=${enrolmentId}`,
-        }
-      )
-      // "User already registered" is expected for returning students — not an error
-      if (inviteError && !inviteError.message?.toLowerCase().includes('already registered')) {
-        console.warn('[enrolment] Auth invite failed (non-fatal):', inviteError.message)
-      }
-    } catch (authErr: any) {
-      // Non-fatal — student can still sign in manually
-      console.warn('[enrolment] Auth invite threw (non-fatal):', authErr.message)
-    }
-
-    // ── 8. Create payment_transactions invoice record ───────────────────────
-    try {
-      const isFull = normEnrolmentType === 'full_course'
-      await supabase.rpc('create_payment_transaction', {
-        p_enrolment_id:      enrolmentId,
-        p_payment_type:      isFull ? 'full' : 'first_instalment',
-        p_instalment_number: 1,
-        p_total_instalments: isFull ? 1 : 2,
-        p_amount_paid:       amount,
-        p_payment_mode:      'upi',
-        p_payment_date:      today,
-        p_payment_reference: payment_id,
-        p_razorpay_order_id: order_id,
-        p_partner_code:      resolvedPartnerCode ?? null,
-      })
-    } catch (invoiceErr: any) {
-      console.warn('[enrolment] invoice transaction failed (non-fatal):', invoiceErr.message)
-    }
-
-    // ── 9. Fire payment_confirmed comms (non-blocking) ──────────────────────
-    const { sendStudentComm } = await import('@/lib/comms')
-    sendStudentComm({
-      event_type:    'payment_confirmed',
-      enrolment_id:  enrolmentId,
-      triggered_by:  'system',
-    }).catch(e => console.warn('[comms] payment_confirmed failed (non-fatal):', e?.message))
+    // ── 5. Return SUCCESS immediately ────────────────────────────────────────
+    // The enrolment row exists. The student can now go to select-batch.
+    // All remaining work (commission, invoice, invite, comms) runs in background.
+    //
+    // IMPORTANT: We use waitUntil (via void async IIFE) so Vercel keeps the
+    // serverless function alive long enough to finish the background work,
+    // but the HTTP response goes back to the student right now.
+    void runBackgroundWork({
+      supabase,
+      enrolmentId,
+      enrolmentSeq,
+      email,
+      name,
+      mobile,
+      courseId:            course_id,
+      courseName:          course?.name ?? 'AI Mastery Programme',
+      amount,
+      paymentId:           payment_id,
+      orderId:             order_id,
+      today,
+      now,
+      normEnrolmentType,
+      netTaxable,
+      gstAmount,
+      resolvedPartnerCode,
+      resolvedPartnerId,
+      partnerPoolPct,
+      enrollerShare,
+      upstreamShare,
+      discountCode:        discount_code,
+      body,
+    })
 
     return NextResponse.json({
       success:      true,
@@ -352,6 +435,21 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('[enrolment] Unhandled error:', error.message)
+    try {
+      const supabase = createServiceClient()
+      await supabase.from('payment_recovery_log').insert({
+        razorpay_payment_id: body?.payment_id ?? 'unknown',
+        razorpay_order_id:   body?.order_id ?? null,
+        student_name:        body?.name ?? null,
+        student_email:       body?.email?.toLowerCase() ?? null,
+        student_mobile:      body?.mobile ?? null,
+        course_id:           body?.course_id ?? null,
+        amount:              body?.amount ?? null,
+        failure_stage:       'unhandled_exception',
+        failure_reason:      error.message,
+        raw_payload:         body ?? null,
+      })
+    } catch { /* non-fatal */ }
     return NextResponse.json({ error: `Enrollment failed: ${error.message}` }, { status: 500 })
   }
 }

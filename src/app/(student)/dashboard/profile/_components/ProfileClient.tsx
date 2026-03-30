@@ -5,10 +5,137 @@ import { createClient } from '@/lib/supabase/client'
 import {
   User, Phone, Briefcase, GraduationCap, MapPin, Link2,
   Upload, Save, CheckCircle, AlertCircle, Loader2, Camera,
-  Calendar, BookOpen, Users, CreditCard, Star, FileText,
+  BookOpen, FileText,
 } from 'lucide-react'
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Light-theme tokens ────────────────────────────────────────────────────────
+const T = {
+  surface: '#ffffff', border: '#dce6f5', borderLight: '#e8f0fc',
+  navy: '#0f1f3d', blue: '#2563eb', blueLight: '#eff6ff', bluePale: '#dbeafe',
+  textPrimary: '#0f1f3d', textSec: '#475569', textMuted: '#94a3b8',
+  green: '#16a34a', greenBg: '#f0fdf4', greenBorder: '#bbf7d0',
+  amber: '#d97706', amberBg: '#fffbeb', amberBorder: '#fde68a',
+  indigo: '#4f46e5', indigoBg: '#eef2ff', indigoBorder: '#c7d2fe',
+  red: '#dc2626', redBg: '#fef2f2', redBorder: '#fecaca',
+  purple: '#7c3aed', purpleBg: '#f5f3ff', purpleBorder: '#ddd6fe',
+}
+
+// Input + label styles (light theme)
+const inp = [
+  'w-full bg-white rounded-xl px-3 py-2.5 text-sm',
+  'text-[#0f1f3d] placeholder-[#94a3b8]',
+  'border border-[#dce6f5]',
+  'focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100',
+  'transition-colors',
+].join(' ')
+
+const lbl = 'text-xs font-semibold text-[#475569] uppercase tracking-wide block mb-1.5'
+
+// ── Section card ──────────────────────────────────────────────────────────────
+function Section({ title, icon: Icon, color, colorBg, children }: {
+  title: string; icon: any; color: string; colorBg: string; children: React.ReactNode
+}) {
+  return (
+    <div className="rounded-2xl overflow-hidden bg-white" style={{ border: `1px solid ${T.border}` }}>
+      <div className="px-5 py-4 border-b flex items-center gap-2.5"
+        style={{ borderColor: T.borderLight, background: colorBg }}>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+          style={{ background: color + '22', border: `1px solid ${color}44` }}>
+          <Icon size={14} style={{ color }} />
+        </div>
+        <h2 className="font-bold text-sm" style={{ color: T.navy }}>{title}</h2>
+      </div>
+      <div className="px-5 py-5">{children}</div>
+    </div>
+  )
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtDate(d: string) {
+  return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+function fmtTime(t: string) {
+  const [h, m] = t.split(':'); const hour = parseInt(h)
+  return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`
+}
+
+// ── Enrolment card (read-only) ────────────────────────────────────────────────
+function EnrolmentCard({ enrolment, webinarReg }: { enrolment: any; webinarReg: any }) {
+  if (!enrolment && !webinarReg) return null
+  const course  = enrolment?.course
+  const batch   = enrolment?.batch
+  const partner = enrolment?.partner
+
+  const infoRow = (label: string, children: React.ReactNode) => (
+    <div>
+      <p className={lbl}>{label}</p>
+      {children}
+    </div>
+  )
+
+  return (
+    <Section title="My Course & Enrolment" icon={BookOpen} color={T.indigo} colorBg={T.indigoBg}>
+      <div className="grid sm:grid-cols-2 gap-4">
+        {course?.name && infoRow('Course',
+          <div>
+            <p className="font-semibold text-sm" style={{ color: T.textPrimary }}>{course.name}</p>
+            {course.total_sessions && (
+              <p className="text-xs mt-0.5" style={{ color: T.textMuted }}>
+                {course.total_sessions} sessions · {course.session_duration_mins ?? 90} mins each
+              </p>
+            )}
+          </div>
+        )}
+        {batch?.label && infoRow('Batch / Timeslot',
+          <div>
+            <p className="font-semibold text-sm" style={{ color: T.textPrimary }}>{batch.label}</p>
+            <p className="text-xs mt-0.5" style={{ color: T.textMuted }}>
+              {batch.day_of_week} {fmtTime(batch.start_time)} IST
+              {batch.start_date ? ` · Starts ${fmtDate(batch.start_date)}` : ''}
+            </p>
+          </div>
+        )}
+        {batch?.meeting_link && infoRow('Join Link',
+          <a href={batch.meeting_link} target="_blank" rel="noopener noreferrer"
+            className="text-sm font-medium flex items-center gap-1 hover:underline"
+            style={{ color: T.blue }}>
+            <Link2 size={12} /> {batch.meeting_platform ?? 'Join Class'}
+          </a>
+        )}
+        {batch?.instructor_name && infoRow('Trainer',
+          <p className="font-semibold text-sm" style={{ color: T.textPrimary }}>{batch.instructor_name}</p>
+        )}
+        {enrolment?.amount_paid && infoRow('Amount Paid',
+          <div>
+            <p className="font-bold" style={{ color: T.green }}>
+              ₹{Math.round(Number(enrolment.amount_paid)).toLocaleString('en-IN')}
+            </p>
+            {enrolment.payment_date && (
+              <p className="text-xs mt-0.5" style={{ color: T.textMuted }}>{fmtDate(enrolment.payment_date)}</p>
+            )}
+          </div>
+        )}
+        {webinarReg?.created_at && infoRow('Webinar Registration',
+          <p className="font-semibold text-sm" style={{ color: T.textPrimary }}>{fmtDate(webinarReg.created_at)}</p>
+        )}
+        {partner && (
+          <div className="sm:col-span-2 rounded-xl p-3"
+            style={{ background: T.indigoBg, border: `1px solid ${T.indigoBorder}` }}>
+            <p className={lbl}>Referred / Enrolled by Partner</p>
+            <p className="font-semibold text-sm mt-1" style={{ color: T.textPrimary }}>{partner.full_name}</p>
+            <p className="text-xs mt-0.5" style={{ color: T.textSec }}>
+              Code: <span className="font-mono" style={{ color: T.indigo }}>{partner.partner_code}</span>
+            </p>
+            {partner.mobile && <p className="text-xs" style={{ color: T.textMuted }}>{partner.mobile}</p>}
+            {partner.email  && <p className="text-xs" style={{ color: T.textMuted }}>{partner.email}</p>}
+          </div>
+        )}
+      </div>
+    </Section>
+  )
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 interface Profile {
   full_name?: string; mobile?: string; date_of_birth?: string; gender?: string
   profile_photo_url?: string; occupation?: string; industry?: string
@@ -18,113 +145,8 @@ interface Profile {
   city?: string; state?: string; pincode?: string; country?: string
   linkedin_url?: string; github_url?: string; instagram_url?: string
   facebook_url?: string; portfolio_url?: string; cv_url?: string
-  timezone?: string
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────
-function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
-}
-function fmtTime(t: string) {
-  const [h, m] = t.split(':'); const hour = parseInt(h)
-  return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`
-}
-
-const inp = "w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500/40 placeholder-slate-600 transition-colors"
-const label = "text-xs text-slate-400 uppercase tracking-wide block mb-1.5"
-
-// ── Section wrapper ───────────────────────────────────────────────────────
-function Section({ title, icon: Icon, color, children }: { title: string; icon: any; color: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.07)' }}>
-      <div className="px-5 py-4 border-b flex items-center gap-2" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-        <Icon className="w-4 h-4" style={{ color }} />
-        <h2 className="text-white font-bold text-sm">{title}</h2>
-      </div>
-      <div className="px-5 py-5">{children}</div>
-    </div>
-  )
-}
-
-// ── Enrolment info card (read-only) ──────────────────────────────────────
-function EnrolmentCard({ enrolment, webinarReg }: { enrolment: any; webinarReg: any }) {
-  if (!enrolment && !webinarReg) return null
-  const course  = enrolment?.course
-  const batch   = enrolment?.batch
-  const partner = enrolment?.partner
-
-  return (
-    <Section title="My Course & Enrolment" icon={BookOpen} color="#818cf8">
-      <div className="grid sm:grid-cols-2 gap-4">
-        {course?.name && (
-          <div>
-            <p className={label}>Course</p>
-            <p className="text-white font-semibold">{course.name}</p>
-            {course.total_sessions && (
-              <p className="text-slate-500 text-xs mt-0.5">{course.total_sessions} sessions · {course.session_duration_mins ?? 90} mins each</p>
-            )}
-          </div>
-        )}
-        {batch?.label && (
-          <div>
-            <p className={label}>Batch / Timeslot</p>
-            <p className="text-white font-semibold">{batch.label}</p>
-            <p className="text-slate-500 text-xs mt-0.5">
-              {batch.day_of_week} {fmtTime(batch.start_time)} IST
-              {batch.start_date ? ` · Starts ${fmtDate(batch.start_date)}` : ''}
-            </p>
-            {batch.batch_code && (
-              <p className="text-slate-600 text-xs font-mono mt-0.5">Batch: {batch.batch_code}</p>
-            )}
-          </div>
-        )}
-        {batch?.meeting_link && (
-          <div>
-            <p className={label}>Join Link</p>
-            <a href={batch.meeting_link} target="_blank" rel="noopener noreferrer"
-              className="text-indigo-400 text-sm hover:text-indigo-300 font-medium flex items-center gap-1">
-              <Link2 className="w-3 h-3" /> {batch.meeting_platform ?? 'Join Class'}
-            </a>
-          </div>
-        )}
-        {batch?.instructor_name && (
-          <div>
-            <p className={label}>Trainer</p>
-            <p className="text-white font-semibold">{batch.instructor_name}</p>
-          </div>
-        )}
-        {enrolment?.amount_paid && (
-          <div>
-            <p className={label}>Amount Paid</p>
-            <p className="text-green-400 font-bold">₹{Math.round(Number(enrolment.amount_paid)).toLocaleString('en-IN')}</p>
-            {enrolment.payment_date && <p className="text-slate-500 text-xs mt-0.5">{fmtDate(enrolment.payment_date)}</p>}
-          </div>
-        )}
-        {webinarReg?.created_at && (
-          <div>
-            <p className={label}>Webinar Registration Date</p>
-            <p className="text-white font-semibold">{fmtDate(webinarReg.created_at)}</p>
-          </div>
-        )}
-        {partner && (
-          <div className="sm:col-span-2 rounded-xl p-3 border" style={{ background: 'rgba(99,102,241,0.06)', borderColor: 'rgba(99,102,241,0.2)' }}>
-            <p className={label}>Referred / Enrolled by Partner</p>
-            <div className="flex items-center gap-3 mt-1">
-              <div>
-                <p className="text-white font-semibold text-sm">{partner.full_name}</p>
-                <p className="text-slate-400 text-xs">Code: <span className="font-mono text-indigo-300">{partner.partner_code}</span></p>
-                {partner.mobile && <p className="text-slate-500 text-xs">{partner.mobile}</p>}
-                {partner.email  && <p className="text-slate-500 text-xs">{partner.email}</p>}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </Section>
-  )
-}
-
-// ── Main profile client ───────────────────────────────────────────────────
 export default function ProfileClient({ email, userId, profile, enrolment, webinarReg, legacyUser }: {
   email: string; userId: string; profile: Profile | null
   enrolment: any; webinarReg: any; legacyUser: any
@@ -133,14 +155,13 @@ export default function ProfileClient({ email, userId, profile, enrolment, webin
   const photoRef = useRef<HTMLInputElement>(null)
   const cvRef    = useRef<HTMLInputElement>(null)
 
-  const [saving,      setSaving]      = useState(false)
-  const [saved,       setSaved]       = useState(false)
-  const [error,       setError]       = useState('')
+  const [saving,         setSaving]         = useState(false)
+  const [saved,          setSaved]          = useState(false)
+  const [error,          setError]          = useState('')
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadingCv,    setUploadingCv]    = useState(false)
-  const [skillInput,  setSkillInput]  = useState('')
+  const [skillInput,     setSkillInput]     = useState('')
 
-  // Form state — merge profile + legacy fallbacks
   const [form, setForm] = useState({
     full_name:             profile?.full_name     ?? legacyUser?.name        ?? '',
     mobile:                profile?.mobile        ?? legacyUser?.mobile_no   ?? '',
@@ -174,9 +195,7 @@ export default function ProfileClient({ email, userId, profile, enrolment, webin
 
   function addSkill() {
     const s = skillInput.trim()
-    if (s && !form.key_skills.includes(s)) {
-      setForm(f => ({ ...f, key_skills: [...f.key_skills, s] }))
-    }
+    if (s && !form.key_skills.includes(s)) setForm(f => ({ ...f, key_skills: [...f.key_skills, s] }))
     setSkillInput('')
   }
   function removeSkill(s: string) {
@@ -184,8 +203,7 @@ export default function ProfileClient({ email, userId, profile, enrolment, webin
   }
 
   async function uploadPhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const file = e.target.files?.[0]; if (!file) return
     setUploadingPhoto(true)
     const path = `${userId}/avatar-${Date.now()}.${file.name.split('.').pop()}`
     const { error: upErr } = await supabase.storage.from('student-profiles').upload(path, file, { upsert: true })
@@ -196,23 +214,20 @@ export default function ProfileClient({ email, userId, profile, enrolment, webin
   }
 
   async function uploadCv(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const file = e.target.files?.[0]; if (!file) return
     setUploadingCv(true)
     const path = `${userId}/cv-${Date.now()}.${file.name.split('.').pop()}`
     const { error: upErr } = await (supabase as any).storage.from('student-cvs').upload(path, file, { upsert: true })
     if (upErr) { setError('CV upload failed'); setUploadingCv(false); return }
     const { data: { publicUrl } } = (supabase as any).storage.from('student-cvs').getPublicUrl(path)
-    set('cv_url', publicUrl)
-    setUploadingCv(false)
+    set('cv_url', publicUrl); setUploadingCv(false)
   }
 
   async function handleSave() {
     setSaving(true); setError(''); setSaved(false)
     try {
       const payload = {
-        email,
-        user_id:               userId,
+        email, user_id: userId,
         full_name:             form.full_name || null,
         mobile:                form.mobile || null,
         date_of_birth:         form.date_of_birth || null,
@@ -242,260 +257,254 @@ export default function ProfileClient({ email, userId, profile, enrolment, webin
         updated_at:            new Date().toISOString(),
       }
       const { error: upsertErr } = await (supabase as any)
-        .from('student_profiles')
-        .upsert(payload, { onConflict: 'email' })
+        .from('student_profiles').upsert(payload, { onConflict: 'email' })
       if (upsertErr) throw new Error(upsertErr.message)
-
-      // Also update legacy users table name/mobile if present
       await (supabase as any).from('users')
-        .update({ name: form.full_name, mobile_no: form.mobile })
-        .eq('email', email)
-
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
+        .update({ name: form.full_name, mobile_no: form.mobile }).eq('email', email)
+      setSaved(true); setTimeout(() => setSaved(false), 3000)
     } catch (e: any) { setError(e.message) }
     finally { setSaving(false) }
   }
 
+  const SaveBtn = ({ bottom = false }: { bottom?: boolean }) => (
+    <button onClick={handleSave} disabled={saving}
+      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-all"
+      style={{ background: saved ? T.green : `linear-gradient(135deg, ${T.blue}, ${T.indigo})` }}>
+      {saving ? <Loader2 size={15} className="animate-spin" /> : saved ? <CheckCircle size={15} /> : <Save size={15} />}
+      {saving ? 'Saving…' : saved ? (bottom ? 'All Changes Saved!' : 'Saved!') : (bottom ? 'Save All Changes' : 'Save Profile')}
+    </button>
+  )
+
   return (
-    <div className="space-y-6 pb-16 max-w-3xl">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5 pb-16 max-w-3xl">
+
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-extrabold text-white">My Profile</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Keep your details updated for certificates, AI-Kit delivery and personalised support</p>
+          <h1 className="text-xl font-extrabold" style={{ color: T.navy }}>My Profile</h1>
+          <p className="text-sm mt-0.5" style={{ color: T.textMuted }}>
+            Keep your details updated for certificates, AI-Kit delivery and personalised support
+          </p>
         </div>
-        <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-all"
-          style={{ background: saved ? '#16a34a' : 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          {saving ? 'Saving…' : saved ? 'Saved!' : 'Save Profile'}
-        </button>
+        <SaveBtn />
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-xs text-red-400"
-          style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)' }}>
-          <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-xs"
+          style={{ background: T.redBg, border: `1px solid ${T.redBorder}`, color: T.red }}>
+          <AlertCircle size={14} className="shrink-0" /> {error}
         </div>
       )}
 
-      {/* ── PROFILE PHOTO + BASIC INFO ────────────────────────────────── */}
-      <Section title="Basic Information" icon={User} color="#818cf8">
+      {/* ── Basic Information ──────────────────────────────────────────── */}
+      <Section title="Basic Information" icon={User} color={T.blue} colorBg={T.blueLight}>
         <div className="flex items-start gap-6 mb-5">
-          {/* Photo */}
+          {/* Avatar */}
           <div className="relative shrink-0">
-            <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-white/10"
-              style={{ background: 'rgba(255,255,255,0.05)' }}>
+            <div className="w-20 h-20 rounded-2xl overflow-hidden border-2"
+              style={{ background: T.blueLight, borderColor: T.bluePale }}>
               {form.profile_photo_url
                 ? <Image src={form.profile_photo_url} alt="Profile" width={80} height={80} className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center text-3xl font-black text-slate-600">
+                : <div className="w-full h-full flex items-center justify-center text-3xl font-black" style={{ color: T.blue }}>
                     {(form.full_name || email)[0].toUpperCase()}
                   </div>
               }
             </div>
             <button onClick={() => photoRef.current?.click()}
-              className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center text-white transition-all"
-              style={{ background: '#4f46e5' }}>
-              {uploadingPhoto ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+              className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center text-white"
+              style={{ background: T.blue }}>
+              {uploadingPhoto ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
             </button>
             <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={uploadPhoto} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white font-bold text-lg">{form.full_name || 'Your Name'}</p>
-            <p className="text-slate-400 text-sm">{email}</p>
-            <p className="text-slate-600 text-xs mt-1">Click the camera icon to update your photo</p>
+            <p className="font-bold text-lg" style={{ color: T.textPrimary }}>{form.full_name || 'Your Name'}</p>
+            <p className="text-sm" style={{ color: T.textMuted }}>{email}</p>
+            <p className="text-xs mt-1" style={{ color: T.textMuted }}>Click the camera icon to update your photo</p>
           </div>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className={label}>Full Name *</label>
-            <input value={form.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Arijit Chowdhury" className={inp} />
+            <label className={lbl}>Full Name *</label>
+            <input value={form.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Your full name" className={inp} />
           </div>
           <div>
-            <label className={label}>Mobile Number *</label>
+            <label className={lbl}>Mobile Number *</label>
             <input value={form.mobile} onChange={e => set('mobile', e.target.value)} placeholder="+91 98765 43210" className={inp} />
           </div>
           <div>
-            <label className={label}>Date of Birth</label>
+            <label className={lbl}>Date of Birth</label>
             <input type="date" value={form.date_of_birth} onChange={e => set('date_of_birth', e.target.value)} className={inp} />
           </div>
           <div>
-            <label className={label}>Gender</label>
+            <label className={lbl}>Gender</label>
             <select value={form.gender} onChange={e => set('gender', e.target.value)} className={inp + ' appearance-none'}>
               <option value="">Select…</option>
-              {['Male','Female','Non-binary','Prefer not to say'].map(g => <option key={g} value={g}>{g}</option>)}
+              {['Male','Female','Non-binary','Prefer not to say'].map(g => <option key={g}>{g}</option>)}
             </select>
           </div>
         </div>
       </Section>
 
-      {/* ── PROFESSIONAL ─────────────────────────────────────────────── */}
-      <Section title="Professional Details" icon={Briefcase} color="#34d399">
+      {/* ── Professional ─────────────────────────────────────────────── */}
+      <Section title="Professional Details" icon={Briefcase} color={T.green} colorBg={T.greenBg}>
         <div className="grid sm:grid-cols-2 gap-4">
-          <div>
-            <label className={label}>Occupation</label>
+          <div><label className={lbl}>Occupation</label>
             <input value={form.occupation} onChange={e => set('occupation', e.target.value)} placeholder="Software Engineer" className={inp} />
           </div>
-          <div>
-            <label className={label}>Industry</label>
+          <div><label className={lbl}>Industry</label>
             <input value={form.industry} onChange={e => set('industry', e.target.value)} placeholder="Information Technology" className={inp} />
           </div>
-          <div>
-            <label className={label}>Current Company / Organisation</label>
+          <div><label className={lbl}>Current Company</label>
             <input value={form.current_company} onChange={e => set('current_company', e.target.value)} placeholder="TechCorp Pvt Ltd" className={inp} />
           </div>
-          <div>
-            <label className={label}>Job Title / Designation</label>
+          <div><label className={lbl}>Job Title / Designation</label>
             <input value={form.job_title} onChange={e => set('job_title', e.target.value)} placeholder="Senior Manager" className={inp} />
           </div>
-          <div>
-            <label className={label}>Work Experience (Years)</label>
+          <div><label className={lbl}>Work Experience (Years)</label>
             <input type="number" min="0" max="50" value={form.work_experience_years}
               onChange={e => set('work_experience_years', e.target.value)} placeholder="5" className={inp} />
           </div>
         </div>
-
-        {/* Key Skills */}
+        {/* Skills */}
         <div className="mt-4">
-          <label className={label}>Key Skills</label>
+          <label className={lbl}>Key Skills</label>
           <div className="flex gap-2 mb-2">
             <input value={skillInput} onChange={e => setSkillInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addSkill())}
               placeholder="Type skill, press Enter" className={inp + ' flex-1'} />
-            <button onClick={addSkill} className="px-3 py-2 rounded-xl text-xs font-semibold text-white"
-              style={{ background: 'rgba(99,102,241,0.3)' }}>Add</button>
+            <button onClick={addSkill}
+              className="px-3 py-2 rounded-xl text-xs font-semibold text-white"
+              style={{ background: T.blue }}>Add</button>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {form.key_skills.map(s => (
-              <span key={s} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full cursor-pointer"
-                style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.25)' }}
-                onClick={() => removeSkill(s)}>
+              <span key={s} onClick={() => removeSkill(s)}
+                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full cursor-pointer font-medium"
+                style={{ background: T.indigoBg, color: T.indigo, border: `1px solid ${T.indigoBorder}` }}>
                 {s} ×
               </span>
             ))}
-            {form.key_skills.length === 0 && <p className="text-slate-600 text-xs">No skills added yet</p>}
+            {form.key_skills.length === 0 && (
+              <p className="text-xs" style={{ color: T.textMuted }}>No skills added yet</p>
+            )}
           </div>
         </div>
       </Section>
 
-      {/* ── EDUCATION ─────────────────────────────────────────────────── */}
-      <Section title="Education" icon={GraduationCap} color="#fbbf24">
+      {/* ── Education ─────────────────────────────────────────────────── */}
+      <Section title="Education" icon={GraduationCap} color={T.amber} colorBg={T.amberBg}>
         <div className="grid sm:grid-cols-2 gap-4">
-          <div>
-            <label className={label}>Highest Education</label>
+          <div><label className={lbl}>Highest Education</label>
             <select value={form.highest_education} onChange={e => set('highest_education', e.target.value)} className={inp + ' appearance-none'}>
               <option value="">Select…</option>
-              {['Class 10 (SSC)','Class 12 (HSC)','Diploma','Bachelor\'s Degree','Master\'s Degree','PhD / Doctorate','Post-Doctoral','Other'].map(e => <option key={e} value={e}>{e}</option>)}
+              {["Class 10 (SSC)","Class 12 (HSC)","Diploma","Bachelor's Degree","Master's Degree","PhD / Doctorate","Post-Doctoral","Other"].map(e => <option key={e}>{e}</option>)}
             </select>
           </div>
-          <div>
-            <label className={label}>Institution / University</label>
-            <input value={form.edu_institution} onChange={e => set('edu_institution', e.target.value)}
-              placeholder="IIT Bombay / Mumbai University" className={inp} />
+          <div><label className={lbl}>Institution / University</label>
+            <input value={form.edu_institution} onChange={e => set('edu_institution', e.target.value)} placeholder="IIT Bombay / Mumbai University" className={inp} />
           </div>
-          <div>
-            <label className={label}>Graduation Year</label>
+          <div><label className={lbl}>Graduation Year</label>
             <input type="number" min="1970" max="2030" value={form.edu_graduation_year}
               onChange={e => set('edu_graduation_year', e.target.value)} placeholder="2018" className={inp} />
           </div>
         </div>
       </Section>
 
-      {/* ── DELIVERY ADDRESS ──────────────────────────────────────────── */}
-      <Section title="Delivery Address (for AI-Kit & Certificate Courier)" icon={MapPin} color="#f472b6">
+      {/* ── Address ───────────────────────────────────────────────────── */}
+      <Section title="Delivery Address (for AI-Kit & Certificate Courier)" icon={MapPin} color="#db2777" colorBg="#fdf2f8">
         <div className="grid sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
-            <label className={label}>Address Line 1</label>
-            <input value={form.address_line1} onChange={e => set('address_line1', e.target.value)}
-              placeholder="Flat / House No, Street Name" className={inp} />
+            <label className={lbl}>Address Line 1</label>
+            <input value={form.address_line1} onChange={e => set('address_line1', e.target.value)} placeholder="Flat / House No, Street Name" className={inp} />
           </div>
           <div className="sm:col-span-2">
-            <label className={label}>Address Line 2</label>
-            <input value={form.address_line2} onChange={e => set('address_line2', e.target.value)}
-              placeholder="Locality / Area / Landmark" className={inp} />
+            <label className={lbl}>Address Line 2</label>
+            <input value={form.address_line2} onChange={e => set('address_line2', e.target.value)} placeholder="Locality / Area / Landmark" className={inp} />
           </div>
-          <div>
-            <label className={label}>City</label>
+          <div><label className={lbl}>City</label>
             <input value={form.city} onChange={e => set('city', e.target.value)} placeholder="Mumbai" className={inp} />
           </div>
-          <div>
-            <label className={label}>State</label>
+          <div><label className={lbl}>State</label>
             <input value={form.state} onChange={e => set('state', e.target.value)} placeholder="Maharashtra" className={inp} />
           </div>
-          <div>
-            <label className={label}>PIN Code</label>
+          <div><label className={lbl}>PIN Code</label>
             <input value={form.pincode} onChange={e => set('pincode', e.target.value)} placeholder="400001" className={inp} />
           </div>
-          <div>
-            <label className={label}>Country</label>
+          <div><label className={lbl}>Country</label>
             <input value={form.country} onChange={e => set('country', e.target.value)} placeholder="India" className={inp} />
           </div>
         </div>
-        <p className="text-slate-600 text-xs mt-3">
+        <p className="text-xs mt-3" style={{ color: T.textMuted }}>
           📦 Your AI-Kit and physical certificate will be couriered to this address once your course is completed.
         </p>
       </Section>
 
-      {/* ── SOCIAL & PORTFOLIO ────────────────────────────────────────── */}
-      <Section title="Social & Portfolio Links" icon={Link2} color="#60a5fa">
+      {/* ── Social Links ──────────────────────────────────────────────── */}
+      <Section title="Social & Portfolio Links" icon={Link2} color={T.blue} colorBg={T.blueLight}>
         <div className="grid sm:grid-cols-2 gap-4">
           {[
-            { key: 'linkedin_url',  label_: 'LinkedIn',   ph: 'https://linkedin.com/in/yourname', icon: '🔗' },
-            { key: 'github_url',    label_: 'GitHub',     ph: 'https://github.com/yourname',      icon: '🐙' },
-            { key: 'instagram_url', label_: 'Instagram',  ph: 'https://instagram.com/yourname',   icon: '📸' },
-            { key: 'facebook_url',  label_: 'Facebook',   ph: 'https://facebook.com/yourname',    icon: '👤' },
-            { key: 'portfolio_url', label_: 'Portfolio / Website', ph: 'https://yourname.com',    icon: '🌐' },
+            { key: 'linkedin_url',  label_: 'LinkedIn',          ph: 'https://linkedin.com/in/yourname', icon: '🔗' },
+            { key: 'github_url',    label_: 'GitHub',            ph: 'https://github.com/yourname',      icon: '🐙' },
+            { key: 'instagram_url', label_: 'Instagram',         ph: 'https://instagram.com/yourname',   icon: '📸' },
+            { key: 'facebook_url',  label_: 'Facebook',          ph: 'https://facebook.com/yourname',    icon: '👤' },
+            { key: 'portfolio_url', label_: 'Portfolio/Website', ph: 'https://yourname.com',            icon: '🌐' },
           ].map(({ key, label_, ph, icon }) => (
             <div key={key}>
-              <label className={label}>{icon} {label_}</label>
+              <label className={lbl}>{icon} {label_}</label>
               <input value={(form as any)[key]} onChange={e => set(key, e.target.value)} placeholder={ph} className={inp} />
             </div>
           ))}
         </div>
       </Section>
 
-      {/* ── CV UPLOAD ────────────────────────────────────────────────── */}
-      <Section title="CV / Resume" icon={FileText} color="#a78bfa">
+      {/* ── CV ────────────────────────────────────────────────────────── */}
+      <Section title="CV / Resume" icon={FileText} color={T.purple} colorBg={T.purpleBg}>
         <div className="flex items-center gap-4">
           {form.cv_url ? (
             <div className="flex items-center gap-3 flex-1">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                style={{ background: 'rgba(167,139,250,0.1)' }}>
-                <FileText className="w-5 h-5 text-purple-400" />
+                style={{ background: T.purpleBg, border: `1px solid ${T.purpleBorder}` }}>
+                <FileText size={16} style={{ color: T.purple }} />
               </div>
               <div>
-                <p className="text-white text-sm font-medium">CV uploaded</p>
+                <p className="text-sm font-medium" style={{ color: T.textPrimary }}>CV uploaded</p>
                 <a href={form.cv_url} target="_blank" rel="noopener noreferrer"
-                  className="text-indigo-400 text-xs hover:text-indigo-300">View / Download →</a>
+                  className="text-xs hover:underline" style={{ color: T.blue }}>View / Download →</a>
               </div>
             </div>
           ) : (
-            <p className="text-slate-500 text-sm flex-1">No CV uploaded yet</p>
+            <p className="text-sm flex-1" style={{ color: T.textMuted }}>No CV uploaded yet</p>
           )}
           <button onClick={() => cvRef.current?.click()} disabled={uploadingCv}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white disabled:opacity-40"
-            style={{ background: 'rgba(167,139,250,0.2)', border: '1px solid rgba(167,139,250,0.3)' }}>
-            {uploadingCv ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-40"
+            style={{ background: T.purpleBg, color: T.purple, border: `1px solid ${T.purpleBorder}` }}>
+            {uploadingCv ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
             {form.cv_url ? 'Update CV' : 'Upload CV'}
           </button>
           <input ref={cvRef} type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={uploadCv} />
         </div>
-        <p className="text-slate-600 text-xs mt-3">Accepted formats: PDF, DOC, DOCX. Max 10 MB.</p>
+        <p className="text-xs mt-3" style={{ color: T.textMuted }}>Accepted formats: PDF, DOC, DOCX. Max 10 MB.</p>
       </Section>
 
-      {/* ── ENROLMENT INFO ────────────────────────────────────────────── */}
+      {/* Enrolment info */}
       <EnrolmentCard enrolment={enrolment} webinarReg={webinarReg} />
 
-      {/* Save button (bottom too) */}
+      {/* Bottom save */}
       <div className="flex justify-end pt-2">
-        <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-all"
-          style={{ background: saved ? '#16a34a' : 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          {saving ? 'Saving…' : saved ? 'Profile Saved!' : 'Save All Changes'}
-        </button>
+        <SaveBtn bottom />
       </div>
     </div>
+  )
+}
+
+// needed for SaveBtn
+function Save({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+      <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+    </svg>
   )
 }

@@ -58,7 +58,7 @@ export default async function CoursePage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ partner?: string; email?: string; name?: string; mobile?: string; enrol?: string }>
+  searchParams: Promise<{ partner?: string; email?: string; name?: string; mobile?: string; enrol?: string; utm_content?: string }>
 }) {
   const { slug }                                                    = await params
   const { partner, email: sqEmail, name: sqName, mobile: sqMobile } = await searchParams

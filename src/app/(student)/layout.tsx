@@ -3,7 +3,7 @@ import { DashboardTopNav } from '@/components/dashboard/DashboardTopNav'
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen" style={{ background: '#0a0d14' }}>
+    <div className="flex min-h-screen" style={{ background: '#eef3fb' }}>
       <DashboardSidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <DashboardTopNav />

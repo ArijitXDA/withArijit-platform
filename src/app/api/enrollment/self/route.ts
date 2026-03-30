@@ -41,6 +41,15 @@ async function creditPartnerCommission(
     status:                 'pending',
   })
 
+  // Update partner aggregate totals atomically.
+  // The DB trigger trg_cascade_commissions was dropped to prevent double-writes.
+  // This RPC is now the sole updater of partner commission totals.
+  await supabase.rpc('increment_partner_commission', {
+    p_partner_id:      enroller.id,
+    p_commission:      enrollerAmount,
+    p_count_enrolment: true,
+  })
+
   let parentId: string | null = enroller.parent_partner_id as string | null
   let level = 2
   let remaining = upstreamPool

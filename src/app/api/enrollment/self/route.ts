@@ -125,14 +125,59 @@ async function runBackgroundWork(params: {
   } = params
 
   // ── 1. Commission cascade ─────────────────────────────────────────────────
-  if (resolvedPartnerCode && resolvedPartnerId) {
+  // resolvedPartnerId is set during the main INSERT — use it as the source of truth.
+  // If resolvedPartnerCode is missing (e.g. partner enrolled themselves), look it up.
+  let finalPartnerCode  = resolvedPartnerCode
+  let finalPartnerId    = resolvedPartnerId
+
+  if (!finalPartnerCode && finalPartnerId) {
     try {
-      await creditPartnerCommission(
-        supabase, enrolmentId, resolvedPartnerCode,
-        courseId, netTaxable, partnerPoolPct, enrollerShare, upstreamShare,
-      )
+      const { data: partnerRow } = await supabase
+        .from('partners')
+        .select('partner_code')
+        .eq('id', finalPartnerId)
+        .maybeSingle()
+      if (partnerRow?.partner_code) finalPartnerCode = partnerRow.partner_code
+    } catch (e: any) {
+      console.warn('[bg] partner_code lookup failed (non-fatal):', e.message)
+    }
+  }
+
+  if (finalPartnerCode && finalPartnerId) {
+    try {
+      // Idempotency guard: skip if commission already recorded for this enrolment
+      const { count } = await supabase
+        .from('commission_ledger')
+        .select('id', { count: 'exact', head: true })
+        .eq('enrolment_id', enrolmentId)
+        .eq('partner_id',   finalPartnerId)
+
+      if ((count ?? 0) === 0) {
+        await creditPartnerCommission(
+          supabase, enrolmentId, finalPartnerCode,
+          courseId, netTaxable, partnerPoolPct, enrollerShare, upstreamShare,
+        )
+      } else {
+        console.log(`[bg] commission already exists for enrolment ${enrolmentId} — skipping`)
+      }
     } catch (e: any) {
       console.warn('[bg] commission failed (non-fatal):', e.message)
+      // Log to recovery table so admin can manually fix
+      try {
+        await supabase.from('payment_recovery_log').insert({
+          razorpay_payment_id: paymentId,
+          razorpay_order_id:   orderId,
+          student_name:        name,
+          student_email:       email.toLowerCase(),
+          student_mobile:      mobile,
+          course_id:           courseId,
+          course_name:         courseName,
+          amount,
+          partner_code:        finalPartnerCode,
+          failure_stage:       'commission_failed',
+          failure_reason:      e.message,
+        })
+      } catch { /* recovery log failure is non-fatal */ }
     }
   }
 

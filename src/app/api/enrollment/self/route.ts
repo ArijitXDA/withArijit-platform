@@ -269,26 +269,9 @@ async function runBackgroundWork(params: {
     console.warn('[bg] Auth invite threw (non-fatal):', e.message)
   }
 
-  // ── 6. Invoice / payment_transactions record ─────────────────────────────
-  try {
-    const isFull = normEnrolmentType === 'full_course'
-    await supabase.rpc('create_payment_transaction', {
-      p_enrolment_id:      enrolmentId,
-      p_payment_type:      isFull ? 'full' : 'first_instalment',
-      p_instalment_number: 1,
-      p_total_instalments: isFull ? 1 : 2,
-      p_amount_paid:       amount,
-      p_payment_mode:      'upi',
-      p_payment_date:      today,
-      p_payment_reference: paymentId,
-      p_razorpay_order_id: orderId,
-      p_partner_code:      resolvedPartnerCode ?? null,
-    })
-  } catch (e: any) {
-    console.warn('[bg] invoice transaction failed (non-fatal):', e.message)
-  }
-
-  // ── 7. Payment confirmed comms ────────────────────────────────────────────
+  // ── 6. Payment confirmed comms ────────────────────────────────────────────
+  // NOTE: create_payment_transaction was moved to the critical path (step 5
+  // before the 200 response). It is NOT called here to prevent double-writing.
   try {
     const { sendStudentComm } = await import('@/lib/comms')
     await sendStudentComm({
@@ -461,13 +444,50 @@ export async function POST(request: NextRequest) {
 
     const enrolmentId = enrolmentRow!.id
 
-    // ── 5. Return SUCCESS immediately ────────────────────────────────────────
-    // The enrolment row exists. The student can now go to select-batch.
-    // All remaining work (commission, invoice, invite, comms) runs in background.
-    //
-    // IMPORTANT: We use waitUntil (via void async IIFE) so Vercel keeps the
-    // serverless function alive long enough to finish the background work,
-    // but the HTTP response goes back to the student right now.
+    // ── 5. Write payment_transactions record (CRITICAL PATH) ─────────────────
+    // This MUST complete before returning 200 — it's what the student's
+    // /dashboard/payments page reads. Moved out of runBackgroundWork because
+    // Vercel can kill the serverless function after the response is sent,
+    // causing the payment history to be missing for 15-20 minutes.
+    // This is a single fast DB RPC (~100-150ms) — no external services involved.
+    try {
+      const isFull = normEnrolmentType === 'full_course'
+      await supabase.rpc('create_payment_transaction', {
+        p_enrolment_id:      enrolmentId,
+        p_payment_type:      isFull ? 'full' : 'first_instalment',
+        p_instalment_number: 1,
+        p_total_instalments: isFull ? 1 : 2,
+        p_amount_paid:       amount,
+        p_payment_mode:      'upi',
+        p_payment_date:      today,
+        p_payment_reference: payment_id,
+        p_razorpay_order_id: order_id,
+        p_partner_code:      resolvedPartnerCode ?? null,
+      })
+    } catch (e: any) {
+      // Non-fatal: log to recovery but don't block the student
+      // (enrolment already succeeded — student has access to the course)
+      console.warn('[enrolment] create_payment_transaction failed (non-fatal):', e.message)
+      try {
+        await supabase.from('payment_recovery_log').insert({
+          razorpay_payment_id: payment_id,
+          razorpay_order_id:   order_id,
+          student_name:        name,
+          student_email:       email.toLowerCase(),
+          student_mobile:      mobile,
+          course_id:           course_id,
+          course_name:         course?.name ?? null,
+          amount,
+          partner_code:        resolvedPartnerCode ?? null,
+          failure_stage:       'payment_transaction_rpc',
+          failure_reason:      e.message,
+        })
+      } catch { /* recovery log failure is non-fatal */ }
+    }
+
+    // ── 6. Return SUCCESS immediately ────────────────────────────────────────
+    // The enrolment row AND payment_transactions row both exist now.
+    // All remaining background work (commission, invite, comms) runs async.
     void runBackgroundWork({
       supabase,
       enrolmentId,

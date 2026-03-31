@@ -269,6 +269,7 @@ export async function POST(request: NextRequest) {
       email,
       mobile,
       amount,
+      full_discounted_price,  // full discounted course fee (= amount*2 for 50-50, = amount for full pay)
       discount_code,
       partner_code,
       enrolment_type,
@@ -341,6 +342,18 @@ export async function POST(request: NextRequest) {
     // ── 4. CRITICAL: Write student_enrolments ────────────────────────────────
     // This is the ONLY step that must succeed before returning to the student.
     // Everything else runs in background after this succeeds.
+    // ── Resolve the full discounted price ────────────────────────────────────
+    // For 50-50 plan: full_discounted_price = 2 × amount (first instalment)
+    // For full payment: full_discounted_price = amount
+    // Falls back to amount if not provided (backward compat)
+    const resolvedFullPrice  = Number(full_discounted_price ?? amount)
+    const resolvedBalanceDue = normEnrolmentType === 'monthly'
+      ? Number((resolvedFullPrice - amount).toFixed(2))
+      : 0
+    // discount is based on MRP vs full discounted price (not just the instalment)
+    const resolvedDiscountPct    = mrp > 0 ? Number((1 - resolvedFullPrice / mrp).toFixed(4)) : 0
+    const resolvedDiscountAmount = Number(Math.max(0, mrp - resolvedFullPrice).toFixed(2))
+
     const { data: enrolmentRow, error: enrolmentError } = await supabase
       .from('student_enrolments')
       .insert({
@@ -352,13 +365,14 @@ export async function POST(request: NextRequest) {
         course_id:          course_id,
         enrolment_type:     normEnrolmentType,
         mrp,
-        discount_pct:       mrp > 0 ? Math.round((1 - amount / mrp) * 100) / 100 : 0,
-        discount_amount:    Math.max(0, mrp - amount),
-        net_after_discount: amount,
+        discount_pct:       resolvedDiscountPct,
+        discount_amount:    resolvedDiscountAmount,
+        net_after_discount: resolvedFullPrice,     // full discounted price (both instalments)
         gst_pct:            gstPct,
         gst_amount:         gstAmount,
         net_taxable:        netTaxable,
-        amount_paid:        amount,
+        amount_paid:        amount,                // first instalment only
+        balance_due:        resolvedBalanceDue,    // ₹0 for full pay, = amount for 50-50
         payment_mode:       'upi',
         payment_date:       today,
         payment_reference:  payment_id,

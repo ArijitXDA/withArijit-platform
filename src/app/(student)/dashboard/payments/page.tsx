@@ -71,7 +71,7 @@ export default async function PaymentsPage() {
   // ── Fetch all active enrolments with balance_due > 0 ─────────────────────
   const { data: enrolmentsWithBalance } = await service
     .from('student_enrolments')
-    .select('id, course_name, course_id, enrolment_type, amount_paid, balance_due, student_name, student_mobile')
+    .select('id, course_name, course_id, enrolment_type, amount_paid, balance_due, mrp, net_after_discount, student_name, student_mobile')
     .eq('student_email', email.toLowerCase())
     .eq('is_active', true)
     .gt('balance_due', 0)
@@ -159,10 +159,21 @@ export default async function PaymentsPage() {
                 {/* Body */}
                 <div className="px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
                   <div className="text-xs space-y-0.5" style={{ color: T.textSec }}>
-                    <p>Already paid: <span className="font-semibold" style={{ color: T.textPrimary }}>{formatINR(Number(e.amount_paid))}</span></p>
-                    <p>Total course fee: <span className="font-semibold" style={{ color: T.textPrimary }}>
-                      {formatINR(Number(e.amount_paid) + balanceDue)}
-                    </span></p>
+                    {/* Show struck-off MRP only if there's a meaningful discount */}
+                    {Number(e.mrp) > Number(e.net_after_discount) && (
+                      <p>
+                        <span style={{ color: T.textMuted }}>Original price: </span>
+                        <span className="line-through" style={{ color: T.textMuted }}>{formatINR(Number(e.mrp))}</span>
+                      </p>
+                    )}
+                    <p>
+                      <span style={{ color: T.textSec }}>Your discounted price: </span>
+                      <span className="font-semibold" style={{ color: T.textPrimary }}>
+                        {formatINR(Number(e.net_after_discount))}
+                        <span className="font-normal text-xs ml-1" style={{ color: T.textMuted }}>(2 instalments of {formatINR(balanceDue)})</span>
+                      </span>
+                    </p>
+                    <p>Already paid: <span className="font-semibold" style={{ color: T.green }}>{formatINR(Number(e.amount_paid))}</span></p>
                     <p style={{ color: T.textMuted }}>GST included · Invoice issued on payment</p>
                   </div>
 

@@ -203,14 +203,20 @@ export function PaymentModal({
               method:  'POST',
               headers: { 'Content-Type': 'application/json' },
               body:    JSON.stringify({
-                payment_id:     response.razorpay_payment_id,
-                order_id:       response.razorpay_order_id,
-                course_id:      courseId,
+                payment_id:          response.razorpay_payment_id,
+                order_id:            response.razorpay_order_id,
+                course_id:           courseId,
                 name, email, mobile,
-                amount:         displayAmount ?? basePrice,
-                discount_code:  discountCode.trim().toUpperCase() || undefined,
-                partner_code:   defaultPartnerCode || undefined,
-                enrolment_type: frequency === 'full' ? 'full_course' : 'monthly',
+                amount:              displayAmount ?? basePrice,
+                // For 50-50 plan: pass the FULL discounted price so enrollment API
+                // can correctly set net_after_discount and balance_due.
+                // For full payment: full_discounted_price === amount (same value).
+                full_discounted_price: frequency === 'half'
+                  ? (displayAmount ?? basePrice) * 2
+                  : (displayAmount ?? basePrice),
+                discount_code:       discountCode.trim().toUpperCase() || undefined,
+                partner_code:        defaultPartnerCode || undefined,
+                enrolment_type:      frequency === 'full' ? 'full_course' : 'monthly',
               }),
             })
             const enrolJson = await enrolRes.json().catch(() => ({}))

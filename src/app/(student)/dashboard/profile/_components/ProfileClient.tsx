@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   User, Phone, Briefcase, GraduationCap, MapPin, Link2,
   Upload, Save, CheckCircle, AlertCircle, Loader2, Camera,
-  BookOpen, FileText,
+  BookOpen, FileText, Shield,
 } from 'lucide-react'
 
 // ── Light-theme tokens ────────────────────────────────────────────────────────
@@ -131,6 +131,74 @@ function EnrolmentCard({ enrolment, webinarReg }: { enrolment: any; webinarReg: 
           </div>
         )}
       </div>
+    </Section>
+  )
+}
+
+// ── Security section ────────────────────────────────────────────────────────
+function SecuritySection({ email }: { email: string }) {
+  const [pwState, setPwState] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle')
+
+  async function sendReset() {
+    setPwState('loading')
+    try {
+      const res = await fetch('/api/auth/send-password-reset', { method: 'POST' })
+      setPwState(res.ok ? 'sent' : 'error')
+    } catch {
+      setPwState('error')
+    }
+  }
+
+  return (
+    <Section title="Account Security" icon={Shield} color="#7c3aed" colorBg="#f5f3ff">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold" style={{ color: T.textPrimary }}>Password</p>
+          <p className="text-xs mt-0.5" style={{ color: T.textMuted }}>
+            Sign-in email: <span className="font-mono" style={{ color: T.blue }}>{email}</span>
+          </p>
+          <p className="text-xs mt-1" style={{ color: T.textSec }}>
+            If you signed in with Google or Magic Link, you may not have a password yet.
+            Click below to set or change your password via a secure email link.
+          </p>
+        </div>
+        <div className="shrink-0">
+          {pwState === 'idle' && (
+            <button
+              onClick={sendReset}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:shadow-sm"
+              style={{ background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe' }}
+            >
+              <Shield size={14} /> Set / Change Password
+            </button>
+          )}
+          {pwState === 'loading' && (
+            <button disabled className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold opacity-60"
+              style={{ background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe' }}>
+              <Loader2 size={14} className="animate-spin" /> Sending...
+            </button>
+          )}
+          {pwState === 'sent' && (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
+              style={{ background: T.greenBg, color: T.green, border: `1px solid ${T.greenBorder}` }}>
+              <CheckCircle size={14} /> Reset link sent!
+            </div>
+          )}
+          {pwState === 'error' && (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
+              style={{ background: T.redBg, color: T.red, border: `1px solid ${T.redBorder}` }}>
+              <AlertCircle size={14} /> Failed — try again
+            </div>
+          )}
+        </div>
+      </div>
+      {pwState === 'sent' && (
+        <p className="text-xs mt-3 rounded-xl px-3 py-2" style={{ background: T.greenBg, color: T.green, border: `1px solid ${T.greenBorder}` }}>
+          📧 Check your inbox at <strong>{email}</strong> for the password reset link.
+          Click it and follow the instructions to set your new password.
+          The link expires in 1 hour.
+        </p>
+      )}
     </Section>
   )
 }
@@ -487,6 +555,9 @@ export default function ProfileClient({ email, userId, profile, enrolment, webin
         </div>
         <p className="text-xs mt-3" style={{ color: T.textMuted }}>Accepted formats: PDF, DOC, DOCX. Max 10 MB.</p>
       </Section>
+
+      {/* ── Account Security ─────────────────────────────────────────── */}
+      <SecuritySection email={email} />
 
       {/* Enrolment info */}
       <EnrolmentCard enrolment={enrolment} webinarReg={webinarReg} />

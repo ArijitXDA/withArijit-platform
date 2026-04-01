@@ -17,6 +17,8 @@ import {
   Building2,
   ScrollText,
   LogOut,
+  Megaphone,
+  Route,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
@@ -31,7 +33,9 @@ const BASE_NAV = [
   { href: '/admin/courses', label: 'Courses', icon: BookOpen },
   { href: '/admin/payments', label: 'Payments', icon: CreditCard },
   { href: '/admin/email-queue', label: 'Email Queue', icon: Mail },
-  { href: '/admin/ai-spots', label: 'AI Spots', icon: MapPin },
+  { href: '/admin/ai-spots',        label: 'AI Spots',        icon: MapPin },
+  { href: '/admin/communications',  label: 'Communications',  icon: Megaphone },
+  { href: '/admin/journey',         label: 'Journey Report',  icon: Route },
 ]
 
 const SUPER_ADMIN_NAV = [

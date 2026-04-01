@@ -23,8 +23,7 @@ export default async function CoursesPage() {
     .eq('student_email', email)
     .order('created_at', { ascending: false })
 
-  // For each enrolment that has a batch, fetch sessions from session_master_table
-  // session_master_table.batch_id is a text field matching the legacy batch code
+  // For each enrolment fetch sessions from session_master_table (batch_id is legacy batch_code text)
   const enrolments = await Promise.all(
     (rawEnrolments ?? []).map(async (e: any) => {
       const batchCode = e.batch?.batch_id_legacy ?? null
@@ -50,10 +49,27 @@ export default async function CoursesPage() {
     .eq('email', email)
     .maybeSingle()
 
+  // ── Cross-sell: fetch courses the student is NOT yet enrolled in ──────────
+  const enrolledCourseIds = (rawEnrolments ?? [])
+    .map((e: any) => e.course_id)
+    .filter(Boolean)
+
+  const { data: allCourses } = await service
+    .from('awa_courses')
+    .select('id, name, short_name, description, mrp, slug, student_registration_url, is_featured, subjects, target_audience')
+    .eq('is_active', true)
+    .order('is_featured', { ascending: false })
+    .order('sort_order', { ascending: true })
+
+  const unenrolledCourses = (allCourses ?? []).filter(
+    (c: any) => !enrolledCourseIds.includes(c.id)
+  )
+
   return (
     <CoursesClient
       enrolments={enrolments as any}
       legacyUser={legacyUser as any}
+      unenrolledCourses={unenrolledCourses as any}
     />
   )
 }

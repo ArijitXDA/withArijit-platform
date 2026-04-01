@@ -201,6 +201,10 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
   const upcomingCount  = sessions.filter(s => s.session_date >= today).length
   const pastCount      = sessions.filter(s => s.session_date < today).length
 
+  // Detect if there's a session happening today (for the pulsing CTA)
+  const hasClassToday  = sessions.some(s => s.session_date === today)
+  const meetingLink    = batch?.meeting_link ?? null
+
   return (
     <div className="rounded-2xl overflow-hidden bg-white" style={{ border: `1px solid ${T.border}` }}>
 
@@ -300,6 +304,43 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
         </div>
       )}
 
+      {/* ── Join Class CTA — prominent button ───────────────────────────── */}
+      {meetingLink && (
+        <div className="px-5 pb-4">
+          <a
+            href={meetingLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm text-white transition-all ${
+              hasClassToday ? 'shadow-lg hover:shadow-xl hover:-translate-y-0.5' : 'hover:opacity-90'
+            }`}
+            style={{
+              background: hasClassToday
+                ? `linear-gradient(135deg, #16a34a, #15803d)`
+                : `linear-gradient(135deg, #2563eb, #1d4ed8)`,
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            {hasClassToday && (
+              /* Animated pulse ring for class-today state */
+              <span
+                className="absolute inset-0 rounded-xl animate-ping opacity-20"
+                style={{ background: '#16a34a' }}
+                aria-hidden="true"
+              />
+            )}
+            <Video size={16} />
+            {hasClassToday ? '🎉 Class is Today — Join Now!' : '🎥 Join Class'}
+          </a>
+          {hasClassToday && (
+            <p className="text-center text-xs mt-1.5" style={{ color: T.green }}>
+              Your session is scheduled for today. Click above to join.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Actions bar */}
       <div className="px-5 py-3 border-t flex items-center gap-4 flex-wrap"
         style={{ borderColor: T.borderLight, background: '#fafcff' }}>
@@ -315,13 +356,6 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
           style={{ color: T.indigo }}>
           <BookOpen size={12} /> Study Materials
         </Link>
-        {batch?.meeting_link && (
-          <a href={batch.meeting_link} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs font-semibold transition-colors"
-            style={{ color: T.green }}>
-            <ExternalLink size={12} /> Join Class
-          </a>
-        )}
         {course?.slug && (
           <Link href={`/courses/${course.slug}`}
             className="flex items-center gap-1.5 text-xs transition-colors ml-auto"
@@ -339,9 +373,142 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
-export default function CoursesClient({ enrolments, legacyUser }: {
+// ── Enrol modal ───────────────────────────────────────────────────────────────
+interface UnenrolledCourse {
+  id: string; name: string; short_name: string | null; description: string | null
+  mrp: number; slug: string | null; student_registration_url: string | null
+  is_featured: boolean; subjects: string[] | null; target_audience: string | null
+}
+
+function EnrolModal({ course, onClose }: { course: UnenrolledCourse; onClose: () => void }) {
+  const discounted = Math.round(Number(course.mrp) * 0.84)
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
+      <div className="relative w-full max-w-md rounded-2xl overflow-hidden bg-white shadow-2xl"
+        style={{ border: `1px solid ${T.border}` }} onClick={e => e.stopPropagation()}>
+        <div className="px-6 pt-6 pb-4 border-b" style={{ borderColor: T.borderLight }}>
+          {course.is_featured && (
+            <span className="inline-flex text-xs font-bold px-2 py-0.5 rounded-full mb-2"
+              style={{ background: T.amberBg, color: T.amber, border: `1px solid ${T.amberBorder}` }}>⭐ Featured</span>
+          )}
+          <h2 className="font-extrabold text-lg leading-snug" style={{ color: T.navy }}>{course.name}</h2>
+          {course.target_audience && <p className="text-xs mt-1" style={{ color: T.textSec }}>For: {course.target_audience}</p>}
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          {course.description && <p className="text-sm" style={{ color: T.textSec }}>{course.description}</p>}
+          <div className="rounded-xl px-4 py-3 flex items-center justify-between"
+            style={{ background: T.blueLight, border: `1px solid ${T.bluePale}` }}>
+            <div>
+              <p className="text-xs font-medium" style={{ color: T.blue }}>Course Fee</p>
+              <p className="text-2xl font-black mt-0.5" style={{ color: T.navy }}>
+                ₹{discounted.toLocaleString('en-IN')}
+              </p>
+              <p className="text-xs line-through" style={{ color: T.textMuted }}>MRP ₹{Math.round(Number(course.mrp)).toLocaleString('en-IN')}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs" style={{ color: T.textMuted }}>Includes GST</p>
+              <p className="text-xs mt-0.5 font-semibold" style={{ color: T.green }}>EMI available</p>
+            </div>
+          </div>
+          {course.subjects && Array.isArray(course.subjects) && course.subjects.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: T.textMuted }}>You’ll Learn</p>
+              <div className="flex flex-wrap gap-1.5">
+                {(course.subjects as string[]).slice(0, 6).map((s: string) => (
+                  <span key={s} className="text-xs px-2.5 py-0.5 rounded-full font-medium"
+                    style={{ background: T.indigoBg, color: T.indigo, border: `1px solid ${T.indigoBorder}` }}>{s}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          <p className="text-xs" style={{ color: T.textMuted }}>
+            Clicking “Register for Free Webinar” takes you to the webinar registration page to learn more and enrol.
+          </p>
+        </div>
+        <div className="px-6 pb-6 flex flex-col gap-2">
+          {course.student_registration_url ? (
+            <a href={course.student_registration_url} target="_blank" rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm text-white"
+              style={{ background: `linear-gradient(135deg, ${T.blue}, ${T.indigo})` }}>
+              Register for Free Webinar →
+            </a>
+          ) : (
+            <p className="text-center text-sm py-2" style={{ color: T.textMuted }}>Enrolment opening soon.</p>
+          )}
+          <button onClick={onClose}
+            className="w-full py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+            style={{ color: T.textSec, border: `1px solid ${T.border}` }}>Close</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Cross-sell section ─────────────────────────────────────────────────────
+function CrossSellSection({ courses }: { courses: UnenrolledCourse[] }) {
+  const [selected, setSelected] = useState<UnenrolledCourse | null>(null)
+  if (!courses.length) return null
+  return (
+    <>
+      <div className="pt-4">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="h-px flex-1" style={{ background: T.border }} />
+          <h2 className="text-sm font-bold uppercase tracking-wide px-2 whitespace-nowrap" style={{ color: T.textMuted }}>
+            🚀 Explore More Programmes
+          </h2>
+          <div className="h-px flex-1" style={{ background: T.border }} />
+        </div>
+        <p className="text-xs mb-4" style={{ color: T.textMuted }}>
+          Expand your AI skills with another certification. Alumni pricing available for enrolled students.
+        </p>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {courses.map(c => {
+            const discounted = Math.round(Number(c.mrp) * 0.84)
+            return (
+              <div key={c.id}
+                className="rounded-2xl overflow-hidden bg-white flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all duration-150"
+                style={{ border: `1px solid ${T.border}` }}>
+                <div className="h-1" style={{ background: c.is_featured
+                  ? `linear-gradient(90deg, ${T.amber}, #f59e0b)`
+                  : `linear-gradient(90deg, ${T.blue}, ${T.indigo})` }} />
+                <div className="p-4 flex-1 flex flex-col">
+                  {c.is_featured && (
+                    <span className="inline-flex text-xs font-bold px-2 py-0.5 rounded-full mb-2 self-start"
+                      style={{ background: T.amberBg, color: T.amber, border: `1px solid ${T.amberBorder}` }}>⭐ Featured</span>
+                  )}
+                  <h3 className="font-bold text-sm leading-snug flex-1" style={{ color: T.navy }}>
+                    {c.short_name ?? c.name}
+                  </h3>
+                  {c.target_audience && (
+                    <p className="text-xs mt-1 line-clamp-2" style={{ color: T.textSec }}>{c.target_audience}</p>
+                  )}
+                  <div className="mt-3 flex items-end justify-between gap-2">
+                    <div>
+                      <p className="text-base font-black" style={{ color: T.navy }}>₹{discounted.toLocaleString('en-IN')}</p>
+                      <p className="text-xs line-through" style={{ color: T.textMuted }}>₹{Math.round(Number(c.mrp)).toLocaleString('en-IN')}</p>
+                    </div>
+                    <button onClick={() => setSelected(c)}
+                      className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-white hover:opacity-90 transition-opacity"
+                      style={{ background: c.is_featured ? T.amber : T.blue }}>
+                      Enrol Now
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+      {selected && <EnrolModal course={selected} onClose={() => setSelected(null)} />}
+    </>
+  )
+}
+
+export default function CoursesClient({ enrolments, legacyUser, unenrolledCourses = [] }: {
   enrolments: Enrolment[]
   legacyUser: { course_name: string; batch_day_time: string | null; start_date: string | null } | null
+  unenrolledCourses?: UnenrolledCourse[]
 }) {
   const hasEnrolments = enrolments.length > 0 || legacyUser?.course_name
 
@@ -395,6 +562,9 @@ export default function CoursesClient({ enrolments, legacyUser }: {
           </Link>
         </div>
       )}
+
+      {/* Cross-sell: courses the student hasn't enrolled in yet */}
+      <CrossSellSection courses={unenrolledCourses} />
     </div>
   )
 }

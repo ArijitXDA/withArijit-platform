@@ -26,6 +26,18 @@ export async function POST(request: NextRequest) {
 // Pixel endpoint for webinar.ostaran.com registration page.
 // Returns 1×1 transparent GIF, logs the hit async.
 // Usage: fetch('https://www.ostaran.com/api/track/click?t=registration&p=PARTNER&c=wa_blast')
+
+// CORS headers — allow cross-origin calls from webinar.ostaran.com
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
 
@@ -49,7 +61,11 @@ export async function GET(request: NextRequest) {
   const gif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64')
   return new NextResponse(gif, {
     status: 200,
-    headers: { 'Content-Type': 'image/gif', 'Cache-Control': 'no-store' },
+    headers: {
+      'Content-Type':  'image/gif',
+      'Cache-Control': 'no-store',
+      ...CORS_HEADERS,
+    },
   })
 }
 

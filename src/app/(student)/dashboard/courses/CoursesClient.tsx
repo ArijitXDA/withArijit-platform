@@ -521,11 +521,20 @@ function CrossSellSection({ courses }: { courses: UnenrolledCourse[] }) {
                       ₹{Math.round(Number(c.mrp)).toLocaleString('en-IN')}
                     </p>
                   </div>
-                  <button onClick={() => setSelected(c)}
-                    className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-white hover:opacity-90 transition-opacity"
-                    style={{ background: c.is_featured ? T.amber : T.blue }}>
-                    Know More
-                  </button>
+                  {c.slug ? (
+                    <a
+                      href={`/courses/${c.slug}`}
+                      className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-white hover:opacity-90 transition-opacity"
+                      style={{ background: c.is_featured ? T.amber : T.blue }}>
+                      Know More
+                    </a>
+                  ) : (
+                    <button onClick={() => setSelected(c)}
+                      className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-white hover:opacity-90 transition-opacity"
+                      style={{ background: c.is_featured ? T.amber : T.blue }}>
+                      Know More
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

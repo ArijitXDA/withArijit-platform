@@ -10,14 +10,15 @@ const T = {
   green: '#16a34a', greenBg: '#f0fdf4', greenBorder: '#bbf7d0',
   amber: '#b45309', amberBg: '#fffbeb', amberBorder: '#fde68a',
   red: '#dc2626', redBg: '#fef2f2', redBorder: '#fecaca',
-  purple: '#7c3aed', purpleBg: '#f5f3ff', purpleBorder: '#ddd6fe',
 }
 
 function fmt(d: string) {
   return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-// ── Certificate Viewer (handles both Interim and Final certs) ─────────────────
+// ── oStaran-branded Certificate Viewer ────────────────────────────────────────
+// Matches the visual language of /certificate/[certId] page:
+// dark green header, cream background, double border, gold ornaments, serif typography
 function CertViewer({
   cert,
   enrolment,
@@ -30,121 +31,298 @@ function CertViewer({
   onClose: () => void
 }) {
   const issueDate = fmt(cert.issued_at)
-  const accentColor = isFinal ? '#16a34a' : '#b45309'
-  const accentLight = isFinal ? '#f0fdf4' : '#fffbeb'
-  const accentBorder = isFinal ? '#bbf7d0' : '#fde68a'
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
       onClick={onClose}
+      style={{ fontFamily: 'Inter, sans-serif' }}
     >
+      {/* Action bar */}
       <div
-        className="relative w-full max-w-2xl bg-white rounded-2xl overflow-hidden shadow-2xl"
+        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-3"
+        style={{ background: '#1a4d2e' }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Certificate header */}
-        <div className="px-8 pt-8 pb-6 text-center"
-          style={{
-            background: isFinal
-              ? 'linear-gradient(135deg, #064e3b, #065f46)'
-              : 'linear-gradient(135deg, #0f1f3d, #1a3a6b)',
-          }}>
-          <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
-            style={{ background: 'rgba(255,255,255,0.15)', border: '2px solid rgba(255,255,255,0.3)' }}>
-            {isFinal
-              ? <Award size={28} className="text-white" />
-              : <FileText size={28} className="text-white" />
-            }
-          </div>
-          <p className="text-xs font-bold tracking-widest mb-1"
-            style={{ color: isFinal ? '#6ee7b7' : '#93c5fd' }}>
-            {isFinal ? 'CERTIFICATE OF COMPLETION' : 'INTERIM PROVISIONAL CERTIFICATE'}
-          </p>
-          <h2 className="text-xl font-extrabold text-white">AIwithArijit × oStaran</h2>
-          <p className="text-xs mt-1" style={{ color: isFinal ? '#a7f3d0' : '#bfdbfe' }}>
-            Star Analytix Pvt. Ltd.
-          </p>
+        <div className="flex items-center gap-3">
+          <span style={{ color: '#d4a843', fontSize: 13, fontWeight: 700 }}>oStaran Certificate</span>
+          <span style={{ color: '#9cb89c', fontSize: 12, fontFamily: "'Courier New', monospace" }}>{cert.cert_id}</span>
         </div>
-
-        {/* Certificate body */}
-        <div className="px-8 py-8">
-          <p className="text-center text-sm mb-4" style={{ color: T.textSec }}>
-            This is to certify that
-          </p>
-          <p className="text-center text-2xl font-extrabold mb-6" style={{ color: T.navy }}>
-            {enrolment.student_name}
-          </p>
-
-          <div className="rounded-xl p-5 mb-6 text-center"
-            style={{ background: accentLight, border: `1px solid ${accentBorder}` }}>
-            {isFinal ? (
-              <>
-                <p className="text-sm leading-relaxed" style={{ color: '#065f46' }}>
-                  has successfully <strong>completed</strong> the programme
-                </p>
-                <p className="text-base font-bold mt-2" style={{ color: T.navy }}>
-                  {enrolment.course_name}
-                </p>
-                <p className="text-xs mt-2" style={{ color: '#047857' }}>
-                  having fulfilled all programme requirements
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-sm leading-relaxed" style={{ color: '#92400e' }}>
-                  is currently <strong>enrolled in</strong> and actively participating in the programme
-                </p>
-                <p className="text-base font-bold mt-2" style={{ color: T.navy }}>
-                  {enrolment.course_name}
-                </p>
-              </>
-            )}
-          </div>
-
-          {/* Provisional note — only for interim */}
-          {!isFinal && (
-            <div className="rounded-xl p-4 mb-6"
-              style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
-              <p className="text-xs leading-relaxed text-center" style={{ color: '#78350f' }}>
-                ⚠️ <strong>Note:</strong> This Interim Provisional Certificate confirms enrolment and active
-                participation only. It does <strong>not</strong> certify completion of the programme.
-                The Final Completion Certificate will be issued upon successful completion of all
-                programme requirements.
-              </p>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between text-xs pt-4 border-t"
-            style={{ color: T.textMuted, borderColor: T.borderLight }}>
-            <span>
-              Certificate ID: <strong style={{ color: T.navy }}>{cert.cert_id}</strong>
-            </span>
-            <span>Issued: {issueDate}</span>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="px-8 pb-6 flex items-center justify-between border-t gap-3"
-          style={{ borderColor: T.borderLight }}>
+        <div className="flex items-center gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-sm font-medium"
-            style={{ color: T.textSec, background: '#f1f5f9', border: '1px solid #e2e8f0' }}
+            className="px-4 py-2 rounded-lg text-xs font-semibold"
+            style={{ color: '#9cb89c', border: '1px solid #2d6b42', background: 'transparent' }}
           >
             Close
           </button>
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white"
-            style={{
-              background: isFinal
-                ? 'linear-gradient(135deg, #16a34a, #065f46)'
-                : `linear-gradient(135deg, ${T.blue}, #4f46e5)`,
-            }}
+            className="px-4 py-2 rounded-lg text-xs font-bold"
+            style={{ background: '#d4a843', color: '#1a1a1a', border: 'none', cursor: 'pointer' }}
           >
-            <Download size={14} /> Print / Save PDF
+            ↓ Download / Print PDF
           </button>
+        </div>
+      </div>
+
+      {/* Certificate canvas */}
+      <div
+        className="relative mt-12 overflow-auto max-h-[90vh] flex items-start justify-center"
+        onClick={e => e.stopPropagation()}
+        style={{ paddingTop: 16 }}
+      >
+        <div
+          style={{
+            width: 820,
+            flexShrink: 0,
+            background: 'linear-gradient(160deg, #faf8f2 0%, #f5f1e8 100%)',
+            position: 'relative',
+            overflow: 'hidden',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+          }}
+        >
+          {/* Double border */}
+          <div style={{ position: 'absolute', inset: 14, border: '2px solid #1a4d2e', pointerEvents: 'none', zIndex: 1 }} />
+          <div style={{ position: 'absolute', inset: 22, border: '0.5px dashed #1a4d2e', pointerEvents: 'none', zIndex: 1 }} />
+
+          {/* Gold corner ornaments */}
+          {(['tl','tr','bl','br'] as const).map(c => (
+            <div key={c} style={{
+              position: 'absolute', width: 36, height: 36, zIndex: 2,
+              top:    c.startsWith('t') ? 9  : undefined,
+              bottom: c.startsWith('b') ? 9  : undefined,
+              left:   c.endsWith('l')   ? 9  : undefined,
+              right:  c.endsWith('r')   ? 9  : undefined,
+              borderTop:    c.startsWith('t') ? '3px solid #d4a843' : 'none',
+              borderBottom: c.startsWith('b') ? '3px solid #d4a843' : 'none',
+              borderLeft:   c.endsWith('l')   ? '3px solid #d4a843' : 'none',
+              borderRight:  c.endsWith('r')   ? '3px solid #d4a843' : 'none',
+            }} />
+          ))}
+
+          {/* Dark green header band */}
+          <div style={{
+            background: '#1a4d2e',
+            padding: '18px 32px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            margin: '14px 14px 0',
+          }}>
+            {/* Logo mark */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
+                <circle cx="24" cy="24" r="14" fill="white" opacity="0.08"/>
+                <line x1="24" y1="10" x2="36" y2="20" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.6"/>
+                <line x1="36" y1="20" x2="30" y2="36" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.6"/>
+                <line x1="30" y1="36" x2="12" y2="30" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.6"/>
+                <line x1="12" y1="30" x2="24" y2="10" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.6"/>
+                <circle cx="24" cy="10" r="3" fill="#e0e7ff"/>
+                <circle cx="36" cy="20" r="2.5" fill="#c7d2fe"/>
+                <circle cx="30" cy="36" r="3" fill="#e0e7ff"/>
+                <circle cx="12" cy="30" r="2" fill="#c7d2fe"/>
+                <circle cx="24" cy="23" r="2" fill="white" opacity="0.9"/>
+              </svg>
+              <span style={{ color: '#f5f1e8', fontWeight: 700, fontSize: 16 }}>oStaran</span>
+            </div>
+
+            {/* Title */}
+            <div style={{ textAlign: 'center', flex: 1, padding: '0 24px' }}>
+              <div style={{ color: '#d4a843', fontSize: 10, letterSpacing: 4, fontWeight: 700, textTransform: 'uppercase' }}>
+                Star Analytix · AIwithArijit
+              </div>
+              <div style={{ color: '#f5f1e8', fontSize: 18, letterSpacing: 3, fontFamily: 'Georgia, serif', marginTop: 4 }}>
+                {isFinal ? 'Certificate of Completion' : 'Certificate of Enrolment'}
+              </div>
+            </div>
+
+            {/* Badge */}
+            <div style={{
+              border: '1px solid #d4a843', borderRadius: 7,
+              padding: '8px 16px', textAlign: 'center', minWidth: 130,
+            }}>
+              {isFinal ? (
+                <>
+                  <div style={{ color: '#d4a843', fontSize: 15 }}>★ ★ ★ ★ ★</div>
+                  <div style={{ color: '#f5f1e8', fontSize: 9, fontWeight: 700, letterSpacing: 1, marginTop: 3 }}>
+                    COURSE GRADUATE
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ color: '#d4a843', fontSize: 22 }}>🎓</div>
+                  <div style={{ color: '#f5f1e8', fontSize: 9, fontWeight: 700, letterSpacing: 1, marginTop: 3 }}>
+                    ENROLLED STUDENT
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Certificate body */}
+          <div style={{
+            padding: '28px 52px 32px',
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+          }}>
+
+            {/* Ornament top */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', marginBottom: 18 }}>
+              <div style={{ flex: 1, height: 1, background: '#1a4d2e', opacity: 0.2 }} />
+              <div style={{ width: 9, height: 9, background: '#d4a843', transform: 'rotate(45deg)' }} />
+              <div style={{ flex: 1, height: 1, background: '#1a4d2e', opacity: 0.2 }} />
+            </div>
+
+            <p style={{ color: '#5a6e5a', fontSize: 14, fontStyle: 'italic', fontFamily: 'Georgia, serif', marginBottom: 10 }}>
+              {isFinal ? 'This is to certify that' : 'This is to confirm that'}
+            </p>
+
+            {/* Student name — largest element */}
+            <h1 style={{
+              color: '#1a4d2e', fontSize: 38, fontWeight: 700,
+              fontFamily: 'Georgia, serif', letterSpacing: 0.5,
+              marginBottom: 6, textAlign: 'center', lineHeight: 1.1,
+            }}>
+              {enrolment.student_name}
+            </h1>
+
+            {/* Gold underline with diamond */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, width: '60%' }}>
+              <div style={{ flex: 1, height: 1, background: '#d4a843' }} />
+              <div style={{ width: 8, height: 8, background: '#d4a843', transform: 'rotate(45deg)', flexShrink: 0 }} />
+              <div style={{ flex: 1, height: 1, background: '#d4a843' }} />
+            </div>
+
+            <p style={{ color: '#5a6e5a', fontSize: 13, fontStyle: 'italic', fontFamily: 'Georgia, serif', marginBottom: 12, textAlign: 'center' }}>
+              {isFinal
+                ? 'has successfully completed all requirements of the programme'
+                : 'is currently enrolled in and actively participating in the programme'}
+            </p>
+
+            {/* Course name box */}
+            <div style={{
+              border: '1px solid rgba(26,77,46,0.25)', borderRadius: 5,
+              background: 'rgba(26,77,46,0.06)',
+              padding: '10px 40px', marginBottom: 14, textAlign: 'center',
+            }}>
+              <p style={{
+                color: '#1a4d2e', fontSize: 18, fontWeight: 700,
+                fontFamily: 'Inter, sans-serif', letterSpacing: 0.2,
+              }}>
+                {enrolment.course_name}
+              </p>
+            </div>
+
+            {/* Issued date row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 28, marginBottom: 14 }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ color: '#9cb89c', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' }}>
+                  {isFinal ? 'Completion Date' : 'Certificate Date'}
+                </div>
+                <div style={{ color: '#1a4d2e', fontSize: 15, fontFamily: 'Georgia, serif', fontWeight: 700, marginTop: 2 }}>
+                  {issueDate}
+                </div>
+              </div>
+              <div style={{ width: 7, height: 7, background: '#d4a843', transform: 'rotate(45deg)' }} />
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ color: '#9cb89c', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' }}>Platform</div>
+                <div style={{ color: '#1a4d2e', fontSize: 15, fontFamily: 'Georgia, serif', fontWeight: 700, marginTop: 2 }}>
+                  oStaran AI Education
+                </div>
+              </div>
+              <div style={{ width: 7, height: 7, background: '#d4a843', transform: 'rotate(45deg)' }} />
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ color: '#9cb89c', fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' }}>Trainer</div>
+                <div style={{ color: '#1a4d2e', fontSize: 15, fontFamily: 'Georgia, serif', fontWeight: 700, marginTop: 2 }}>
+                  Arijit Chowdhury
+                </div>
+              </div>
+            </div>
+
+            {/* Provisional notice — only for interim */}
+            {!isFinal && (
+              <div style={{
+                background: '#fef3c7', border: '1px solid #fde68a',
+                borderRadius: 8, padding: '10px 20px', marginBottom: 14,
+                width: '100%', textAlign: 'center',
+              }}>
+                <p style={{ color: '#78350f', fontSize: 11, lineHeight: 1.6 }}>
+                  ⚠️ <strong>Interim Provisional Certificate</strong> — confirms enrolment and active participation.
+                  Does <strong>not</strong> certify completion. The Final Certificate will be issued upon programme completion.
+                </p>
+              </div>
+            )}
+
+            {/* Dashed divider */}
+            <div style={{
+              width: '100%', height: 1, marginBottom: 14,
+              background: 'repeating-linear-gradient(90deg,rgba(26,77,46,0.4) 0,rgba(26,77,46,0.4) 4px,transparent 4px,transparent 8px)',
+            }} />
+
+            {/* Signature row */}
+            <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+
+              {/* Antara signature */}
+              <div style={{ textAlign: 'center', minWidth: 160 }}>
+                <svg width="140" height="28" viewBox="0 0 150 30" fill="none">
+                  <path d="M10 20 C20 10, 32 24, 46 16 C54 11, 62 22, 74 18 C82 15, 90 22, 100 16 C108 11, 118 20, 130 14"
+                    stroke="#1a4d2e" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                </svg>
+                <div style={{ width: 160, height: 1, background: '#1a4d2e', opacity: 0.6, margin: '2px auto 5px' }} />
+                <div style={{ color: '#1a4d2e', fontSize: 13, fontFamily: 'Georgia, serif', fontWeight: 700 }}>Antara Chowdhury</div>
+                <div style={{ color: '#5a6e5a', fontSize: 10, marginTop: 2 }}>Director, Star Analytix Pvt. Ltd.</div>
+                <div style={{ color: '#9cb89c', fontSize: 9, marginTop: 1 }}>Mumbai, India</div>
+              </div>
+
+              {/* Centre cert ID block */}
+              <div style={{ background: '#1a4d2e', borderRadius: 6, padding: '10px 16px', textAlign: 'center' }}>
+                <div style={{ color: '#d4a843', fontSize: 8, fontWeight: 700, letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 4 }}>
+                  Certificate ID
+                </div>
+                <div style={{ color: '#fff', fontSize: 11, fontFamily: "'Courier New', monospace", fontWeight: 700, letterSpacing: 1 }}>
+                  {cert.cert_id}
+                </div>
+                <div style={{ width: '100%', height: 1, background: '#2d6b42', margin: '5px 0' }} />
+                {/* QR code */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=72x72&data=${encodeURIComponent('https://www.ostaran.com/certificate-verification')}&bgcolor=1a4d2e&color=d4a843&margin=2`}
+                  alt="Verify"
+                  width={72}
+                  height={72}
+                  style={{ display: 'block', margin: '4px auto', borderRadius: 3 }}
+                />
+                <div style={{ color: '#9cb89c', fontSize: 8, marginTop: 3 }}>Issued {issueDate}</div>
+                <div style={{ color: '#6b9c6b', fontSize: 7, marginTop: 1, letterSpacing: 0.3 }}>
+                  ostaran.com
+                </div>
+              </div>
+
+              {/* Arijit signature */}
+              <div style={{ textAlign: 'center', minWidth: 160 }}>
+                <svg width="140" height="28" viewBox="0 0 150 30" fill="none">
+                  <path d="M10 18 C22 8, 34 26, 50 14 C60 7, 70 22, 84 16 C94 12, 104 24, 118 14 C124 10, 132 18, 140 12"
+                    stroke="#1a4d2e" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                </svg>
+                <div style={{ width: 160, height: 1, background: '#1a4d2e', opacity: 0.6, margin: '2px auto 5px' }} />
+                <div style={{ color: '#1a4d2e', fontSize: 13, fontFamily: 'Georgia, serif', fontWeight: 700 }}>Arijit Chowdhury</div>
+                <div style={{ color: '#5a6e5a', fontSize: 10, marginTop: 2 }}>Founder & Lead Trainer, oStaran</div>
+                <div style={{ color: '#9cb89c', fontSize: 9, marginTop: 1 }}>AIwithArijit × oStaran Platform</div>
+              </div>
+            </div>
+
+            {/* Ornament bottom */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', marginTop: 14 }}>
+              <div style={{ flex: 1, height: 1, background: '#1a4d2e', opacity: 0.2 }} />
+              <div style={{ width: 9, height: 9, background: '#d4a843', transform: 'rotate(45deg)' }} />
+              <div style={{ flex: 1, height: 1, background: '#1a4d2e', opacity: 0.2 }} />
+            </div>
+
+            <p style={{ color: '#5a6e5a', fontSize: 10, fontStyle: 'italic', fontFamily: 'Georgia, serif', marginTop: 8, textAlign: 'center' }}>
+              Issued by Star Analytix Private Limited, Mumbai — Powered by oStaran AI Education Platform
+            </p>
+            <p style={{ color: '#9cb89c', fontSize: 8.5, letterSpacing: 1.5, marginTop: 2, textAlign: 'center', textTransform: 'uppercase' }}>
+              Visit ostaran.com/certificate-verification to verify authenticity
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -194,7 +372,6 @@ function CompletionCertCard({ enrolment }: { enrolment: any }) {
 
   return (
     <>
-      {/* Certificate viewer — used for both interim and final when no URL exists */}
       {viewing && activeCert && (
         <CertViewer
           cert={activeCert}
@@ -217,7 +394,6 @@ function CompletionCertCard({ enrolment }: { enrolment: any }) {
         }} />
 
         <div className="px-6 py-5 flex items-start gap-4">
-          {/* Icon */}
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
             style={
               state === 'final'   ? { background: T.greenBg,  border: `1px solid ${T.greenBorder}` }
@@ -227,13 +403,10 @@ function CompletionCertCard({ enrolment }: { enrolment: any }) {
             }>
             {state === 'locked'
               ? <Lock size={22} style={{ color: T.textMuted }} />
-              : <Award size={22} style={{
-                  color: state === 'final' ? T.green : state === 'interim' ? T.amber : T.blue
-                }} />
+              : <Award size={22} style={{ color: state === 'final' ? T.green : state === 'interim' ? T.amber : T.blue }} />
             }
           </div>
 
-          {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <p className="font-bold text-base leading-tight" style={{ color: T.textPrimary }}>
@@ -293,7 +466,6 @@ function CompletionCertCard({ enrolment }: { enrolment: any }) {
           {state === 'final' && (
             <>
               {activeCert?.certificate_url ? (
-                // Official PDF/image URL exists — show view + download
                 <>
                   <a href={activeCert.certificate_url} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
@@ -307,7 +479,6 @@ function CompletionCertCard({ enrolment }: { enrolment: any }) {
                   </a>
                 </>
               ) : (
-                // No URL yet — show in-browser completion certificate viewer
                 <button
                   onClick={() => setViewing(true)}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white"
@@ -359,8 +530,7 @@ function CompletionCertCard({ enrolment }: { enrolment: any }) {
           {/* LOCKED */}
           {state === 'locked' && (
             <div className="flex items-center gap-2">
-              <button
-                disabled
+              <button disabled
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold cursor-not-allowed"
                 style={{ background: '#f1f5f9', color: T.textMuted, border: '1px solid #e2e8f0' }}
               >
@@ -457,9 +627,9 @@ export function CertificatesClient({ webinarCerts, enrolments, totalCerts }: Pro
           <div className="rounded-xl p-3 mb-4 flex flex-wrap gap-3"
             style={{ background: '#f8faff', border: `1px solid ${T.borderLight}` }}>
             {[
-              { color: T.blue,     label: 'Claim — fully paid, ready to issue' },
-              { color: T.amber,    label: 'Provisional — enrolment confirmed' },
-              { color: T.green,    label: 'Certified — course completed' },
+              { color: T.blue,      label: 'Claim — fully paid, ready to issue' },
+              { color: T.amber,     label: 'Provisional — enrolment confirmed' },
+              { color: T.green,     label: 'Certified — course completed' },
               { color: T.textMuted, label: 'Locked — balance outstanding' },
             ].map(({ color, label }) => (
               <span key={label} className="flex items-center gap-1.5 text-xs" style={{ color: T.textSec }}>

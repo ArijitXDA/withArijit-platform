@@ -55,19 +55,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, cert: existing, already_existed: true })
     }
 
-    // Generate a cert ID using a DB call to get the next sequence value
-    const { data: seqRow } = await service
-      .rpc('nextval', { seq: 'completion_cert_serial' })
-      .single()
-      .catch(() => ({ data: null }))
-
-    // Fallback: use timestamp if RPC isn't available
-    const seqNum = seqRow
-      ? String(seqRow).padStart(5, '0')
-      : String(Date.now()).slice(-5)
-
-    const year  = new Date().getFullYear()
-    const certId = `OST-CERT-${year}-${seqNum}`
+    // Generate cert ID using DB sequence via raw SQL (safe, no .catch() needed)
+    const year = new Date().getFullYear()
+    let certId: string
+    try {
+      const { data: seqData, error: seqErr } = await service
+        .rpc('get_next_cert_serial')
+      if (seqErr || !seqData) throw new Error('seq failed')
+      certId = `OST-CERT-${year}-${String(seqData).padStart(5, '0')}`
+    } catch {
+      // Fallback: timestamp-based ID — UNIQUE constraint handles any collision
+      certId = `OST-CERT-${year}-${Date.now().toString().slice(-6)}`
+    }
 
     // Insert the interim provisional cert row
     const { data: newCert, error: insertErr } = await service

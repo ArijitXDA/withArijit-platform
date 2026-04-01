@@ -27,13 +27,15 @@ function fmtTime(t: string) {
 }
 
 interface Session {
-  session_id: number
-  session_title: string | null
-  session_date: string
+  session_number: number         // 1-based index, computed from batch schedule
+  session_id?: number            // legacy field from session_master_table (not used in computed schedule)
+  session_title: string | null   // null until admin sets it
+  session_date: string           // YYYY-MM-DD, computed weekly from batch.start_date
   session_start_time: string
-  session_link: string | null
+  duration_mins: number
+  session_link: string | null    // recording link — null until admin pastes it
   study_material_link: string | null
-  session_description: string | null
+  meeting_link: string | null    // live join link — null until admin pastes it
 }
 interface Course {
   id: string; name: string; short_name: string | null; description: string | null
@@ -117,7 +119,7 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
             {visiblePast.map((s, idx) => {
               const sessionNum = past.indexOf(s) + 1
               return (
-                <div key={s.session_id}
+                <div key={s.session_number ?? sessionNum}
                   className="px-5 py-3 flex items-center justify-between gap-4 hover:bg-purple-50/20 transition-colors">
                   <div className="flex items-center gap-3 min-w-0">
                     {/* Session number badge */}
@@ -174,7 +176,7 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
               const isNext      = i === 0  // the very next upcoming session
               const isToday     = s.session_date === today
               return (
-                <div key={s.session_id}
+                <div key={s.session_number ?? sessionNum}
                   className="px-5 py-3 flex items-center justify-between gap-4 transition-colors"
                   style={{ background: isNext ? '#f0fdf4' : undefined }}>
                   <div className="flex items-center gap-3 min-w-0">

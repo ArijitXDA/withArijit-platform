@@ -3,6 +3,40 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import CoursesClient from './CoursesClient'
 
+// ── Generate 26 weekly session dates from batch start ─────────────────────────
+// Sessions happen every week on the batch's day_of_week, starting from start_date.
+// We compute dates purely from awa_batches data — no external session table needed.
+function generateSessionSchedule(batch: {
+  start_date: string | null
+  day_of_week: string
+  start_time: string
+  duration_mins: number
+}, totalSessions = 26) {
+  if (!batch.start_date) return []
+
+  const sessions = []
+  const startDate = new Date(batch.start_date + 'T00:00:00')
+
+  for (let i = 0; i < totalSessions; i++) {
+    const sessionDate = new Date(startDate)
+    sessionDate.setDate(startDate.getDate() + i * 7)
+
+    sessions.push({
+      session_number: i + 1,
+      session_date:   sessionDate.toISOString().split('T')[0],  // YYYY-MM-DD
+      session_start_time: batch.start_time,
+      duration_mins:  batch.duration_mins,
+      // These are null until admin pastes them into the session record
+      session_title:         null as string | null,
+      session_link:          null as string | null,  // recording link (past sessions)
+      study_material_link:   null as string | null,
+      meeting_link:          null as string | null,  // live join link (upcoming)
+    })
+  }
+
+  return sessions
+}
+
 export default async function CoursesPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -18,29 +52,27 @@ export default async function CoursesPage() {
       id, created_at, enrolment_type, amount_paid, is_active,
       payment_date, enrolment_seq,
       course:course_id(id, name, short_name, description, total_sessions, session_duration_mins, slug, subjects),
-      batch:batch_id(id, label, day_of_week, start_time, start_date, meeting_link, instructor_name, batch_id_legacy:batch_code)
+      batch:batch_id(id, label, day_of_week, start_time, start_date, meeting_link, instructor_name)
     `)
     .eq('student_email', email)
     .order('created_at', { ascending: false })
 
-  // For each enrolment fetch sessions from session_master_table (batch_id is legacy batch_code text)
-  const enrolments = await Promise.all(
-    (rawEnrolments ?? []).map(async (e: any) => {
-      const batchCode = e.batch?.batch_id_legacy ?? null
-      let sessions: any[] = []
+  // Generate session schedule mathematically from batch data — no external table
+  const enrolments = (rawEnrolments ?? []).map((e: any) => {
+    const batch = e.batch
+    const totalSessions = e.course?.total_sessions ?? 26
 
-      if (batchCode) {
-        const { data: sess } = await service
-          .from('session_master_table')
-          .select('session_id, session_title, session_date, session_start_time, session_link, study_material_link, session_description')
-          .eq('batch_id', batchCode)
-          .order('session_date', { ascending: true })
-        sessions = sess ?? []
-      }
+    const sessions = batch
+      ? generateSessionSchedule({
+          start_date:   batch.start_date,
+          day_of_week:  batch.day_of_week,
+          start_time:   batch.start_time,
+          duration_mins: batch.duration_mins ?? 60,
+        }, totalSessions)
+      : []
 
-      return { ...e, sessions }
-    })
-  )
+    return { ...e, sessions }
+  })
 
   // Legacy fallback
   const { data: legacyUser } = await service
@@ -49,7 +81,7 @@ export default async function CoursesPage() {
     .eq('email', email)
     .maybeSingle()
 
-  // ── Cross-sell: fetch courses the student is NOT yet enrolled in ──────────
+  // Cross-sell: courses the student is NOT yet enrolled in
   const enrolledCourseIds = (rawEnrolments ?? [])
     .map((e: any) => e.course_id)
     .filter(Boolean)

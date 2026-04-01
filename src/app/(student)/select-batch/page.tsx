@@ -3,6 +3,19 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import SelectBatchClient from './SelectBatchClient'
 
+// ── Shared-content course group ───────────────────────────────────────────────
+// These 6 courses all teach the same curriculum and share the same batches.
+// When a student enrolled in ANY of these selects a batch, show ALL timeslots
+// across the entire group. The course name displayed stays what they enrolled for.
+const SHARED_CONTENT_SLUGS = [
+  'ai-mastery-for-working-professionals',
+  'ai-mastery-for-leaders',
+  'ai-mastery-for-entrepreneurs',
+  'ai-mastery-for-students',
+  'ai-mastery-for-homemakers',
+  'ai-mastery-programme',
+]
+
 export default async function SelectBatchPage({
   searchParams,
 }: {
@@ -10,15 +23,14 @@ export default async function SelectBatchPage({
 }) {
   const { course_id, enrolment_id } = await searchParams
 
-  // Must be authenticated
-  const supabase   = await createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/signin')
 
   const service = createServiceClient()
 
-  // If no course_id, try to get it from the student's latest enrolment
-  let resolvedCourseId = course_id
+  // Resolve course_id + enrolment_id if not in URL
+  let resolvedCourseId    = course_id
   let resolvedEnrolmentId = enrolment_id
 
   if (!resolvedCourseId) {
@@ -26,7 +38,7 @@ export default async function SelectBatchPage({
       .from('student_enrolments')
       .select('id, course_id')
       .eq('student_email', user.email!)
-      .is('batch_id', null)         // hasn't picked a batch yet
+      .is('batch_id', null)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -37,15 +49,15 @@ export default async function SelectBatchPage({
     }
   }
 
-  // If student already has a batch for this enrolment → go to dashboard
+  // If already has a batch for this enrolment → check for other pending or go to dashboard
   if (resolvedEnrolmentId) {
     const { data: existing } = await service
       .from('student_batch_selections')
       .select('id')
       .eq('enrolment_id', resolvedEnrolmentId)
       .maybeSingle()
+
     if (existing) {
-      // Check if there are other enrolments still pending batch selection
       const { data: otherPending } = await service
         .from('student_enrolments')
         .select('id, course_id')
@@ -58,37 +70,54 @@ export default async function SelectBatchPage({
         .maybeSingle()
 
       if (otherPending) {
-        // Redirect to select batch for the next pending enrolment
         redirect(`/select-batch?course_id=${otherPending.course_id}&enrolment_id=${otherPending.id}`)
       }
       redirect('/dashboard')
     }
   }
 
-  // Fetch course info
+  // Fetch the enrolled course (for display name)
   const { data: course } = resolvedCourseId
     ? await service
         .from('awa_courses')
-        .select('id, name, short_name, total_sessions, session_duration_mins')
+        .select('id, name, short_name, slug, total_sessions, session_duration_mins')
         .eq('id', resolvedCourseId)
         .single()
     : { data: null }
 
-  // Fetch available batches for this course
-  const { data: batches } = resolvedCourseId
-    ? await service
-        .from('awa_batches')
-        .select('id, batch_code, label, day_of_week, start_time, start_date, max_seats, seats_filled, notes, is_open')
-        .eq('course_id', resolvedCourseId)
-        .eq('is_active', true)
-        .order('sort_order')
-    : { data: [] }
+  if (!course) redirect('/dashboard')
 
-  if (!course || !batches || batches.length === 0) {
-    redirect('/dashboard')
+  // ── Determine which course IDs to show batches for ────────────────────────
+  // If the enrolled course is in the shared-content group, show ALL batches
+  // from ALL courses in that group. Otherwise show only this course's batches.
+  let batchCourseIds: string[] = [resolvedCourseId!]
+  let isSharedGroup = false
+
+  if (course.slug && SHARED_CONTENT_SLUGS.includes(course.slug)) {
+    isSharedGroup = true
+    // Fetch all course IDs in the shared group
+    const { data: groupCourses } = await service
+      .from('awa_courses')
+      .select('id, slug')
+      .in('slug', SHARED_CONTENT_SLUGS)
+      .eq('is_active', true)
+
+    if (groupCourses && groupCourses.length > 0) {
+      batchCourseIds = groupCourses.map((c: any) => c.id)
+    }
   }
 
-  // Count how many enrolments still need batch selection
+  // Fetch batches for the resolved course ID set
+  const { data: batches } = await service
+    .from('awa_batches')
+    .select('id, batch_code, label, day_of_week, start_time, start_date, max_seats, seats_filled, notes, is_open, course_id')
+    .in('course_id', batchCourseIds)
+    .eq('is_active', true)
+    .order('sort_order')
+
+  if (!batches || batches.length === 0) redirect('/dashboard')
+
+  // Count pending batch selections
   const { count: pendingCount } = await service
     .from('student_enrolments')
     .select('*', { count: 'exact', head: true })
@@ -98,11 +127,12 @@ export default async function SelectBatchPage({
 
   return (
     <SelectBatchClient
-      course={course}
-      batches={batches}
+      course={course as any}
+      batches={batches as any}
       enrolmentId={resolvedEnrolmentId ?? null}
       studentEmail={user.email!}
       pendingCount={pendingCount ?? 1}
+      isSharedGroup={isSharedGroup}
     />
   )
 }

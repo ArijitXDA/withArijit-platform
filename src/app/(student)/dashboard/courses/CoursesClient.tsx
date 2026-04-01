@@ -51,13 +51,16 @@ interface Enrolment {
   sessions: Session[]
 }
 
-// ── Sessions panel ────────────────────────────────────────────────────────────
+// ── Sessions panel — shows ALL sessions: past (unlocked) + future (locked) ────
 function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
   sessions: Session[]; totalSessions: number | null; batchMeetingLink: string | null
 }) {
-  const today    = new Date().toISOString().split('T')[0]
-  const upcoming = sessions.filter(s => s.session_date >= today)
-  const past     = sessions.filter(s => s.session_date < today)
+  const [showAll, setShowAll] = useState(false)
+  const today   = new Date().toISOString().split('T')[0]
+  const past    = sessions.filter(s => s.session_date < today)
+  const future  = sessions.filter(s => s.session_date >= today)
+  const doneCount = past.length
+  const total26   = totalSessions ?? 26
 
   if (sessions.length === 0) {
     return (
@@ -67,125 +70,178 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
           <Calendar size={16} style={{ color: T.bluePale }} />
         </div>
         <p className="text-sm" style={{ color: T.textSec }}>Sessions will appear here once scheduled</p>
-        {totalSessions && (
-          <p className="text-xs mt-1" style={{ color: T.textMuted }}>{totalSessions} sessions planned · 90 min each</p>
-        )}
+        <p className="text-xs mt-1" style={{ color: T.textMuted }}>{total26} sessions · 60 min each · 26 weeks</p>
       </div>
     )
   }
 
+  // Show most recent 3 past + next 3 upcoming by default, all when expanded
+  const visiblePast   = showAll ? past   : past.slice(-3)
+  const visibleFuture = showAll ? future : future.slice(0, 3)
+  const hiddenCount   = sessions.length - visiblePast.length - visibleFuture.length
+
   return (
     <div className="border-t" style={{ borderColor: T.borderLight }}>
 
-      {/* Upcoming */}
-      {upcoming.length > 0 && (
-        <div>
-          <p className="px-5 pt-4 pb-2 text-xs font-bold uppercase tracking-wide"
+      {/* Progress bar — always visible */}
+      <div className="px-5 pt-4 pb-3">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold" style={{ color: T.textSec }}>Course Progress</p>
+          <p className="text-xs font-bold" style={{ color: T.navy }}>
+            {doneCount} of {total26} sessions done
+          </p>
+        </div>
+        <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: T.bluePale }}>
+          <div className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${Math.min(100, Math.round((doneCount / total26) * 100))}%`,
+              background: `linear-gradient(90deg, ${T.blue}, ${T.indigo})`,
+            }} />
+        </div>
+        <div className="flex justify-between mt-1.5">
+          <p className="text-xs" style={{ color: T.textMuted }}>
+            {doneCount > 0 ? `${doneCount} completed` : 'Not started yet'}
+          </p>
+          <p className="text-xs" style={{ color: T.textMuted }}>
+            {future.length} upcoming
+          </p>
+        </div>
+      </div>
+
+      {/* Past sessions — all unlocked with recording */}
+      {past.length > 0 && (
+        <div className="border-t" style={{ borderColor: T.borderLight }}>
+          <p className="px-5 pt-3 pb-2 text-xs font-bold uppercase tracking-wide"
+            style={{ color: T.purple }}>🎬 Past Sessions ({past.length})</p>
+          <div className="divide-y" style={{ borderColor: T.borderLight }}>
+            {visiblePast.map((s, idx) => {
+              const sessionNum = past.indexOf(s) + 1
+              return (
+                <div key={s.session_id}
+                  className="px-5 py-3 flex items-center justify-between gap-4 hover:bg-purple-50/20 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* Session number badge */}
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold"
+                      style={{ background: T.purpleBg, border: `1px solid ${T.purpleBorder}`, color: T.purple }}>
+                      {sessionNum}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: T.textSec }}>
+                        {s.session_title ?? `Session ${sessionNum}`}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: T.textMuted }}>
+                        {fmtDate(s.session_date)}
+                        {s.session_start_time ? ` · ${fmtTime(s.session_start_time)} IST` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {s.study_material_link && (
+                      <a href={s.study_material_link} target="_blank" rel="noopener noreferrer"
+                        className="text-xs px-2.5 py-1 rounded-lg font-medium"
+                        style={{ background: T.indigoBg, color: T.indigo, border: `1px solid ${T.indigoBorder}` }}>
+                        📄 Notes
+                      </a>
+                    )}
+                    {s.session_link ? (
+                      <a href={s.session_link} target="_blank" rel="noopener noreferrer"
+                        className="text-xs px-2.5 py-1 rounded-lg font-medium"
+                        style={{ background: T.purpleBg, color: T.purple, border: `1px solid ${T.purpleBorder}` }}>
+                        ▶ Watch
+                      </a>
+                    ) : (
+                      <span className="text-xs px-2.5 py-1 rounded-lg flex items-center gap-1"
+                        style={{ background: '#f1f5f9', color: T.textMuted }}>
+                        <Clock size={10} /> Processing
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Upcoming sessions — next one joinable, rest locked */}
+      {future.length > 0 && (
+        <div className="border-t" style={{ borderColor: T.borderLight }}>
+          <p className="px-5 pt-3 pb-2 text-xs font-bold uppercase tracking-wide"
             style={{ color: T.green }}>📅 Upcoming Sessions</p>
           <div className="divide-y" style={{ borderColor: T.borderLight }}>
-            {upcoming.slice(0, 5).map(s => (
-              <div key={s.session_id}
-                className="px-5 py-3 flex items-center justify-between gap-4 hover:bg-green-50/40 transition-colors">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ background: T.greenBg, border: `1px solid ${T.greenBorder}` }}>
-                    <Video size={13} style={{ color: T.green }} />
+            {visibleFuture.map((s, i) => {
+              const sessionNum  = past.length + future.indexOf(s) + 1
+              const isNext      = i === 0  // the very next upcoming session
+              const isToday     = s.session_date === today
+              return (
+                <div key={s.session_id}
+                  className="px-5 py-3 flex items-center justify-between gap-4 transition-colors"
+                  style={{ background: isNext ? '#f0fdf4' : undefined }}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold"
+                      style={isNext
+                        ? { background: T.greenBg, border: `1px solid ${T.greenBorder}`, color: T.green }
+                        : { background: '#f1f5f9', border: '1px solid #e2e8f0', color: T.textMuted }
+                      }>
+                      {isNext ? <Video size={13} /> : <Lock size={12} />}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate"
+                          style={{ color: isNext ? T.textPrimary : T.textMuted }}>
+                          {s.session_title ?? `Session ${sessionNum}`}
+                        </p>
+                        {isToday && (
+                          <span className="text-xs px-2 py-0.5 rounded-full font-bold animate-pulse"
+                            style={{ background: T.greenBg, color: T.green }}>TODAY</span>
+                        )}
+                      </div>
+                      <p className="text-xs mt-0.5" style={{ color: T.textMuted }}>
+                        Session {sessionNum} of {total26} · {fmtDate(s.session_date)}
+                        {s.session_start_time ? ` · ${fmtTime(s.session_start_time)} IST` : ''}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: T.textPrimary }}>
-                      {s.session_title ?? `Session ${s.session_id}`}
-                    </p>
-                    <p className="text-xs mt-0.5" style={{ color: T.textMuted }}>
-                      {fmtDate(s.session_date)}{s.session_start_time ? ` · ${fmtTime(s.session_start_time)} IST` : ''}
-                    </p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {s.study_material_link && (
+                      <a href={s.study_material_link} target="_blank" rel="noopener noreferrer"
+                        className="text-xs px-2.5 py-1 rounded-lg font-medium"
+                        style={{ background: T.indigoBg, color: T.indigo, border: `1px solid ${T.indigoBorder}` }}>
+                        📄 Notes
+                      </a>
+                    )}
+                    {isNext && (s.session_link || batchMeetingLink) ? (
+                      <a href={s.session_link ?? batchMeetingLink ?? '#'} target="_blank" rel="noopener noreferrer"
+                        className="text-xs px-2.5 py-1 rounded-lg font-semibold text-white"
+                        style={{ background: T.green }}>
+                        {isToday ? 'Join Now →' : 'Join →'}
+                      </a>
+                    ) : !isNext ? (
+                      <span className="text-xs px-2.5 py-1 rounded-lg flex items-center gap-1"
+                        style={{ background: '#f1f5f9', color: T.textMuted }}>
+                        <Lock size={10} /> Scheduled
+                      </span>
+                    ) : null}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {s.study_material_link && (
-                    <a href={s.study_material_link} target="_blank" rel="noopener noreferrer"
-                      className="text-xs px-2.5 py-1 rounded-lg font-medium"
-                      style={{ background: T.indigoBg, color: T.indigo, border: `1px solid ${T.indigoBorder}` }}>
-                      📄 Notes
-                    </a>
-                  )}
-                  {(s.session_link || batchMeetingLink) && (
-                    <a href={s.session_link ?? batchMeetingLink ?? '#'} target="_blank" rel="noopener noreferrer"
-                      className="text-xs px-2.5 py-1 rounded-lg font-semibold text-white"
-                      style={{ background: T.green }}>
-                      Join →
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
 
-      {/* Past */}
-      {past.length > 0 && (
-        <div>
-          <p className="px-5 pt-4 pb-2 text-xs font-bold uppercase tracking-wide"
-            style={{ color: T.textMuted }}>🎬 Past Sessions</p>
-          <div className="divide-y" style={{ borderColor: T.borderLight }}>
-            {past.slice(-5).reverse().map(s => (
-              <div key={s.session_id}
-                className="px-5 py-3 flex items-center justify-between gap-4 hover:bg-blue-50/30 transition-colors">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ background: T.indigoBg, border: `1px solid ${T.indigoBorder}` }}>
-                    <Play size={13} style={{ color: T.indigo }} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: T.textSec }}>
-                      {s.session_title ?? `Session ${s.session_id}`}
-                    </p>
-                    <p className="text-xs mt-0.5" style={{ color: T.textMuted }}>{fmtDate(s.session_date)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {s.study_material_link && (
-                    <a href={s.study_material_link} target="_blank" rel="noopener noreferrer"
-                      className="text-xs px-2.5 py-1 rounded-lg font-medium"
-                      style={{ background: T.indigoBg, color: T.indigo, border: `1px solid ${T.indigoBorder}` }}>
-                      📄 Notes
-                    </a>
-                  )}
-                  {s.session_link ? (
-                    <a href={s.session_link} target="_blank" rel="noopener noreferrer"
-                      className="text-xs px-2.5 py-1 rounded-lg font-medium"
-                      style={{ background: T.purpleBg, color: T.purple, border: `1px solid ${T.purpleBorder}` }}>
-                      ▶ Recording
-                    </a>
-                  ) : (
-                    <span className="text-xs px-2.5 py-1 rounded-lg flex items-center gap-1"
-                      style={{ background: '#f1f5f9', color: T.textMuted }}>
-                      <Lock size={10} /> Recording
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Progress bar */}
-      {totalSessions && (
+      {/* Show all / collapse toggle */}
+      {hiddenCount > 0 && (
         <div className="px-5 py-3 border-t" style={{ borderColor: T.borderLight }}>
-          <div className="flex items-center justify-between mb-1.5">
-            <p className="text-xs font-medium" style={{ color: T.textSec }}>Course Progress</p>
-            <p className="text-xs font-semibold" style={{ color: T.textPrimary }}>
-              {past.length} / {totalSessions} sessions completed
-            </p>
-          </div>
-          <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: T.bluePale }}>
-            <div className="h-full rounded-full transition-all"
-              style={{
-                width: `${Math.min(100, Math.round((past.length / totalSessions) * 100))}%`,
-                background: `linear-gradient(90deg, ${T.blue}, ${T.indigo})`,
-              }} />
-          </div>
+          <button
+            onClick={() => setShowAll(v => !v)}
+            className="w-full text-xs font-semibold py-2 rounded-xl transition-colors"
+            style={{ color: T.blue, background: T.blueLight, border: `1px solid ${T.bluePale}` }}
+          >
+            {showAll
+              ? '↑ Show fewer sessions'
+              : `↓ Show all ${sessions.length} sessions (${hiddenCount} more)`}
+          </button>
         </div>
       )}
     </div>

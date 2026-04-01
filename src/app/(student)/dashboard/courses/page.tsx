@@ -4,37 +4,31 @@ import { redirect } from 'next/navigation'
 import CoursesClient from './CoursesClient'
 
 // ── Generate 26 weekly session dates from batch start ─────────────────────────
-// Sessions happen every week on the batch's day_of_week, starting from start_date.
-// We compute dates purely from awa_batches data — no external session table needed.
-function generateSessionSchedule(batch: {
-  start_date: string | null
-  day_of_week: string
-  start_time: string
-  duration_mins: number
-}, totalSessions = 26) {
+// Each session is 1 week after the previous, starting from batch.start_date.
+// Real links (recording, materials, meeting) are overlaid from awa_session_links.
+function generateSessionSchedule(
+  batch: { start_date: string | null; start_time: string; duration_mins: number },
+  savedLinks: Record<number, any>,
+  totalSessions = 26,
+) {
   if (!batch.start_date) return []
 
-  const sessions = []
-  const startDate = new Date(batch.start_date + 'T00:00:00')
-
-  for (let i = 0; i < totalSessions; i++) {
-    const sessionDate = new Date(startDate)
-    sessionDate.setDate(startDate.getDate() + i * 7)
-
-    sessions.push({
-      session_number: i + 1,
-      session_date:   sessionDate.toISOString().split('T')[0],  // YYYY-MM-DD
-      session_start_time: batch.start_time,
-      duration_mins:  batch.duration_mins,
-      // These are null until admin pastes them into the session record
-      session_title:         null as string | null,
-      session_link:          null as string | null,  // recording link (past sessions)
-      study_material_link:   null as string | null,
-      meeting_link:          null as string | null,  // live join link (upcoming)
-    })
-  }
-
-  return sessions
+  return Array.from({ length: totalSessions }, (_, i) => {
+    const d = new Date(batch.start_date! + 'T00:00:00')
+    d.setDate(d.getDate() + i * 7)
+    const saved = savedLinks[i + 1] ?? {}
+    return {
+      session_number:      i + 1,
+      session_date:        d.toISOString().split('T')[0],
+      session_start_time:  batch.start_time,
+      duration_mins:       batch.duration_mins,
+      // Overlay from awa_session_links — null until admin pastes them
+      session_title:       (saved.session_title       || null) as string | null,
+      session_link:        (saved.recording_link      || null) as string | null,
+      study_material_link: (saved.study_material_link || null) as string | null,
+      meeting_link:        (saved.meeting_link        || null) as string | null,
+    }
+  })
 }
 
 export default async function CoursesPage() {
@@ -45,30 +39,52 @@ export default async function CoursesPage() {
   const service = createServiceClient()
   const email   = user.email!
 
-  // All enrolments with course + batch details
+  // Enrolments with course + batch details
   const { data: rawEnrolments } = await service
     .from('student_enrolments')
     .select(`
       id, created_at, enrolment_type, amount_paid, is_active,
       payment_date, enrolment_seq,
       course:course_id(id, name, short_name, description, total_sessions, session_duration_mins, slug, subjects),
-      batch:batch_id(id, label, day_of_week, start_time, start_date, meeting_link, instructor_name)
+      batch:batch_id(id, label, day_of_week, start_time, start_date, meeting_link, instructor_name, duration_mins)
     `)
     .eq('student_email', email)
     .order('created_at', { ascending: false })
 
-  // Generate session schedule mathematically from batch data — no external table
+  // Collect all unique batch IDs that have a start_date (needed for session generation)
+  const batchIds = [
+    ...new Set(
+      (rawEnrolments ?? [])
+        .map((e: any) => e.batch?.id)
+        .filter(Boolean)
+    )
+  ]
+
+  // Fetch all saved session links for these batches in one query
+  const savedLinksMap: Record<string, Record<number, any>> = {}
+  if (batchIds.length > 0) {
+    const { data: linkRows } = await service
+      .from('awa_session_links')
+      .select('batch_id, session_number, session_title, recording_link, study_material_link, meeting_link')
+      .in('batch_id', batchIds)
+    for (const row of linkRows ?? []) {
+      if (!savedLinksMap[row.batch_id]) savedLinksMap[row.batch_id] = {}
+      savedLinksMap[row.batch_id][row.session_number] = row
+    }
+  }
+
+  // Build enrolments with computed + overlaid session schedule
   const enrolments = (rawEnrolments ?? []).map((e: any) => {
-    const batch = e.batch
+    const batch         = e.batch
     const totalSessions = e.course?.total_sessions ?? 26
+    const batchLinks    = batch ? (savedLinksMap[batch.id] ?? {}) : {}
 
     const sessions = batch
-      ? generateSessionSchedule({
-          start_date:   batch.start_date,
-          day_of_week:  batch.day_of_week,
-          start_time:   batch.start_time,
-          duration_mins: batch.duration_mins ?? 60,
-        }, totalSessions)
+      ? generateSessionSchedule(
+          { start_date: batch.start_date, start_time: batch.start_time, duration_mins: batch.duration_mins ?? 60 },
+          batchLinks,
+          totalSessions,
+        )
       : []
 
     return { ...e, sessions }
@@ -81,11 +97,8 @@ export default async function CoursesPage() {
     .eq('email', email)
     .maybeSingle()
 
-  // Cross-sell: courses the student is NOT yet enrolled in
-  const enrolledCourseIds = (rawEnrolments ?? [])
-    .map((e: any) => e.course_id)
-    .filter(Boolean)
-
+  // Cross-sell
+  const enrolledCourseIds = (rawEnrolments ?? []).map((e: any) => e.course_id).filter(Boolean)
   const { data: allCourses } = await service
     .from('awa_courses')
     .select('id, name, short_name, description, mrp, slug, student_registration_url, is_featured, subjects, target_audience')

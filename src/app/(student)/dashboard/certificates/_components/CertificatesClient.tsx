@@ -17,15 +17,22 @@ function fmt(d: string) {
   return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-// ── Interim Certificate Text Viewer ──────────────────────────────────────────
-function InterimCertView({
-  cert, enrolment, onClose,
+// ── Certificate Viewer (handles both Interim and Final certs) ─────────────────
+function CertViewer({
+  cert,
+  enrolment,
+  isFinal,
+  onClose,
 }: {
   cert: { cert_id: string; issued_at: string }
   enrolment: { student_name: string; course_name: string }
+  isFinal: boolean
   onClose: () => void
 }) {
   const issueDate = fmt(cert.issued_at)
+  const accentColor = isFinal ? '#16a34a' : '#b45309'
+  const accentLight = isFinal ? '#f0fdf4' : '#fffbeb'
+  const accentBorder = isFinal ? '#bbf7d0' : '#fde68a'
 
   return (
     <div
@@ -38,49 +45,81 @@ function InterimCertView({
       >
         {/* Certificate header */}
         <div className="px-8 pt-8 pb-6 text-center"
-          style={{ background: 'linear-gradient(135deg, #0f1f3d, #1a3a6b)' }}>
+          style={{
+            background: isFinal
+              ? 'linear-gradient(135deg, #064e3b, #065f46)'
+              : 'linear-gradient(135deg, #0f1f3d, #1a3a6b)',
+          }}>
           <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
             style={{ background: 'rgba(255,255,255,0.15)', border: '2px solid rgba(255,255,255,0.3)' }}>
-            <FileText size={28} className="text-white" />
+            {isFinal
+              ? <Award size={28} className="text-white" />
+              : <FileText size={28} className="text-white" />
+            }
           </div>
-          <p className="text-xs font-bold tracking-widest mb-1" style={{ color: '#93c5fd' }}>
-            INTERIM PROVISIONAL CERTIFICATE
+          <p className="text-xs font-bold tracking-widest mb-1"
+            style={{ color: isFinal ? '#6ee7b7' : '#93c5fd' }}>
+            {isFinal ? 'CERTIFICATE OF COMPLETION' : 'INTERIM PROVISIONAL CERTIFICATE'}
           </p>
-          <h2 className="text-xl font-extrabold text-white">
-            AIwithArijit × oStaran
-          </h2>
-          <p className="text-xs mt-1" style={{ color: '#bfdbfe' }}>Star Analytix Pvt. Ltd.</p>
+          <h2 className="text-xl font-extrabold text-white">AIwithArijit × oStaran</h2>
+          <p className="text-xs mt-1" style={{ color: isFinal ? '#a7f3d0' : '#bfdbfe' }}>
+            Star Analytix Pvt. Ltd.
+          </p>
         </div>
 
         {/* Certificate body */}
         <div className="px-8 py-8">
-          <p className="text-center text-sm mb-6" style={{ color: T.textSec }}>
-            This is to confirm that
+          <p className="text-center text-sm mb-4" style={{ color: T.textSec }}>
+            This is to certify that
           </p>
           <p className="text-center text-2xl font-extrabold mb-6" style={{ color: T.navy }}>
             {enrolment.student_name}
           </p>
+
           <div className="rounded-xl p-5 mb-6 text-center"
-            style={{ background: T.amberBg, border: `1px solid ${T.amberBorder}` }}>
-            <p className="text-sm leading-relaxed" style={{ color: '#92400e' }}>
-              is currently <strong>enrolled in</strong> and actively participating in the programme
-            </p>
-            <p className="text-base font-bold mt-2" style={{ color: T.navy }}>
-              {enrolment.course_name}
-            </p>
+            style={{ background: accentLight, border: `1px solid ${accentBorder}` }}>
+            {isFinal ? (
+              <>
+                <p className="text-sm leading-relaxed" style={{ color: '#065f46' }}>
+                  has successfully <strong>completed</strong> the programme
+                </p>
+                <p className="text-base font-bold mt-2" style={{ color: T.navy }}>
+                  {enrolment.course_name}
+                </p>
+                <p className="text-xs mt-2" style={{ color: '#047857' }}>
+                  having fulfilled all programme requirements
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm leading-relaxed" style={{ color: '#92400e' }}>
+                  is currently <strong>enrolled in</strong> and actively participating in the programme
+                </p>
+                <p className="text-base font-bold mt-2" style={{ color: T.navy }}>
+                  {enrolment.course_name}
+                </p>
+              </>
+            )}
           </div>
-          <div className="rounded-xl p-4 mb-6"
-            style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
-            <p className="text-xs leading-relaxed text-center" style={{ color: '#78350f' }}>
-              ⚠️ <strong>Note:</strong> This Interim Provisional Certificate confirms enrolment and active
-              participation only. It does <strong>not</strong> certify completion of the programme.
-              The Final Completion Certificate will be issued upon successful completion of all
-              programme requirements.
-            </p>
-          </div>
-          <div className="flex items-center justify-between text-xs"
-            style={{ color: T.textMuted }}>
-            <span>Certificate ID: <strong style={{ color: T.navy }}>{cert.cert_id}</strong></span>
+
+          {/* Provisional note — only for interim */}
+          {!isFinal && (
+            <div className="rounded-xl p-4 mb-6"
+              style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
+              <p className="text-xs leading-relaxed text-center" style={{ color: '#78350f' }}>
+                ⚠️ <strong>Note:</strong> This Interim Provisional Certificate confirms enrolment and active
+                participation only. It does <strong>not</strong> certify completion of the programme.
+                The Final Completion Certificate will be issued upon successful completion of all
+                programme requirements.
+              </p>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between text-xs pt-4 border-t"
+            style={{ color: T.textMuted, borderColor: T.borderLight }}>
+            <span>
+              Certificate ID: <strong style={{ color: T.navy }}>{cert.cert_id}</strong>
+            </span>
             <span>Issued: {issueDate}</span>
           </div>
         </div>
@@ -98,7 +137,11 @@ function InterimCertView({
           <button
             onClick={() => window.print()}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white"
-            style={{ background: `linear-gradient(135deg, ${T.blue}, #4f46e5)` }}
+            style={{
+              background: isFinal
+                ? 'linear-gradient(135deg, #16a34a, #065f46)'
+                : `linear-gradient(135deg, ${T.blue}, #4f46e5)`,
+            }}
           >
             <Download size={14} /> Print / Save PDF
           </button>
@@ -139,7 +182,7 @@ function CompletionCertCard({ enrolment }: { enrolment: any }) {
       }
       setActiveCert(json.cert)
       setClaimState('success')
-      setViewing(true) // auto-open the viewer
+      setViewing(true)
     } catch {
       setClaimError('Network error — please try again')
       setClaimState('error')
@@ -147,19 +190,22 @@ function CompletionCertCard({ enrolment }: { enrolment: any }) {
   }
 
   const courseName = (enrolment.course as any)?.name ?? enrolment.course_name ?? 'AI Programme'
+  const isFinal = state === 'final'
 
   return (
     <>
+      {/* Certificate viewer — used for both interim and final when no URL exists */}
       {viewing && activeCert && (
-        <InterimCertView
+        <CertViewer
           cert={activeCert}
           enrolment={{ student_name: enrolment.student_name, course_name: courseName }}
+          isFinal={isFinal}
           onClose={() => setViewing(false)}
         />
       )}
 
       <div className="rounded-2xl border overflow-hidden bg-white" style={{ borderColor: T.border }}>
-        {/* Top colour bar by state */}
+        {/* Top colour bar */}
         <div className="h-1" style={{
           background: state === 'final'
             ? 'linear-gradient(90deg, #16a34a, #15803d)'
@@ -193,7 +239,6 @@ function CompletionCertCard({ enrolment }: { enrolment: any }) {
               <p className="font-bold text-base leading-tight" style={{ color: T.textPrimary }}>
                 {courseName}
               </p>
-              {/* Status badge */}
               {state === 'final' && (
                 <span className="shrink-0 text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1"
                   style={{ background: T.greenBg, color: T.green, border: `1px solid ${T.greenBorder}` }}>
@@ -214,10 +259,9 @@ function CompletionCertCard({ enrolment }: { enrolment: any }) {
               )}
             </div>
 
-            {/* State-specific sub-text */}
             {state === 'final' && activeCert && (
               <p className="text-xs mt-1" style={{ color: T.textSec }}>
-                Final certificate issued · {activeCert.cert_id}
+                Completion certificate · {activeCert.cert_id}
               </p>
             )}
             {state === 'interim' && activeCert && (
@@ -235,7 +279,6 @@ function CompletionCertCard({ enrolment }: { enrolment: any }) {
                 Fully paid · Claim your interim provisional certificate now
               </p>
             )}
-
             <p className="text-xs mt-0.5" style={{ color: T.textMuted }}>
               AIwithArijit × oStaran · Star Analytix Pvt. Ltd.
             </p>
@@ -246,10 +289,11 @@ function CompletionCertCard({ enrolment }: { enrolment: any }) {
         <div className="px-6 pb-5 border-t flex items-center gap-2 flex-wrap"
           style={{ borderColor: T.borderLight }}>
 
-          {/* FINAL: view / download */}
+          {/* FINAL */}
           {state === 'final' && (
             <>
               {activeCert?.certificate_url ? (
+                // Official PDF/image URL exists — show view + download
                 <>
                   <a href={activeCert.certificate_url} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
@@ -263,14 +307,19 @@ function CompletionCertCard({ enrolment }: { enrolment: any }) {
                   </a>
                 </>
               ) : (
-                <p className="text-xs" style={{ color: T.textMuted }}>
-                  Certificate file will be available here shortly.
-                </p>
+                // No URL yet — show in-browser completion certificate viewer
+                <button
+                  onClick={() => setViewing(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white"
+                  style={{ background: 'linear-gradient(135deg, #16a34a, #065f46)' }}
+                >
+                  <Award size={12} /> View Completion Certificate
+                </button>
               )}
             </>
           )}
 
-          {/* INTERIM: view in browser */}
+          {/* INTERIM */}
           {state === 'interim' && (
             <button
               onClick={() => setViewing(true)}
@@ -281,7 +330,7 @@ function CompletionCertCard({ enrolment }: { enrolment: any }) {
             </button>
           )}
 
-          {/* CLAIM: button */}
+          {/* CLAIM */}
           {state === 'claim' && (
             <>
               {claimState === 'idle' || claimState === 'error' ? (
@@ -307,7 +356,7 @@ function CompletionCertCard({ enrolment }: { enrolment: any }) {
             </>
           )}
 
-          {/* LOCKED: greyed-out with message */}
+          {/* LOCKED */}
           {state === 'locked' && (
             <div className="flex items-center gap-2">
               <button
@@ -332,9 +381,7 @@ function CompletionCertCard({ enrolment }: { enrolment: any }) {
 function WebinarCertCard({ cert }: { cert: any }) {
   return (
     <div className="rounded-2xl border overflow-hidden bg-white" style={{ borderColor: T.border }}>
-      <div className="h-1" style={{
-        background: 'linear-gradient(90deg, #b45309, #d97706)',
-      }} />
+      <div className="h-1" style={{ background: 'linear-gradient(90deg, #b45309, #d97706)' }} />
       <div className="px-6 py-5 flex items-start gap-4">
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
           style={{ background: T.amberBg, border: `1px solid ${T.amberBorder}` }}>
@@ -386,7 +433,6 @@ export function CertificatesClient({ webinarCerts, enrolments, totalCerts }: Pro
   return (
     <div className="space-y-8 pb-12 max-w-3xl">
 
-      {/* Header */}
       <div>
         <h1 className="text-xl font-extrabold flex items-center gap-2" style={{ color: T.navy }}>
           <Award size={20} style={{ color: T.amber }} /> Certificates
@@ -398,7 +444,7 @@ export function CertificatesClient({ webinarCerts, enrolments, totalCerts }: Pro
         </p>
       </div>
 
-      {/* ── Section 1: Course Certificates ─────────────────────────────────── */}
+      {/* Course Certificates */}
       {enrolments.length > 0 && (
         <div>
           <h2 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: T.navy }}>
@@ -408,14 +454,12 @@ export function CertificatesClient({ webinarCerts, enrolments, totalCerts }: Pro
             </div>
             Course Certificates
           </h2>
-
-          {/* State legend */}
           <div className="rounded-xl p-3 mb-4 flex flex-wrap gap-3"
             style={{ background: '#f8faff', border: `1px solid ${T.borderLight}` }}>
             {[
-              { color: T.blue, label: 'Claim — fully paid, ready to issue' },
-              { color: T.amber, label: 'Provisional — enrolment confirmed' },
-              { color: T.green, label: 'Certified — course completed' },
+              { color: T.blue,     label: 'Claim — fully paid, ready to issue' },
+              { color: T.amber,    label: 'Provisional — enrolment confirmed' },
+              { color: T.green,    label: 'Certified — course completed' },
               { color: T.textMuted, label: 'Locked — balance outstanding' },
             ].map(({ color, label }) => (
               <span key={label} className="flex items-center gap-1.5 text-xs" style={{ color: T.textSec }}>
@@ -424,7 +468,6 @@ export function CertificatesClient({ webinarCerts, enrolments, totalCerts }: Pro
               </span>
             ))}
           </div>
-
           <div className="space-y-3">
             {enrolments.map(e => (
               <CompletionCertCard key={e.id} enrolment={e} />
@@ -433,7 +476,7 @@ export function CertificatesClient({ webinarCerts, enrolments, totalCerts }: Pro
         </div>
       )}
 
-      {/* ── Section 2: Webinar Participation Certificates ───────────────────── */}
+      {/* Webinar Participation Certificates */}
       {webinarCerts.length > 0 && (
         <div>
           <h2 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: T.navy }}>

@@ -589,7 +589,7 @@ function CertViewer({
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }
 

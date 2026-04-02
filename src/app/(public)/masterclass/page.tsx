@@ -98,12 +98,13 @@ async function getMasterclassData(utmCampaign: string | null) {
 export default async function MasterclassPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined }
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  const utmCampaign = typeof searchParams.utm_campaign === 'string' ? searchParams.utm_campaign : null
-  const utmSource   = typeof searchParams.utm_source   === 'string' ? searchParams.utm_source   : null
-  const utmMedium   = typeof searchParams.utm_medium   === 'string' ? searchParams.utm_medium   : null
-  const utmContent  = typeof searchParams.utm_content  === 'string' ? searchParams.utm_content  : null
+  const params      = await searchParams
+  const utmCampaign = typeof params.utm_campaign === 'string' ? params.utm_campaign : null
+  const utmSource   = typeof params.utm_source   === 'string' ? params.utm_source   : null
+  const utmMedium   = typeof params.utm_medium   === 'string' ? params.utm_medium   : null
+  const utmContent  = typeof params.utm_content  === 'string' ? params.utm_content  : null
 
   const { config, basePrice, finalPrice, discountAmt, discountLabel, campaignId } =
     await getMasterclassData(utmCampaign)

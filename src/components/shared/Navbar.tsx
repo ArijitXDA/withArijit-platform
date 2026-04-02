@@ -2,179 +2,265 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useState } from 'react'
-import { Menu, X, ChevronDown } from 'lucide-react'
-import { buttonVariants } from '@/lib/button-variants'
-import { cn } from '@/lib/utils'
+import { usePathname } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
+import { Menu, X, ChevronDown, GraduationCap, Briefcase, Rocket, Crown, BookOpen, Heart, Code2, Building2, Users, Atom } from 'lucide-react'
 
-const NAV_LINKS = [
-  { href: '/courses', label: 'Courses' },
-  {
-    label: 'AI Certification',
-    href: '/ai-certification',
-    children: [
-      { href: '/ai-certification', label: 'Overview' },
-      { href: '/ai-certification/sales', label: 'For Sales' },
-      { href: '/ai-certification/marketing', label: 'For Marketing' },
-      { href: '/ai-certification/hr', label: 'For HR & Projects' },
-      { href: '/ai-certification/cxo', label: 'For CXOs' },
-      { href: '/ai-certification/startups', label: 'For Startups' },
-      { href: '/ai-certification/pharma', label: 'For Pharma & FMCG' },
-    ],
-  },
-  { href: '/library', label: 'Library' },
-  { href: '/ai-spots', label: 'AI Spots' },
-  { href: '/about', label: 'About' },
+// ── Audience-mapped course navigation ────────────────────────────────────────
+const COURSES_BY_AUDIENCE = [
+  { href: '/courses/ai-mastery-for-working-professionals', label: 'Working Professionals',  icon: Briefcase,        color: 'text-indigo-600'  },
+  { href: '/courses/ai-mastery-for-students',             label: 'Students & Graduates',    icon: GraduationCap,    color: 'text-emerald-600' },
+  { href: '/courses/ai-mastery-for-entrepreneurs',        label: 'Entrepreneurs',            icon: Rocket,           color: 'text-amber-600'   },
+  { href: '/courses/ai-mastery-for-leaders',              label: 'Leaders & CXOs',           icon: Crown,            color: 'text-purple-600'  },
+  { href: '/courses/ai-mastery-for-school-students',      label: 'School Students',          icon: BookOpen,         color: 'text-sky-600'     },
+  { href: '/courses/ai-mastery-for-homemakers',           label: 'Homemakers & Returners',   icon: Heart,            color: 'text-rose-600'    },
+  { href: '/courses/agentic-ai-development',              label: 'Tech Developers',          icon: Code2,            color: 'text-slate-700'   },
+  { href: '/courses/quantum-computing-and-ai',            label: 'Quantum & Advanced AI',    icon: Atom,             color: 'text-violet-600'  },
 ]
 
+const RESOURCES_LINKS = [
+  { href: '/library',           label: 'AI Resource Library',    desc: '300+ guides, templates & tools' },
+  { href: '/ai-readiness-quiz', label: 'AI Readiness Quiz',      desc: 'Find your AI skill level in 5 min' },
+  { href: '/ai-spots',          label: 'AI Spots',               desc: 'Find AI learning hubs near you' },
+  { href: '/find-ai-job',       label: 'Find AI Jobs',           desc: 'Curated AI career opportunities' },
+]
+
+const CORPORATE_LINKS = [
+  { href: '/contact?type=corporate', label: 'Corporate Training',     desc: 'Upskill your entire team with AI' },
+  { href: '/become-a-partner',       label: 'Partner Programme',       desc: 'Earn by growing our network' },
+  { href: '/contact?type=investor',  label: 'Investor Relations',      desc: 'Learn about oStaran's growth story' },
+  { href: '/contact?type=media',     label: 'Media Enquiries',         desc: 'Press kit & spokesperson access' },
+]
+
+type DropdownKey = 'courses' | 'resources' | 'corporate' | null
+
 export function Navbar() {
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const [dropdownOpen, setDropdownOpen] = useState<string | null>(null)
+  const pathname = usePathname()
+  const [mobileOpen, setMobileOpen]   = useState(false)
+  const [dropdown, setDropdown]       = useState<DropdownKey>(null)
+  const [scrolled, setScrolled]       = useState(false)
+  const [mobileExpanded, setMobileExpanded] = useState<string | null>(null)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // Close mobile menu on route change
+  useEffect(() => { setMobileOpen(false); setMobileExpanded(null) }, [pathname])
+
+  function openDropdown(key: DropdownKey) {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    setDropdown(key)
+  }
+  function scheduleClose() {
+    closeTimer.current = setTimeout(() => setDropdown(null), 150)
+  }
+
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
+    <nav
+      className={`sticky top-0 z-50 transition-all duration-200 ${
+        scrolled ? 'bg-white shadow-md border-b border-gray-100' : 'bg-white/95 backdrop-blur-md border-b border-gray-100'
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
 
-          {/* ── Logo area ───────────────────────────────────────────────── */}
-          <Link href="/" className="flex items-center gap-2.5 group">
-
-            {/* AIwithArijit logo (white bg, works directly) */}
-            <Image
-              src="/awa-logo.jpg"
-              alt="AIwithArijit"
-              width={120}
-              height={32}
-              className="h-8 w-auto object-contain"
-              priority
-            />
-
-            {/* Divider */}
-            <span className="text-gray-200 text-lg select-none">|</span>
-
-            {/* oStaran logo — dark pill wrapper so black PNG bg blends in */}
-            <Link
-              href="https://www.ostaran.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              className="flex items-center rounded-lg overflow-hidden opacity-90 hover:opacity-100 transition-opacity"
-              style={{ background: '#000', padding: '2px 8px' }}
-            >
-              <Image
-                src="/ostaran-logo.png"
-                alt="oStaran"
-                width={90}
-                height={30}
-                className="h-6 w-auto object-contain"
-              />
-            </Link>
+          {/* ── Logo — oStaran only ───────────────────────────────────── */}
+          <Link href="/" className="flex items-center gap-2 group shrink-0">
+            <div className="rounded-lg overflow-hidden" style={{ background: '#000', padding: '3px 10px' }}>
+              <Image src="/ostaran-logo.png" alt="oStaran" width={100} height={32} className="h-7 w-auto object-contain" priority />
+            </div>
+            <span className="hidden sm:block text-xs font-semibold text-gray-400 tracking-wide uppercase ml-1">
+              AI Education
+            </span>
           </Link>
 
-          {/* ── Desktop nav ─────────────────────────────────────────────── */}
-          <div className="hidden md:flex items-center gap-1">
-            {NAV_LINKS.map((link) =>
-              link.children ? (
-                <div key={link.label} className="relative">
-                  <button
-                    className="flex items-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-50 transition-colors"
-                    onMouseEnter={() => setDropdownOpen(link.label)}
-                    onMouseLeave={() => setDropdownOpen(null)}
-                  >
-                    {link.label}
-                    <ChevronDown size={14} />
-                  </button>
-                  {dropdownOpen === link.label && (
-                    <div
-                      className="absolute top-full left-0 mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50"
-                      onMouseEnter={() => setDropdownOpen(link.label)}
-                      onMouseLeave={() => setDropdownOpen(null)}
-                    >
-                      {link.children.map((child) => (
-                        <Link
-                          key={child.href}
-                          href={child.href}
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-                        >
-                          {child.label}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
+          {/* ── Desktop nav ───────────────────────────────────────────── */}
+          <div className="hidden lg:flex items-center gap-1">
+
+            {/* Courses dropdown */}
+            <div className="relative"
+              onMouseEnter={() => openDropdown('courses')}
+              onMouseLeave={scheduleClose}>
+              <button className={`flex items-center gap-1 px-3 py-2 text-sm rounded-lg transition-colors font-medium ${
+                dropdown === 'courses' || isActive('/courses') ? 'text-indigo-700 bg-indigo-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}>
+                Programmes <ChevronDown size={14} className={`transition-transform ${dropdown === 'courses' ? 'rotate-180' : ''}`} />
+              </button>
+              {dropdown === 'courses' && (
+                <div className="absolute top-full left-0 mt-1 w-72 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50"
+                  onMouseEnter={() => openDropdown('courses')} onMouseLeave={scheduleClose}>
+                  <p className="px-4 py-1 text-[11px] font-bold text-gray-400 uppercase tracking-widest">By Audience</p>
+                  {COURSES_BY_AUDIENCE.map(({ href, label, icon: Icon, color }) => (
+                    <Link key={href} href={href}
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 transition-colors group">
+                      <Icon size={15} className={`${color} shrink-0`} />
+                      <span className="text-sm text-gray-700 group-hover:text-indigo-700 font-medium">{label}</span>
+                    </Link>
+                  ))}
+                  <div className="mx-4 my-2 border-t border-gray-100" />
+                  <Link href="/courses" className="flex items-center gap-2 px-4 py-2 text-sm text-indigo-600 font-semibold hover:text-indigo-800">
+                    View all programmes →
+                  </Link>
                 </div>
-              ) : (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-50 transition-colors"
-                >
-                  {link.label}
-                </Link>
-              )
-            )}
+              )}
+            </div>
+
+            {/* Resources dropdown */}
+            <div className="relative"
+              onMouseEnter={() => openDropdown('resources')}
+              onMouseLeave={scheduleClose}>
+              <button className={`flex items-center gap-1 px-3 py-2 text-sm rounded-lg transition-colors font-medium ${
+                dropdown === 'resources' ? 'text-indigo-700 bg-indigo-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}>
+                Resources <ChevronDown size={14} className={`transition-transform ${dropdown === 'resources' ? 'rotate-180' : ''}`} />
+              </button>
+              {dropdown === 'resources' && (
+                <div className="absolute top-full left-0 mt-1 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50"
+                  onMouseEnter={() => openDropdown('resources')} onMouseLeave={scheduleClose}>
+                  {RESOURCES_LINKS.map(({ href, label, desc }) => (
+                    <Link key={href} href={href} className="block px-4 py-2.5 hover:bg-indigo-50 transition-colors group">
+                      <p className="text-sm font-medium text-gray-800 group-hover:text-indigo-700">{label}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Corporate / B2B dropdown */}
+            <div className="relative"
+              onMouseEnter={() => openDropdown('corporate')}
+              onMouseLeave={scheduleClose}>
+              <button className={`flex items-center gap-1 px-3 py-2 text-sm rounded-lg transition-colors font-medium ${
+                dropdown === 'corporate' ? 'text-indigo-700 bg-indigo-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}>
+                Enterprise <ChevronDown size={14} className={`transition-transform ${dropdown === 'corporate' ? 'rotate-180' : ''}`} />
+              </button>
+              {dropdown === 'corporate' && (
+                <div className="absolute top-full left-0 mt-1 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50"
+                  onMouseEnter={() => openDropdown('corporate')} onMouseLeave={scheduleClose}>
+                  {CORPORATE_LINKS.map(({ href, label, desc }) => (
+                    <Link key={href} href={href} className="block px-4 py-2.5 hover:bg-indigo-50 transition-colors group">
+                      <p className="text-sm font-medium text-gray-800 group-hover:text-indigo-700">{label}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <Link href="/about" className={`px-3 py-2 text-sm rounded-lg transition-colors font-medium ${
+              isActive('/about') ? 'text-indigo-700 bg-indigo-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}>
+              About
+            </Link>
           </div>
 
-          {/* ── Desktop CTAs ─────────────────────────────────────────────── */}
-          <div className="hidden md:flex items-center gap-3">
-            <Link href="/signin" className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}>
+          {/* ── Desktop CTAs ──────────────────────────────────────────── */}
+          <div className="hidden lg:flex items-center gap-3 shrink-0">
+            <Link href="/signin"
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-50 transition-colors">
               Sign In
             </Link>
-            <Link
-              href="/free-webinar"
-              className={cn(buttonVariants({ size: 'sm' }), 'bg-indigo-600 hover:bg-indigo-500 text-white')}
-            >
-              Join Free Webinar
+            <Link href="/free-webinar"
+              className="px-4 py-2 text-sm font-semibold text-white rounded-xl transition-all hover:opacity-90 hover:shadow-lg"
+              style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
+              Get Certified FREE →
             </Link>
           </div>
 
-          {/* ── Mobile menu button ───────────────────────────────────────── */}
+          {/* ── Mobile hamburger ─────────────────────────────────────── */}
           <button
-            className="md:hidden p-2 rounded-md text-gray-600 hover:text-gray-900"
-            onClick={() => setMobileOpen(!mobileOpen)}
+            onClick={() => setMobileOpen(v => !v)}
+            className="lg:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
             aria-label="Toggle menu"
           >
-            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>
       </div>
 
-      {/* ── Mobile menu ─────────────────────────────────────────────────── */}
+      {/* ── Mobile menu — full-screen drawer ─────────────────────────── */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-gray-100 bg-white px-4 py-4 flex flex-col gap-3">
-          {/* Mobile brand strip */}
-          <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
-            <Image src="/awa-logo.jpg" alt="AIwithArijit" width={90} height={24} className="h-6 w-auto" />
-            <span className="text-gray-200">|</span>
-            <div className="rounded-md overflow-hidden" style={{ background: '#000', padding: '2px 6px' }}>
-              <Image src="/ostaran-logo.png" alt="oStaran" width={70} height={23} className="h-5 w-auto" />
+        <div className="lg:hidden fixed inset-0 top-16 bg-white z-40 overflow-y-auto">
+          <div className="px-5 py-6 space-y-1">
+
+            {/* Programmes accordion */}
+            <button
+              onClick={() => setMobileExpanded(v => v === 'courses' ? null : 'courses')}
+              className="w-full flex items-center justify-between py-3 text-base font-semibold text-gray-900 border-b border-gray-100">
+              Programmes
+              <ChevronDown size={18} className={`text-gray-400 transition-transform ${mobileExpanded === 'courses' ? 'rotate-180' : ''}`} />
+            </button>
+            {mobileExpanded === 'courses' && (
+              <div className="pl-3 py-2 space-y-1">
+                {COURSES_BY_AUDIENCE.map(({ href, label, icon: Icon, color }) => (
+                  <Link key={href} href={href}
+                    className="flex items-center gap-3 py-2.5 text-sm text-gray-700 hover:text-indigo-600 transition-colors">
+                    <Icon size={15} className={color} />
+                    {label}
+                  </Link>
+                ))}
+                <Link href="/courses" className="block pt-2 text-sm font-semibold text-indigo-600">View all →</Link>
+              </div>
+            )}
+
+            {/* Resources accordion */}
+            <button
+              onClick={() => setMobileExpanded(v => v === 'resources' ? null : 'resources')}
+              className="w-full flex items-center justify-between py-3 text-base font-semibold text-gray-900 border-b border-gray-100">
+              Resources
+              <ChevronDown size={18} className={`text-gray-400 transition-transform ${mobileExpanded === 'resources' ? 'rotate-180' : ''}`} />
+            </button>
+            {mobileExpanded === 'resources' && (
+              <div className="pl-3 py-2 space-y-1">
+                {RESOURCES_LINKS.map(({ href, label }) => (
+                  <Link key={href} href={href} className="block py-2.5 text-sm text-gray-700 hover:text-indigo-600 transition-colors">
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            {/* Enterprise accordion */}
+            <button
+              onClick={() => setMobileExpanded(v => v === 'corporate' ? null : 'corporate')}
+              className="w-full flex items-center justify-between py-3 text-base font-semibold text-gray-900 border-b border-gray-100">
+              Enterprise
+              <ChevronDown size={18} className={`text-gray-400 transition-transform ${mobileExpanded === 'corporate' ? 'rotate-180' : ''}`} />
+            </button>
+            {mobileExpanded === 'corporate' && (
+              <div className="pl-3 py-2 space-y-1">
+                {CORPORATE_LINKS.map(({ href, label }) => (
+                  <Link key={href} href={href} className="block py-2.5 text-sm text-gray-700 hover:text-indigo-600 transition-colors">
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            <Link href="/about" className="block py-3 text-base font-semibold text-gray-900 border-b border-gray-100">About</Link>
+            <Link href="/contact" className="block py-3 text-base font-semibold text-gray-900 border-b border-gray-100">Contact</Link>
+
+            {/* Mobile CTAs */}
+            <div className="pt-6 space-y-3">
+              <Link href="/free-webinar"
+                className="block text-center py-3.5 text-sm font-bold text-white rounded-xl"
+                style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
+                Get Certified FREE — Join Webinar
+              </Link>
+              <Link href="/signin"
+                className="block text-center py-3 text-sm font-semibold text-gray-700 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
+                Sign In to Dashboard
+              </Link>
             </div>
           </div>
-
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.href ?? link.label}
-              href={link.href ?? '#'}
-              className="text-sm text-gray-700 py-1"
-              onClick={() => setMobileOpen(false)}
-            >
-              {link.label}
-            </Link>
-          ))}
-          <hr className="border-gray-100" />
-          <Link
-            href="/free-webinar"
-            onClick={() => setMobileOpen(false)}
-            className={cn(buttonVariants(), 'bg-indigo-600 hover:bg-indigo-500 text-white w-full justify-center')}
-          >
-            Join Free Webinar
-          </Link>
-          <Link
-            href="/signin"
-            onClick={() => setMobileOpen(false)}
-            className={cn(buttonVariants({ variant: 'outline' }), 'w-full justify-center')}
-          >
-            Sign In
-          </Link>
         </div>
       )}
     </nav>

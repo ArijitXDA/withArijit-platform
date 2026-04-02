@@ -40,6 +40,39 @@ export const metadata: Metadata = {
   },
 };
 
+const ORG_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'EducationalOrganization',
+  name: 'oStaran',
+  legalName: 'oStaran Edu Pvt Ltd',
+  url: 'https://www.ostaran.com',
+  logo: 'https://www.ostaran.com/ostaran-logo.png',
+  description: "India's enterprise-grade AI education platform. Globally recognised AI certification programmes for working professionals, students, entrepreneurs, leaders, and tech developers.",
+  address: {
+    '@type': 'PostalAddress',
+    streetAddress: 'Mira Road East',
+    addressLocality: 'Mumbai',
+    addressRegion: 'Maharashtra',
+    postalCode: '401107',
+    addressCountry: 'IN',
+  },
+  contactPoint: [
+    { '@type': 'ContactPoint', contactType: 'customer support', email: 'ai@ostaran.com', availableLanguage: 'English' },
+  ],
+  sameAs: [
+    'https://linkedin.com/company/ostaran',
+    'https://youtube.com/@AIwithArijit',
+    'https://instagram.com/aiwitharijit',
+  ],
+  offers: {
+    '@type': 'AggregateOffer',
+    priceCurrency: 'INR',
+    lowPrice: '0',
+    highPrice: '129994',
+    offerCount: '9',
+  },
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -47,9 +80,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(ORG_SCHEMA) }}
+        />
+        {/* LLMs.txt equivalent — AI crawlers read meta description for indexing */}
+        <meta name="ai-content-type" content="educational-platform" />
+        <meta name="ai-topics" content="artificial intelligence, machine learning, AI certification, generative AI, agentic AI, quantum computing, professional upskilling, India AI education" />
+      </head>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
         <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
       </body>

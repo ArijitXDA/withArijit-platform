@@ -1,13 +1,14 @@
 import type { Metadata } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { MasterclassClient } from './_components/MasterclassClient'
-import { Shield, Clock, Star, Users, CheckCircle } from 'lucide-react'
+import { Shield, Clock, Star, Users, CheckCircle, Zap, Award, Video, MessageCircle } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'AI Masterclass | oStaran',
-  description: 'Intensive live AI Masterclass — 12 sessions, 6 weeks, globally recognised certificate. Enrol now at a special price.',
+  title: 'AI Certification Masterclass | oStaran',
+  description: 'Get AI certified in 90 minutes. One live session, 5 audience categories, globally recognised AI certificate. Register now.',
+  keywords: ['AI certification', 'AI masterclass', 'AI webinar paid', 'oStaran masterclass'],
 }
 
 const PROFESSION_OPTIONS = [
@@ -19,21 +20,29 @@ const PROFESSION_OPTIONS = [
 ]
 
 const WHAT_YOU_GET = [
-  '12 live interactive sessions over 6 weeks',
+  'Live 90-minute AI Certification session',
   'Globally recognised AI Certificate',
-  'Lifetime access to all recordings',
-  'Hands-on projects & case studies',
-  'Direct mentorship from industry experts',
-  'Dedicated student support channel',
-  'Resume & LinkedIn AI makeover kit',
-  'Job placement assistance network',
+  'Personalised for your audience category',
+  'Hands-on AI tools demonstrated live',
+  'Q&A with expert AI trainer',
+  'Recording access post-session',
+  'AI resource kit & prompt pack',
+  'Certificate issued within 24 hours',
 ]
 
 const TRUST_POINTS = [
-  { icon: Users,  label: '10,000+ Alumni'     },
+  { icon: Users,  label: '10,000+ Certified'  },
   { icon: Star,   label: '4.9/5 Rating'       },
   { icon: Shield, label: 'GST Invoice Issued' },
-  { icon: Clock,  label: 'Weekend Batches'    },
+  { icon: Clock,  label: '90 Minutes Only'    },
+]
+
+const SESSION_CATEGORIES = [
+  { emoji: '💼', label: 'Working Professionals', desc: 'AI for your current role' },
+  { emoji: '🎓', label: 'Students & Graduates',  desc: 'AI for career launch'     },
+  { emoji: '🔍', label: 'Job Seekers',           desc: 'AI to land your next job' },
+  { emoji: '📚', label: 'School Students',       desc: 'AI for young learners'    },
+  { emoji: '🏠', label: 'Homemakers',            desc: 'AI for independence'      },
 ]
 
 async function getMasterclassData(utmCampaign: string | null) {
@@ -56,8 +65,6 @@ async function getMasterclassData(utmCampaign: string | null) {
   ])
 
   const campaign = campaignResult.data
-
-  // Calculate final price server-side — never trust client
   let finalPrice    = Number(config?.base_price ?? 3999)
   let discountAmt   = 0
   let discountLabel = ''
@@ -70,23 +77,21 @@ async function getMasterclassData(utmCampaign: string | null) {
       discountAmt   = Math.round(finalPrice * Number(campaign.discount_value) / 100)
       discountLabel = `${campaign.name} (${campaign.discount_value}% off)`
     }
-    // Check max_uses
     if (campaign.max_uses && campaign.uses_count >= campaign.max_uses) {
-      discountAmt   = 0
-      discountLabel = ''
+      discountAmt = 0; discountLabel = ''
     } else {
       finalPrice = Math.max(0, finalPrice - discountAmt)
     }
   }
 
   return {
-    config:        config ?? { base_price: 3999, title: 'AI Masterclass', tagline: '', is_live: true, sessions: 12, duration_weeks: 6 },
-    campaign:      campaign ?? null,
-    basePrice:     Number(config?.base_price ?? 3999),
+    config:       config ?? { base_price: 3999, title: 'AI Certification Masterclass', tagline: '', is_live: true, sessions: 1, duration_weeks: 1 },
+    campaign:     campaign ?? null,
+    basePrice:    Number(config?.base_price ?? 3999),
     finalPrice,
     discountAmt,
     discountLabel,
-    campaignId:    campaign?.id ?? null,
+    campaignId:   campaign?.id ?? null,
   }
 }
 
@@ -104,33 +109,40 @@ export default async function MasterclassPage({
     await getMasterclassData(utmCampaign)
 
   const hasCampaign = discountAmt > 0
-  const savings     = basePrice - finalPrice
 
   return (
     <div className="min-h-screen bg-gray-50">
 
       {/* ── Hero ─────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden text-white py-16 px-4" style={{ background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)' }}>
-        {/* Decorative blobs */}
         <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full opacity-10 blur-3xl" style={{ background: '#7c3aed' }} />
         <div className="absolute bottom-0 right-1/4 w-64 h-64 rounded-full opacity-10 blur-3xl" style={{ background: '#4f46e5' }} />
 
         <div className="relative max-w-5xl mx-auto">
           {hasCampaign && (
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold mb-6 animate-pulse"
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold mb-6"
               style={{ background: 'rgba(251,191,36,0.2)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.4)' }}>
-              🎉 Special Offer Active — {discountLabel}
+              🎉 Special Offer — {discountLabel}
             </div>
           )}
+
+          <div className="flex items-center gap-2 mb-4">
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30">
+              ✓ Certificate Included
+            </span>
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              ⏱ 90 Minutes Only
+            </span>
+          </div>
 
           <h1 className="text-4xl md:text-6xl font-extrabold leading-tight mb-4">
             {config.title}
           </h1>
-          <p className="text-xl text-gray-300 max-w-2xl mb-8">
-            {config.tagline || 'Intensive live AI programme. 12 sessions. 6 weeks. Career-transforming.'}
+          <p className="text-xl text-gray-300 max-w-2xl mb-6">
+            One powerful live session. Globally recognised AI certificate.
+            Personalised for your career category — not a generic course.
           </p>
 
-          {/* Trust points */}
           <div className="flex flex-wrap gap-4 mb-8">
             {TRUST_POINTS.map(({ icon: Icon, label }) => (
               <div key={label} className="flex items-center gap-2 text-sm text-gray-300">
@@ -144,7 +156,7 @@ export default async function MasterclassPage({
             {hasCampaign ? (
               <>
                 <div>
-                  <p className="text-xs text-gray-400 uppercase tracking-wide">Original Price</p>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide">MRP</p>
                   <p className="text-2xl text-gray-400 line-through font-bold">
                     {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(basePrice)}
                   </p>
@@ -157,12 +169,12 @@ export default async function MasterclassPage({
                   </p>
                 </div>
                 <div className="px-3 py-1.5 rounded-xl text-sm font-bold bg-green-500/20 text-green-400 border border-green-500/30">
-                  Save {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(savings)}
+                  Save {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(discountAmt)}
                 </div>
               </>
             ) : (
               <div>
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Programme Fee</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Session Fee</p>
                 <p className="text-3xl font-extrabold text-white">
                   {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(finalPrice)}
                 </p>
@@ -175,9 +187,10 @@ export default async function MasterclassPage({
       {/* ── Main content + Form ───────────────────────────────────────── */}
       <div className="max-w-6xl mx-auto px-4 py-14 grid lg:grid-cols-5 gap-12">
 
-        {/* Left — What you get */}
+        {/* Left — details */}
         <div className="lg:col-span-3 space-y-8">
 
+          {/* What you get */}
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-5">What You Get</h2>
             <div className="grid sm:grid-cols-2 gap-3">
@@ -190,21 +203,47 @@ export default async function MasterclassPage({
             </div>
           </div>
 
-          {/* Programme details */}
+          {/* 5 Session Categories */}
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Video size={18} className="text-indigo-600" /> 5 Audience-Specific Sessions
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Each session is tailored to a specific audience — the AI tools, use cases and examples
+              are completely different for each category. Choose the one that fits your profile.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {SESSION_CATEGORIES.map(({ emoji, label, desc }) => (
+                <div key={label} className="flex items-center gap-3 p-3 rounded-xl bg-white border border-gray-100 shadow-sm">
+                  <span className="text-2xl">{emoji}</span>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{label}</p>
+                    <p className="text-xs text-gray-500">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* How it works */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <h3 className="font-bold text-gray-900 mb-4">Programme Details</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Zap size={16} className="text-amber-500" /> How It Works
+            </h3>
+            <div className="space-y-3">
               {[
-                ['Duration',    `${config.duration_weeks} weeks`  ],
-                ['Sessions',    `${config.sessions} live classes` ],
-                ['Format',      'Weekend live + recordings'       ],
-                ['Certificate', 'Globally recognised'            ],
-                ['Access',      'Lifetime'                        ],
-                ['Batch size',  'Limited seats'                   ],
-              ].map(([k, v]) => (
-                <div key={k}>
-                  <p className="text-gray-400 text-xs uppercase tracking-wide">{k}</p>
-                  <p className="font-semibold text-gray-900 mt-0.5">{v}</p>
+                ['Register & Pay',    'Complete your registration and payment below'],
+                ['Receive Joining Link', 'Your personal webinar link is sent to your email instantly'],
+                ['Attend Live Session',  'Join your 90-minute live AI Certification session'],
+                ['Get Certified',        'Your AI certificate is issued within 24 hours of attending'],
+              ].map(([step, desc], i) => (
+                <div key={step} className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5"
+                    style={{ background: '#4f46e5' }}>{i + 1}</div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{step}</p>
+                    <p className="text-xs text-gray-500">{desc}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -216,20 +255,35 @@ export default async function MasterclassPage({
               <span className="text-2xl">⏰</span>
               <div>
                 <p className="font-bold text-amber-800 text-sm">Limited Time Offer</p>
-                <p className="text-xs text-amber-700">This discount is exclusive to this campaign link. Enrol now to lock in your price.</p>
+                <p className="text-xs text-amber-700">
+                  This special price is exclusive to this campaign link. Register now to lock it in.
+                </p>
               </div>
             </div>
           )}
+
+          {/* Support note */}
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-gray-100 border border-gray-200">
+            <MessageCircle size={16} className="text-green-600 shrink-0" />
+            <p className="text-xs text-gray-600">
+              Questions? WhatsApp us or email <a href="mailto:ai@ostaran.com" className="text-indigo-600 font-semibold hover:underline">ai@ostaran.com</a> — we respond within 4 business hours.
+            </p>
+          </div>
         </div>
 
-        {/* Right — Registration form */}
+        {/* Right — registration form */}
         <div className="lg:col-span-2">
           <div className="sticky top-20">
             <div className="bg-white rounded-3xl border border-gray-100 shadow-lg overflow-hidden">
               <div className="p-1" style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
                 <div className="bg-white rounded-[22px] p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">Reserve Your Seat</h3>
-                  <p className="text-xs text-gray-500 mb-5">Fill in your details to proceed to payment</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Award size={18} className="text-indigo-600" />
+                    <h3 className="text-lg font-bold text-gray-900">Reserve Your Seat</h3>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-5">
+                    Select your category below — your session is tailored to your profile.
+                  </p>
 
                   <MasterclassClient
                     basePrice={basePrice}

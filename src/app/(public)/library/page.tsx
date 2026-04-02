@@ -21,7 +21,7 @@ type LibraryItem = {
   tags: string[]
   downloads: number
   preview_url: string | null
-  file_url: string | null
+  file_url?: string | null
 }
 
 const TYPE_META: Record<string, { icon: any; label: string; color: string; bg: string }> = {
@@ -57,7 +57,7 @@ export default async function LibraryPage() {
       .order('sort_order'),
     supabase
       .from('library_items')
-      .select('id, title, type, category, description, access_level, tags, downloads, preview_url')
+      .select('id, title, type, category, description, access_level, tags, downloads, preview_url, file_url')
       .eq('is_active', true)
       .eq('access_level', 'enrolled')
       .order('sort_order'),

@@ -20,8 +20,8 @@ const CONTACT_DETAILS = [
   {
     icon: MessageCircle,
     label: 'WhatsApp',
-    value: '+91 98200 XXXXX',
-    href: 'https://wa.me/919820XXXXXX',
+    value: '+91 99300 51053',
+    href: 'https://wa.me/919930051053',
     sub: 'Mon–Sat, 10am–6pm IST',
     color: 'text-green-600',
     bg: 'bg-green-50',
@@ -29,8 +29,8 @@ const CONTACT_DETAILS = [
   {
     icon: Phone,
     label: 'Phone (Business Hours)',
-    value: '+91 98200 XXXXX',
-    href: 'tel:+919820XXXXXX',
+    value: '+91 99300 51053',
+    href: 'tel:+919930051053',
     sub: 'Mon–Sat, 10am–6pm IST',
     color: 'text-blue-600',
     bg: 'bg-blue-50',
@@ -95,7 +95,7 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Registered Office</p>
-                  <p className="text-sm font-bold text-gray-900 mt-0.5">oStaran Edu Pvt Ltd</p>
+                  <p className="text-sm font-bold text-gray-900 mt-0.5">Star Analytix Pvt Ltd</p>
                   <p className="text-sm text-gray-600">Mira Road East</p>
                   <p className="text-sm text-gray-600">Mumbai, Maharashtra — 401107</p>
                   <p className="text-xs text-gray-400 mt-1.5">MSME & GST Registered · Invoices issued for all purchases</p>

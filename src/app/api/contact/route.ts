@@ -47,11 +47,11 @@ export async function POST(req: NextRequest) {
   ${message ? `<br/><br/><strong>Your message:</strong><br/>${message}` : ''}
 </td></tr>
 <tr><td style="background:#f8fafc;border-left:4px solid #4f46e5;padding:16px;border-radius:4px;font-size:14px;color:#374151;line-height:1.6;margin-bottom:20px;">
-  💡 While you wait, explore our <a href="https://www.ostaran.com/free-webinar" style="color:#4f46e5;font-weight:bold;">Free AI Certification Webinar</a>
-  — 90 minutes, completely free, globally recognised certificate.
+  💡 While you wait, get AI certified this Sunday — <a href="https://www.ostaran.com/masterclass" style="color:#4f46e5;font-weight:bold;">Register for the AI Certification Session</a>.
+  90 minutes, live, globally recognised certificate.
 </td></tr>
 <tr><td style="font-size:13px;color:#6b7280;padding-top:20px;border-top:1px solid #e5e7eb;">
-  oStaran Edu Pvt Ltd · Mira Road East, Mumbai, Maharashtra · <a href="mailto:ai@ostaran.com" style="color:#4f46e5;">ai@ostaran.com</a>
+  Star Analytix Pvt Ltd · Mira Road East, Mumbai, Maharashtra · <a href="mailto:ai@ostaran.com" style="color:#4f46e5;">ai@ostaran.com</a>
 </td></tr>
 </table></body></html>`
 

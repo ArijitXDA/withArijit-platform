@@ -44,7 +44,7 @@ const ORG_SCHEMA = {
   '@context': 'https://schema.org',
   '@type': 'EducationalOrganization',
   name: 'oStaran',
-  legalName: 'oStaran Edu Pvt Ltd',
+  legalName: 'Star Analytix Pvt Ltd',
   url: 'https://www.ostaran.com',
   logo: 'https://www.ostaran.com/ostaran-logo.png',
   description: "India's enterprise-grade AI education platform. Globally recognised AI certification programmes for working professionals, students, entrepreneurs, leaders, and tech developers.",

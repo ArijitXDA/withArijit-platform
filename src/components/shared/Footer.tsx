@@ -87,15 +87,15 @@ export function Footer() {
                 <Mail size={14} className="text-indigo-400 shrink-0" />
                 <span>ai@ostaran.com</span>
               </a>
-              <a href="https://wa.me/919820XXXXXX" target="_blank" rel="noopener noreferrer"
+              <a href="https://wa.me/919930051053" target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-2.5 text-sm text-gray-400 hover:text-white transition-colors group">
                 <Phone size={14} className="text-green-400 shrink-0" />
-                <span>WhatsApp — Mon–Sat, 10am–6pm IST</span>
+                <span>+91 99300 51053 — Mon–Sat, 10am–6pm IST</span>
               </a>
               <div className="flex items-start gap-2.5 text-sm text-gray-500">
                 <MapPin size={14} className="text-gray-500 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-gray-400 font-medium">oStaran Edu Pvt Ltd</p>
+                  <p className="text-gray-400 font-medium">Star Analytix Pvt Ltd</p>
                   <p>Mira Road East, Mumbai</p>
                   <p>Maharashtra, India — 401107</p>
                 </div>
@@ -147,7 +147,7 @@ export function Footer() {
               <Image src="/ostaran-logo.png" alt="oStaran" width={70} height={23} className="h-4 w-auto object-contain" />
             </div>
             <p className="text-xs text-gray-600">
-              © {new Date().getFullYear()} oStaran Edu Pvt Ltd. All rights reserved.
+              © {new Date().getFullYear()} Star Analytix Pvt Ltd. All rights reserved.
             </p>
           </div>
           <p className="text-xs text-gray-700">

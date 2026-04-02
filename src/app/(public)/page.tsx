@@ -1,12 +1,12 @@
-import { HeroSection }        from '@/components/marketing/HeroSection'
-import { StatsBar }           from '@/components/marketing/StatsBar'
-import { AudienceSection }    from '@/components/marketing/AudienceSection'
-import { CoursesSection }     from '@/components/marketing/CoursesSection'
-import { HowItWorksSection }  from '@/components/marketing/HowItWorksSection'
-import { WebinarCTASection }  from '@/components/marketing/WebinarCTASection'
-import { PartnerSection }     from '@/components/marketing/PartnerSection'
-import { TestimonialsSection } from '@/components/marketing/TestimonialsSection'
-import { createClient }       from '@/lib/supabase/server'
+import { HeroSection }           from '@/components/marketing/HeroSection'
+import { StatsBar }              from '@/components/marketing/StatsBar'
+import { AudienceSection }       from '@/components/marketing/AudienceSection'
+import { CoursesSection }        from '@/components/marketing/CoursesSection'
+import { HowItWorksSection }     from '@/components/marketing/HowItWorksSection'
+import { MasterclassCTASection } from '@/components/marketing/MasterclassCTASection'
+import { PartnerSection }        from '@/components/marketing/PartnerSection'
+import { TestimonialsSection }   from '@/components/marketing/TestimonialsSection'
+import { createClient }          from '@/lib/supabase/server'
 
 export const revalidate = 3600
 
@@ -22,25 +22,25 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* 1. Hero — Master AI. Build the Future. */}
+      {/* 1. Hero */}
       <HeroSection />
 
-      {/* 2. Stats bar — 10,000+ Learners, 4.9 Rating */}
+      {/* 2. Stats bar */}
       <StatsBar />
 
-      {/* 3. NEW — Who is oStaran for? (8 audience cards) */}
+      {/* 3. Who is oStaran for? */}
       <AudienceSection />
 
       {/* 4. Courses grid */}
       <CoursesSection courses={courses ?? []} />
 
-      {/* 5. NEW — How it works (4 steps) */}
+      {/* 5. How it works */}
       <HowItWorksSection />
 
-      {/* 6. Free webinar CTA */}
-      <WebinarCTASection />
+      {/* 6. Masterclass CTA */}
+      <MasterclassCTASection />
 
-      {/* 7. NEW — Partner Programme strip */}
+      {/* 7. Partner Programme */}
       <PartnerSection />
 
       {/* 8. Testimonials */}

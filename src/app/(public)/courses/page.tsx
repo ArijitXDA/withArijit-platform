@@ -63,17 +63,17 @@ export default async function CoursesPage() {
           </>
         )}
 
-        {/* ── Free webinar CTA ─────────────────────────────────────── */}
+        {/* ── Masterclass CTA ───────────────────────────────────────── */}
         <div className="mt-20 text-center p-10 rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-purple-50">
-          <h3 className="text-2xl font-bold text-gray-900 mb-3">Not sure which programme to choose?</h3>
+          <h3 className="text-2xl font-bold text-gray-900 mb-3">Want to experience it before committing?</h3>
           <p className="text-gray-600 mb-6 max-w-lg mx-auto">
-            Join our FREE 90-minute AI Certification Webinar first.
-            Experience the teaching style and decide with confidence.
+            Join our 90-minute live AI Certification session this Sunday.
+            Get certified, hands-on, and decide your next step with confidence.
           </p>
-          <a href="/free-webinar"
+          <a href="/masterclass"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold transition-all hover:opacity-90 hover:shadow-lg"
             style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
-            Join Free Webinar →
+            Get Certified This Sunday →
           </a>
         </div>
       </section>

@@ -13,7 +13,6 @@ const FOOTER_LINKS = {
     { href: '/courses/quantum-computing-and-ai',            label: 'Quantum Computing & AI'     },
   ],
   Platform: [
-    { href: '/free-webinar',       label: 'Free AI Webinar'        },
     { href: '/masterclass',        label: 'AI Masterclass'         },
     { href: '/library',            label: 'Resource Library'       },
     { href: '/ai-spots',           label: 'AI Spots'               },

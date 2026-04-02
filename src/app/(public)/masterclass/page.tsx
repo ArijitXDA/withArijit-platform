@@ -152,30 +152,37 @@ export default async function MasterclassPage({
           </div>
 
           {/* Price display */}
-          <div className="inline-flex items-center gap-4 px-6 py-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm">
+          <div className="inline-flex flex-col sm:flex-row items-start sm:items-center gap-4 px-6 py-5 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm">
             {hasCampaign ? (
               <>
-                <div>
-                  <p className="text-xs text-gray-400 uppercase tracking-wide">MRP</p>
-                  <p className="text-2xl text-gray-400 line-through font-bold">
-                    {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(basePrice)}
-                  </p>
+                {/* Struck-off MRP — small */}
+                <div className="flex items-center gap-3">
+                  <div>
+                    <p className="text-[11px] text-gray-500 uppercase tracking-widest mb-0.5">Session Fee (MRP)</p>
+                    <p className="text-xl text-gray-500 line-through font-semibold">
+                      {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(basePrice)}
+                    </p>
+                  </div>
+                  <span className="text-gray-600 text-2xl">→</span>
+                  {/* Final price — big and prominent */}
+                  <div>
+                    <p className="text-[11px] text-amber-400 uppercase tracking-widest font-bold mb-0.5">You Pay Today</p>
+                    <p className="text-5xl font-black text-white leading-none">
+                      {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(finalPrice)}
+                    </p>
+                  </div>
                 </div>
-                <div className="w-px h-10 bg-white/20" />
-                <div>
-                  <p className="text-xs text-amber-400 uppercase tracking-wide font-bold">You Pay</p>
-                  <p className="text-3xl font-extrabold text-white">
-                    {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(finalPrice)}
-                  </p>
-                </div>
-                <div className="px-3 py-1.5 rounded-xl text-sm font-bold bg-green-500/20 text-green-400 border border-green-500/30">
-                  Save {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(discountAmt)}
+                <div className="flex flex-col gap-1.5">
+                  <div className="px-3 py-1.5 rounded-xl text-sm font-bold bg-green-500/20 text-green-400 border border-green-500/30">
+                    You save {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(discountAmt)}
+                  </div>
+                  <p className="text-xs text-gray-500 px-1">{discountLabel}</p>
                 </div>
               </>
             ) : (
               <div>
                 <p className="text-xs text-gray-400 uppercase tracking-wide">Session Fee</p>
-                <p className="text-3xl font-extrabold text-white">
+                <p className="text-4xl font-extrabold text-white">
                   {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(finalPrice)}
                 </p>
               </div>

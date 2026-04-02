@@ -155,10 +155,10 @@ export function MasterclassClient({
       </div>
 
       {/* Price summary */}
-      <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-1 text-xs">
-        <div className="flex justify-between text-gray-600">
-          <span>Programme Fee (MRP)</span>
-          <span className={discountAmt > 0 ? 'line-through text-gray-400' : 'font-semibold'}>{fmt(basePrice)}</span>
+      <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-1.5 text-xs">
+        <div className="flex justify-between text-gray-500">
+          <span>Session Fee (MRP)</span>
+          <span className={discountAmt > 0 ? 'line-through text-gray-400' : 'font-semibold text-gray-700'}>{fmt(basePrice)}</span>
         </div>
         {discountAmt > 0 && (
           <div className="flex justify-between text-green-600 font-semibold">
@@ -166,10 +166,17 @@ export function MasterclassClient({
             <span>− {fmt(discountAmt)}</span>
           </div>
         )}
-        <div className="border-t border-gray-200 pt-1 flex justify-between font-bold text-gray-900 text-sm">
-          <span>You Pay</span>
-          <span style={{ color: '#4f46e5' }}>{fmt(finalPrice)}</span>
+        <div className="border-t border-gray-200 pt-2 flex justify-between items-center">
+          <span className="text-xs font-semibold text-gray-600">You Pay Today</span>
+          <span className="text-2xl font-black" style={{ color: '#4f46e5' }}>{fmt(finalPrice)}</span>
         </div>
+        {discountAmt > 0 && (
+          <div className="flex justify-center">
+            <span className="text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+              You save {fmt(discountAmt)}!
+            </span>
+          </div>
+        )}
       </div>
 
       {status === 'error' && (

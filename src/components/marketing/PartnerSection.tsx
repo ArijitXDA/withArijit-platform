@@ -52,10 +52,11 @@ export function PartnerSection() {
               </div>
 
               <div className="flex items-center gap-4 flex-wrap">
-                <Link href="/become-a-partner"
+                <a href="https://partner.ostaran.com"
+                  target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-indigo-900 bg-white hover:bg-indigo-50 transition-colors">
                   Become a Partner <ArrowRight size={15} />
-                </Link>
+                </a>
                 <p className="text-indigo-400 text-xs">Free to join. No investment required.</p>
               </div>
             </div>

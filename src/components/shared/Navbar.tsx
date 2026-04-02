@@ -25,8 +25,8 @@ const RESOURCES_LINKS = [
 ]
 
 const CORPORATE_LINKS = [
-  { href: '/contact?type=corporate', label: 'Corporate Training', desc: 'Upskill your entire team with AI'     },
-  { href: '/become-a-partner',       label: 'Partner Programme',  desc: 'Earn by growing our network'          },
+  { href: '/contact?type=corporate',    label: 'Corporate Training', desc: 'Upskill your entire team with AI'     },
+  { href: 'https://partner.ostaran.com', label: 'Partner Programme',  desc: 'Earn by growing our network'          },
   { href: '/contact?type=investor',  label: 'Investor Relations', desc: 'Learn about the oStaran growth story' },
   { href: '/contact?type=media',     label: 'Media Enquiries',    desc: 'Press kit and spokesperson access'    },
 ]

@@ -178,18 +178,70 @@ export default function CertificateVerificationPage() {
         {results !== null && (
           <div>
             {results.length === 0 ? (
-              <div style={{
-                textAlign: 'center', padding: 32,
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12,
-              }}>
-                <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
-                <p style={{ color: '#9cb89c', fontSize: 14 }}>
-                  No certificates found for this email or mobile number.
-                </p>
-                <p style={{ color: '#5a6e5a', fontSize: 12, marginTop: 8 }}>
-                  The student may not have submitted a webinar feedback, or details may not match.
-                </p>
+              <div>
+                {/* Not found guidance */}
+                <div style={{
+                  textAlign: 'center', padding: 28,
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12,
+                  marginBottom: 16,
+                }}>
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
+                  <p style={{ color: '#f5f1e8', fontSize: 15, fontWeight: 700, marginBottom: 8 }}>
+                    No certificate found
+                  </p>
+                  <p style={{ color: '#9cb89c', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
+                    The student may not have submitted webinar feedback yet, or the details may not match our records.
+                  </p>
+
+                  {/* Path A — attended but not rated */}
+                  <div style={{
+                    background: 'rgba(212,168,67,0.08)', border: '1px solid rgba(212,168,67,0.2)',
+                    borderRadius: 10, padding: '16px 20px', marginBottom: 12, textAlign: 'left',
+                  }}>
+                    <p style={{ color: '#d4a843', fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
+                      ✅ Already attended a webinar?
+                    </p>
+                    <p style={{ color: '#9cb89c', fontSize: 12, lineHeight: 1.6, marginBottom: 12 }}>
+                      Rate &amp; review the webinar now to unlock your AI Certificate. Certificates are issued
+                      only after submitting your rating.
+                    </p>
+                    <a
+                      href="https://webinar.ostaran.com/webinar_ratings"
+                      target="_blank" rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-block', padding: '8px 18px', borderRadius: 8,
+                        background: '#d4a843', color: '#1a1a1a', fontSize: 12,
+                        fontWeight: 700, textDecoration: 'none',
+                      }}>
+                      ⭐ Rate Your Webinar Now →
+                    </a>
+                  </div>
+
+                  {/* Path B — not attended yet */}
+                  <div style={{
+                    background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)',
+                    borderRadius: 10, padding: '16px 20px', textAlign: 'left',
+                  }}>
+                    <p style={{ color: '#a5b4fc', fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
+                      🆕 Not attended yet?
+                    </p>
+                    <p style={{ color: '#9cb89c', fontSize: 12, lineHeight: 1.6, marginBottom: 12 }}>
+                      Register for the upcoming masterclass → attend the 90-minute live session →
+                      rate it → your AI Certificate will appear here, ready to download
+                      and add to your resume &amp; LinkedIn profile.
+                    </p>
+                    <a
+                      href="https://www.ostaran.com/masterclass"
+                      style={{
+                        display: 'inline-block', padding: '8px 18px', borderRadius: 8,
+                        background: '#6366f1', color: '#fff', fontSize: 12,
+                        fontWeight: 700, textDecoration: 'none',
+                      }}>
+                      Register for Next Session →
+                    </a>
+                  </div>
+                </div>
               </div>
             ) : (
               <div>
@@ -278,10 +330,55 @@ export default function CertificateVerificationPage() {
           </div>
         )}
 
+        {/* Employer / Partner CTA — always visible */}
+        <div style={{
+          marginTop: 40,
+          background: 'linear-gradient(135deg, rgba(26,77,46,0.6), rgba(13,31,20,0.8))',
+          border: '1px solid rgba(212,168,67,0.2)',
+          borderRadius: 14, padding: '24px 24px',
+        }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 14 }}>
+            <span style={{ fontSize: 24, lineHeight: 1 }}>🏢</span>
+            <div>
+              <p style={{ color: '#f5f1e8', fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
+                Are you an Employer or Educational Institution?
+              </p>
+              <p style={{ color: '#9cb89c', fontSize: 12, lineHeight: 1.7 }}>
+                Register with us as an <strong style={{ color: '#d4a843' }}>AI Partner (AI University)</strong> now.
+                We will upskill your employees and students with our AI webinars&nbsp;
+                <strong style={{ color: '#4ade80' }}>absolutely free</strong> — no cost to your organisation.
+                Help your team stay ahead in the AI era without spending a single rupee.
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <a
+              href="https://partner.ostaran.com"
+              target="_blank" rel="noopener noreferrer"
+              style={{
+                display: 'inline-block', padding: '9px 20px', borderRadius: 8,
+                background: '#d4a843', color: '#1a1a1a', fontSize: 12,
+                fontWeight: 700, textDecoration: 'none',
+              }}>
+              Register as AI Partner →
+            </a>
+            <a
+              href="https://www.ostaran.com/contact?type=corporate"
+              style={{
+                display: 'inline-block', padding: '9px 20px', borderRadius: 8,
+                background: 'rgba(255,255,255,0.06)', color: '#9cb89c', fontSize: 12,
+                fontWeight: 600, textDecoration: 'none',
+                border: '1px solid rgba(255,255,255,0.1)',
+              }}>
+              Talk to Us First
+            </a>
+          </div>
+        </div>
+
         {/* Footer note */}
         <p style={{
           color: '#2d4a35', fontSize: 11, textAlign: 'center',
-          marginTop: 40, lineHeight: 1.6,
+          marginTop: 32, lineHeight: 1.6,
         }}>
           This verification service is provided by Star Analytix Private Limited, Mumbai.<br/>
           Certificates are issued to students who attend and rate oStaran AI webinars.

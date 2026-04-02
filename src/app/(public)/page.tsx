@@ -1,5 +1,6 @@
 import { HeroSection }           from '@/components/marketing/HeroSection'
 import { StatsBar }              from '@/components/marketing/StatsBar'
+import { CertificateSection }    from '@/components/marketing/CertificateSection'
 import { AudienceSection }       from '@/components/marketing/AudienceSection'
 import { CoursesSection }        from '@/components/marketing/CoursesSection'
 import { HowItWorksSection }     from '@/components/marketing/HowItWorksSection'
@@ -28,7 +29,10 @@ export default async function HomePage() {
       {/* 2. Stats bar */}
       <StatsBar />
 
-      {/* 3. Who is oStaran for? */}
+      {/* 3. Certificate download strip */}
+      <CertificateSection />
+
+      {/* 4. Who is oStaran for? */}
       <AudienceSection />
 
       {/* 4. Courses grid */}

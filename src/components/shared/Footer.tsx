@@ -21,8 +21,8 @@ const FOOTER_LINKS = {
     { href: '/ai-readiness-quiz',  label: 'AI Readiness Quiz'      },
   ],
   Enterprise: [
-    { href: '/contact?type=corporate', label: 'Corporate Training'    },
-    { href: '/become-a-partner',       label: 'Partner Programme'     },
+    { href: '/contact?type=corporate',    label: 'Corporate Training' },
+    { href: 'https://partner.ostaran.com', label: 'Partner Programme' },
     { href: '/contact?type=investor',  label: 'Investor Relations'    },
     { href: '/contact?type=media',     label: 'Media & Press'         },
     { href: '/about',                  label: 'About oStaran'         },

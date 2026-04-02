@@ -144,9 +144,9 @@ export function Navbar() {
             <Link href="/signin" className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-50 transition-colors">
               Sign In
             </Link>
-            <Link href="/free-webinar" className="px-4 py-2 text-sm font-semibold text-white rounded-xl transition-all hover:opacity-90 hover:shadow-lg"
+            <Link href="/masterclass" className="px-4 py-2 text-sm font-semibold text-white rounded-xl transition-all hover:opacity-90 hover:shadow-lg"
               style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
-              Get Certified FREE
+              Get Certified This Sunday
             </Link>
           </div>
 
@@ -209,9 +209,9 @@ export function Navbar() {
             <Link href="/contact" className="block py-3 text-base font-semibold text-gray-900 border-b border-gray-100">Contact</Link>
 
             <div className="pt-6 space-y-3">
-              <Link href="/free-webinar" className="block text-center py-3.5 text-sm font-bold text-white rounded-xl"
+              <Link href="/masterclass" className="block text-center py-3.5 text-sm font-bold text-white rounded-xl"
                 style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
-                Get Certified FREE
+                Get Certified This Sunday
               </Link>
               <Link href="/signin" className="block text-center py-3 text-sm font-semibold text-gray-700 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
                 Sign In

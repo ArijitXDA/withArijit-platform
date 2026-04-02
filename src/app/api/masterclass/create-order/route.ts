@@ -11,7 +11,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { name, email, mobile, profession, campaign_id,
-            utm_source, utm_medium, utm_campaign, utm_content } = body
+            utm_source, utm_medium, utm_campaign, utm_content,
+            course_name, webinar_date, webinar_time } = body
 
     if (!name || !email || !mobile || !profession)
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 })
@@ -61,7 +62,9 @@ export async function POST(req: NextRequest) {
         email:             email.trim().toLowerCase(),
         mobile:            mobile.trim(),
         profession_choice: profession,
-        course_name:       'AI Masterclass',
+        course_name:       course_name || 'AI Masterclass',
+        webinar_date:      webinar_date || null,
+        webinar_time:      webinar_time || null,
         registration_type: 'masterclass',
         masterclass_campaign_id: validCampaignId,
         masterclass_base_price:  basePrice,
@@ -72,8 +75,6 @@ export async function POST(req: NextRequest) {
         utm_medium,
         utm_campaign,
         utm_content,
-        webinar_date:      null,
-        webinar_time:      null,
       })
       .select('id')
       .single()

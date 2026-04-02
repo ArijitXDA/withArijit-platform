@@ -40,13 +40,23 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (reg?.masterclass_campaign_id) {
-      await admin.rpc('exec_sql', {
-        sql: `UPDATE masterclass_campaigns SET uses_count = uses_count + 1 WHERE id = $1`,
-        params: [reg.masterclass_campaign_id],
-      }).catch(() => {
+      try {
+        // Fetch current count then increment — avoids needing a custom RPC
+        const { data: camp } = await admin
+          .from('masterclass_campaigns')
+          .select('uses_count')
+          .eq('id', reg.masterclass_campaign_id)
+          .single()
+        if (camp) {
+          await admin
+            .from('masterclass_campaigns')
+            .update({ uses_count: (camp.uses_count ?? 0) + 1 })
+            .eq('id', reg.masterclass_campaign_id)
+        }
+      } catch {
         // Non-critical — log only
         console.warn('[masterclass verify] Could not increment uses_count')
-      })
+      }
     }
 
     // 4. Send confirmation email via Resend

@@ -91,6 +91,42 @@ export default async function PaymentsPage() {
     })
   )
 
+  // ── Check if this student was group-enrolled ──────────────────────────
+  const { data: groupEnrolment } = await service
+    .from('student_enrolments')
+    .select('enrolment_source, group_enrolment_id')
+    .eq('student_email', email.toLowerCase())
+    .eq('enrolment_source', 'group')
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle()
+
+  const isGroupStudent = !!groupEnrolment
+
+  // Group-enrolled students: show a friendly note, no payment records expected
+  if (isGroupStudent) {
+    return (
+      <div className="space-y-6 pb-12 max-w-3xl">
+        <div>
+          <h1 className="text-xl font-extrabold flex items-center gap-2" style={{ color: T.navy }}>
+            <CreditCard size={20} style={{ color: T.blue }} /> Payments
+          </h1>
+        </div>
+        <div className="rounded-2xl border py-14 px-8 text-center bg-white" style={{ borderColor: T.border }}>
+          <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
+            style={{ background: T.greenBg, border: `1px solid ${T.greenBorder}` }}>
+            <CheckCircle size={26} style={{ color: T.green }} />
+          </div>
+          <p className="font-bold text-lg mb-2" style={{ color: T.navy }}>Your enrolment was gifted 🎁</p>
+          <p className="text-sm max-w-sm mx-auto leading-relaxed" style={{ color: T.textSec }}>
+            Your course access was enrolled by someone on your behalf.
+            No payment is required from you — you have full access to your course.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   // ── Payment history (invoices + legacy) ───────────────────────────────────
   const { data: transactions } = await service
     .from('payment_transactions')

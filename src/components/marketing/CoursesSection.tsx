@@ -39,12 +39,19 @@ export function CoursesSection({ courses }: CoursesSectionProps) {
                 <CourseCard key={course.id} course={course} />
               ))}
             </div>
-            <div className="text-center mt-12">
+            <div className="text-center mt-12 flex flex-wrap gap-4 justify-center">
               <Link
                 href="/courses"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold border border-indigo-200 text-indigo-700 bg-white hover:bg-indigo-50 transition-colors shadow-sm"
               >
                 View All {courses.length} Programmes
+              </Link>
+              <Link
+                href="/group-enrol"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 hover:shadow-lg"
+                style={{ background: 'linear-gradient(135deg, #0891b2, #0e7490)' }}
+              >
+                👥 Enrol Your Team / Group →
               </Link>
             </div>
           </>

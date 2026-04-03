@@ -11,14 +11,14 @@ export function MasterclassTrainer() {
             <p className="font-bold text-gray-900">Arijit Chowdhury</p>
             <p className="text-xs text-gray-500 mt-0.5">Researcher &amp; Trainer</p>
             <p className="text-xs text-gray-500">Agentic AI &amp; Quantum Computing</p>
-            <a href="https://linkedin.com/in/arijitchowdhury" target="_blank" rel="noopener noreferrer"
+            <a href="https://www.linkedin.com/in/arijit-chowdhury-86020b19/" target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 mt-3 text-xs text-indigo-600 hover:text-indigo-800 font-semibold">
               <Linkedin size={13} /> View LinkedIn Profile
             </a>
           </div>
           <div className="flex-1">
             <div className="flex flex-wrap gap-2 mb-4">
-              {['IIT Bombay', 'NLDIBM', 'Star Analytix', 'HSBC', 'Reliance', 'Yes Bank', 'Murugappa', 'Qubit London'].map(o => (
+              {['IIT Bombay', 'NLDIBM', 'Star Analytix', 'HSBC', 'Reliance', 'Yes Bank', 'Murugappa', 'Qubit Microsystems'].map(o => (
                 <span key={o} className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">{o}</span>
               ))}
             </div>

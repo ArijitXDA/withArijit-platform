@@ -1,51 +1,134 @@
 'use client'
 import { useState } from 'react'
 
-const BASE_FAQS = [
+// ── Shared FAQs — appear on all course pages ───────────────────────────────────
+const SHARED_FAQS = [
   {
-    q: 'Do I need a coding background?',
-    a: 'No prior coding experience is needed for most programmes. We start from zero and build progressively. The Agentic AI Development programme does require basic Python familiarity.',
-  },
-  {
-    q: 'When are the classes held?',
-    a: 'All live sessions are on weekends — Saturday and/or Sunday — so your weekdays are completely unaffected. Sessions are 60 minutes each.',
+    q: 'What certificates do I receive?',
+    a: 'Two certificates: an Interim Certificate after Session 13 (LinkedIn-ready immediately), and a globally recognised Completion Certificate after all sessions. Both carry a unique verification ID — verifiable at ostaran.com/certificate-verification. Already held by learners working in India, USA, and Canada.',
   },
   {
     q: 'What if I miss a class?',
-    a: 'Every live session is recorded and uploaded within 24 hours. You get lifetime access to all recordings, so you can catch up at your own pace.',
-  },
-  {
-    q: 'What certificates do I receive?',
-    a: 'You receive two certificates: an Interim Certificate after Session 13, and a globally recognised Completion Certificate after completing all sessions. Both can be added directly to your LinkedIn profile.',
+    a: 'Every live session is recorded and uploaded to your dashboard within 24 hours. You get lifetime access to all recordings. That said, live attendance is where the real learning happens — Arijit builds systems live and takes questions in real time.',
   },
   {
     q: 'What is the AI Kit and when does it arrive?',
-    a: 'The AI Kit is a physical learning package couriered to your home address in India after successful full-course payment. It includes a curated AI tools reference guide, session workbook, prompt library, and your oStaran learner card.',
+    a: 'The AI Kit is a physical package couriered to your home in India after full-course payment. It includes an AI Learning Roadmap Notebook, AI Handbook, printed curriculum, "I am an AI Guy/Girl" badge, "I am an AI Superstar" sticker, oStaran merch, and your personal Learner Card.',
   },
   {
     q: 'Is there a payment plan?',
-    a: 'Yes — the 50-50 Plan lets you pay 50% now to lock in the current price, and the remaining 50% after Session 13 before your Interim Certificate is issued.',
+    a: 'Yes — the 50-50 Plan lets you pay 50% now to lock in today\'s price, and the remaining 50% after Session 13 before your Interim Certificate is issued. The price you lock in today does not change regardless of future increases.',
   },
   {
-    q: 'Will the fee increase?',
-    a: 'Yes — the fee increases approximately 10% each month. Enrolling today locks in the current price permanently, regardless of future increases.',
+    q: 'Will the fee increase if I wait?',
+    a: 'Yes — the fee increases approximately 10% each month, and demand keeps rising. Enrolling today locks in the current price permanently. Many learners who waited 2 months ended up paying 20–25% more for the same programme.',
   },
   {
     q: 'Can my organisation enrol multiple employees?',
-    a: 'Yes — use our Group Enrolment feature at ostaran.com/group-enrol. Purchase seats in bulk, add each person\'s details, and they each receive a personal invitation to activate their own dashboard. GST invoice issued for the full amount.',
+    a: 'Yes — use Group Enrolment at ostaran.com/group-enrol. Pay for seats in bulk, add each person\'s details, and they each receive a personal invitation to activate their own dashboard. GST invoice issued for the full amount. Minimum 2 seats.',
   },
   {
     q: 'Who owns the projects I build?',
-    a: 'You do. Every project you build during the programme is entirely yours — no IP restrictions, no commercial restrictions. You can deploy, sell, or consult around them freely.',
+    a: 'You do — completely. Every project built during the programme is entirely yours with no IP restrictions. You can deploy, sell, or consult around them freely. This is not a sandbox — these are real, production-ready systems.',
   },
   {
     q: 'Is the certificate recognised internationally?',
-    a: 'Yes. oStaran certificates are globally recognised and are already held by learners in India, the USA, and Canada. The certificate includes a unique verification ID that anyone can check at ostaran.com/certificate-verification.',
+    a: 'Yes. oStaran certificates are verifiable online and are already held by learners at companies across India, USA, Canada, UK, Germany, and the Netherlands. The verification link can be shared directly with employers or added to LinkedIn.',
   },
 ]
 
+// ── Audience-specific FAQs ─────────────────────────────────────────────────────
+const AUDIENCE_FAQS: Record<string, { q: string; a: string }[]> = {
+  default: [
+    {
+      q: 'Do I need a coding background?',
+      a: 'No prior coding experience is needed. We start from absolute zero and build progressively. The only exception is the Agentic AI Development programme, which assumes basic Python familiarity. All other programmes are accessible to complete beginners.',
+    },
+    {
+      q: 'When are the classes held?',
+      a: 'All sessions are live on weekends — typically Sunday mornings 11 AM IST. Your weekdays are completely unaffected. Each session is 90 minutes of live instruction, hands-on building, and Q&A — no pre-recorded filler.',
+    },
+    {
+      q: 'How fast can I expect results?',
+      a: 'Many learners begin applying AI tools at work within 2–3 sessions. By Session 8, you\'ll have deployable projects. Salary conversations typically open up 3–6 months after certification, depending on your industry and how aggressively you apply the skills.',
+    },
+  ],
+  school: [
+    {
+      q: 'What age group is this for?',
+      a: 'This programme is designed for students in Class 8 through Class 12 (ages 13–18). No prior technical background is needed. If you can use a laptop and are curious about AI, you\'re ready. We\'ve had students as young as 13 build and deploy working AI systems.',
+    },
+    {
+      q: 'When are the sessions? Will it affect my studies?',
+      a: 'Sessions are held on Sunday mornings — typically 11 AM to 12:30 PM IST. There are no weekday classes, no homework deadlines, and no pressure. One 90-minute live session per week is all it takes. Many of our school students have attended throughout their board exam prep without any disruption.',
+    },
+    {
+      q: 'Do I need to know coding?',
+      a: 'Not at all. We start from zero. You\'ll learn to use AI tools, build simple AI applications, and understand how AI works — without needing to know Python or any programming language to begin. By the end, you\'ll have built real AI projects you can show anyone.',
+    },
+    {
+      q: 'Will this actually help me get into a better college?',
+      a: 'Yes — directly. University admissions teams, especially for engineering, computer science, and business programmes, are actively looking for applicants who show real initiative beyond academics. An AI certification with real projects is a powerful differentiator. Several of our school-track alumni have directly cited this programme in successful BITS, SRCC, NIT, and international applications.',
+    },
+    {
+      q: 'Can my parents attend the sessions with me?',
+      a: 'Absolutely. Parents are welcome to sit in on any session. Many parents have enrolled together with their children — and several parents have ended up enrolling in the Working Professionals track themselves after seeing what the platform offers.',
+    },
+  ],
+  college: [
+    {
+      q: 'I have no work experience. Will this still be valuable?',
+      a: 'This programme is specifically designed for freshers and final-year students. Work experience is not required. What matters is your ability to build — and this programme gives you that. Our college-track graduates enter interviews with real deployed AI projects, which outweighs years of generic experience in the eyes of AI-first employers.',
+    },
+    {
+      q: 'When are the sessions? Do they clash with college schedules?',
+      a: 'All sessions are on Sunday — typically 11 AM IST. No weekday classes, no conflicts with lectures, exams, or placement drives. You can complete the entire programme without missing a single college commitment.',
+    },
+    {
+      q: 'Do I need a coding background?',
+      a: 'Basic familiarity with any programming language helps but is not required. We start from tools and concepts before moving to code. If you\'ve taken any CS elective or done basic Python — you\'re more than ready. If not, we start from scratch.',
+    },
+    {
+      q: 'Will this help me in campus placements?',
+      a: 'Yes — significantly. Recruiters from tech and consulting firms are specifically filtering for AI skills in campus interviews. Having a verifiable oStaran AI certificate plus live project portfolio puts you in a different category than most other candidates. Several oStaran college-track graduates have directly attributed their placements at MAANG, Big 4, and AI startups to their certification.',
+    },
+  ],
+  tech: [
+    {
+      q: 'What technical prerequisites are needed?',
+      a: 'Solid Python is essential. Familiarity with APIs, basic ML concepts, and cloud services (AWS/GCP/Azure) will help but is not required. If you\'re a working developer with 1+ year of experience in any language, you\'re ready for this programme. It moves fast — and that\'s intentional.',
+    },
+    {
+      q: 'How is this different from online courses like Coursera or Udemy?',
+      a: 'Those courses teach concepts. This programme builds systems — live, in production, with real architecture decisions. You\'ll build Agentic RAG pipelines, MCP-integrated multi-agent systems, and LLM fine-tuning workflows that you can deploy and demo. Arijit builds everything live in the session — no pre-recorded walkthroughs.',
+    },
+    {
+      q: 'When are the sessions?',
+      a: 'Sundays, typically 11 AM IST. Sessions run 90 minutes and are dense — expect to be coding alongside Arijit throughout. Recordings are available within 24 hours if you need to catch up on anything.',
+    },
+  ],
+  cxo: [
+    {
+      q: 'I\'m not technical. Can I still benefit?',
+      a: 'Yes — this programme is designed specifically for non-technical leaders. You will not be writing code. You will be understanding AI systems deeply enough to evaluate them, govern them, and drive their adoption across your organisation. The focus is strategy, ROI, and leadership — not engineering.',
+    },
+    {
+      q: 'When are the sessions and what is the time commitment?',
+      a: 'One 90-minute live session every Sunday — typically 11 AM IST. That\'s the only mandatory time commitment. There are no assignments, no exams, and no weekday obligations. Many CXO-track learners attend from their homes or even while travelling.',
+    },
+    {
+      q: 'How is this relevant to my specific industry?',
+      a: 'Arijit has built AI systems inside HSBC, Reliance, Yes Bank, and Murugappa — across fintech, FMCG, banking, and enterprise tech. The programme draws on real industry examples from these environments, and Arijit tailors discussions to the audience in each session. You will leave with AI strategies directly applicable to your sector.',
+    },
+  ],
+}
+
 export function CourseFAQ({ course }: { course: any }) {
   const [open, setOpen] = useState<number | null>(null)
+
+  const category   = course.audience_category ?? 'default'
+  const audienceFaqs = AUDIENCE_FAQS[category] ?? AUDIENCE_FAQS.default
+  const allFaqs    = [...audienceFaqs, ...SHARED_FAQS]
 
   return (
     <section className="py-16 px-4" style={{ background: '#070812' }}>
@@ -56,7 +139,7 @@ export function CourseFAQ({ course }: { course: any }) {
         </div>
 
         <div className="space-y-2">
-          {BASE_FAQS.map((faq, i) => (
+          {allFaqs.map((faq, i) => (
             <div key={i}
               className="rounded-2xl border overflow-hidden transition-all"
               style={{
@@ -68,8 +151,8 @@ export function CourseFAQ({ course }: { course: any }) {
                 className="w-full flex items-center justify-between px-5 py-4 text-left gap-3"
               >
                 <span className="text-sm font-semibold text-slate-200 leading-snug">{faq.q}</span>
-                <span className="text-slate-500 shrink-0 transition-transform duration-200 text-lg leading-none"
-                  style={{ transform: open === i ? 'rotate(45deg)' : 'none' }}>
+                <span className="text-slate-500 shrink-0 text-lg leading-none transition-transform duration-200"
+                  style={{ transform: open === i ? 'rotate(45deg)' : 'none', display: 'inline-block' }}>
                   +
                 </span>
               </button>
@@ -88,7 +171,11 @@ export function CourseFAQ({ course }: { course: any }) {
           <a href="mailto:ai@ostaran.com" className="text-indigo-400 hover:underline">
             ai@ostaran.com
           </a>{' '}
-          · We reply within a few hours.
+          · WhatsApp:{' '}
+          <a href="https://wa.me/919930051053" className="text-indigo-400 hover:underline">
+            +91 99300 51053
+          </a>
+          {' '}· We reply within a few hours.
         </p>
       </div>
     </section>

@@ -1,10 +1,27 @@
-import Image from 'next/image'
+import Image             from 'next/image'
+import Link              from 'next/link'
+import { redirect }      from 'next/navigation'
 import { createServiceClient } from '@/lib/supabase/service'
-import { notFound } from 'next/navigation'
+import { notFound }      from 'next/navigation'
 import { formatCurrency } from '@/lib/utils'
 import { PaymentModalTrigger } from '@/components/shared/PaymentModalTrigger'
-import { Badge } from '@/components/ui/badge'
-import type { Metadata } from 'next'
+import type { Metadata }  from 'next'
+
+// Sub-components
+import { CourseHero }           from './_components/CourseHero'
+import { CourseOutcomes }       from './_components/CourseOutcomes'
+import { CourseWhatYouGet }     from './_components/CourseWhatYouGet'
+import { CourseAIKit }          from './_components/CourseAIKit'
+import { CourseProjects }       from './_components/CourseProjects'
+import { CourseCurriculum }     from './_components/CourseCurriculum'
+import { CourseSeniorTestimonials } from './_components/CourseSeniorTestimonials'
+import { CourseLearnerReviews } from './_components/CourseLearnerReviews'
+import { CourseTrainer }        from './_components/CourseTrainer'
+import { CourseComparison }     from './_components/CourseComparison'
+import { CourseFAQ }            from './_components/CourseFAQ'
+import { CourseBottomCTA }      from './_components/CourseBottomCTA'
+import { CourseStickyBar }      from './_components/CourseStickyBar'
+import { CourseSchema }         from './_components/CourseSchema'
 
 export const revalidate = 3600
 
@@ -14,56 +31,60 @@ export async function generateStaticParams() {
   return (data ?? []).map(c => ({ slug: c.slug }))
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}): Promise<Metadata> {
   const { slug } = await params
   const supabase = createServiceClient()
   const { data: course } = await supabase
     .from('awa_courses')
-    .select('name, description')
+    .select('name, description, seo_title, seo_description, mrp')
     .eq('slug', slug)
     .single()
+
   if (!course) return {}
+
+  const title       = course.seo_title ?? `${course.name} — Live AI Certification Online India | oStaran`
+  const description = course.seo_description ??
+    `${course.description ?? ''} Live weekend sessions with Arijit Chowdhury. AI Kit couriered. Interim + completion certificate. 50,000+ trained across India, USA & Canada.`
+
   return {
-    title: course.name,
-    description: course.description ?? undefined,
+    title,
+    description,
+    keywords: [
+      course.name, 'AI certification India', 'live AI course online India',
+      'AI certificate', 'oStaran', 'Arijit Chowdhury AI',
+      'AI course weekend', 'AI Kit course India',
+    ],
+    openGraph: { title, description },
+    alternates: { canonical: `https://www.ostaran.com/courses/${slug}` },
   }
 }
 
-const BENEFITS = [
-  { icon: '🎓', label: 'Globally Recognised Certificate', sub: 'Add to LinkedIn immediately' },
-  { icon: '🖥️', label: 'Live Interactive Classes', sub: 'With Arijit — not pre-recorded' },
-  { icon: '♾️', label: 'Lifetime Access', sub: 'All recordings, forever' },
-  { icon: '🔧', label: 'Real Project Portfolio', sub: 'Build AI tools you can show employers' },
-  { icon: '📅', label: 'Weekend Sessions Only', sub: 'No weekday disruption' },
-  { icon: '🤝', label: 'Career Support & Alumni Network', sub: 'Community of AI professionals' },
-]
-
-const TRAINER = {
-  name:   'Arijit Chowdhury',
-  title:  'IIT Bombay · AI Educator · Entrepreneur',
-  bio:    'Arijit has trained 10,000+ professionals across India and globally in AI, Data Science, and Agentic AI. He brings real-world industry experience into every live session — no slides, just hands-on building.',
+// ── Audience category → testimonial course_name filter ────────────────────────
+const CATEGORY_FILTER: Record<string, string[]> = {
+  working_professionals: ['Working', 'Professional', 'Agentic AI Certification'],
+  school:               ['School'],
+  college:              ['College', 'Job'],
+  tech:                 ['Agentic', 'Tech', 'Developer'],
+  cxo:                  ['Business', 'Leader', 'CXO', 'Digital'],
+  general:              [],
 }
-
-const FAQS = [
-  { q: 'Do I need a coding background?',               a: 'No prior coding experience needed. We start from zero and build up progressively.' },
-  { q: 'When are the classes?',                         a: 'Weekend live sessions — Saturday and/or Sunday, so your weekdays are unaffected.' },
-  { q: 'What if I miss a class?',                       a: 'All sessions are recorded. You get lifetime access to every recording.' },
-  { q: 'What certificate do I receive?',                a: 'A globally recognised AI Certification that you can add directly to your LinkedIn profile.' },
-  { q: 'Is there a payment plan?',                      a: 'Yes — you can pay 50% now and the remaining 50% later via the 50-50 Plan in the enrolment form.' },
-  { q: 'Will fees increase?',                           a: 'Yes — the fee increases approximately 10% each month. Enrol today to lock in the current price.' },
-]
 
 export default async function CoursePage({
   params,
   searchParams,
 }: {
-  params: Promise<{ slug: string }>
-  searchParams: Promise<{ partner?: string; email?: string; name?: string; mobile?: string; enrol?: string; utm_content?: string }>
+  params:       Promise<{ slug: string }>
+  searchParams: Promise<{ partner?: string; email?: string; name?: string; mobile?: string; enrol?: string }>
 }) {
-  const { slug }                                                    = await params
-  const { partner, email: sqEmail, name: sqName, mobile: sqMobile } = await searchParams
-  const supabase                                                    = createServiceClient()
+  const { slug }                                                      = await params
+  const { partner, email: sqEmail, name: sqName, mobile: sqMobile }  = await searchParams
+  const supabase                                                      = createServiceClient()
 
+  // ── Fetch course ─────────────────────────────────────────────────────────────
   const { data: course } = await supabase
     .from('awa_courses')
     .select('*')
@@ -72,191 +93,130 @@ export default async function CoursePage({
 
   if (!course) notFound()
 
-  // Fetch partner name for the gift banner (if ?partner= is present)
-  let partnerName = ''
-  if (partner) {
-    const { data: partnerRow } = await supabase
-      .from('partners')
-      .select('full_name')
-      .eq('partner_code', partner)
-      .eq('status', 'active')
-      .single()
-    partnerName = partnerRow?.full_name ?? ''
+  // Paused/archived → redirect gracefully (preserves SEO equity)
+  if (!course.is_active) {
+    redirect(course.redirect_slug ? `/courses/${course.redirect_slug}` : '/courses')
   }
 
-  // Discount percent from course (auto-applied for partner-referred students)
-  const discountPct = partner ? Number(course.discount_percent ?? 0) : 0
+  // ── Fetch all supporting data in parallel ─────────────────────────────────
+  const category = course.audience_category ?? 'general'
+  const filters  = CATEGORY_FILTER[category] ?? []
 
-  // ── Track enrolment page open (fire-and-forget, never awaited) ──────────────
-  // Only fires when a partner referral or enrol=1 is present — organic visits not tracked
+  const [
+    { data: projects },
+    { data: allTestimonials },
+    { data: partnerRow },
+  ] = await Promise.all([
+    supabase
+      .from('course_projects')
+      .select('*')
+      .eq('course_id', course.id)
+      .eq('is_active', true)
+      .order('sort_order'),
+
+    supabase
+      .from('webinar_ratings')
+      .select('full_name, course_name, rating, feedback')
+      .gte('rating', 4)
+      .not('feedback', 'is', null)
+      .order('rated_at', { ascending: false })
+      .limit(30),
+
+    partner
+      ? supabase.from('partners').select('full_name').eq('partner_code', partner).eq('status', 'active').single()
+      : Promise.resolve({ data: null }),
+  ])
+
+  // Filter testimonials to this course's category
+  const testimonials = (allTestimonials ?? []).filter(t => {
+    if (!t.feedback || t.feedback.length < 40) return false
+    if (filters.length === 0) return true
+    return filters.some(f => t.course_name?.toLowerCase().includes(f.toLowerCase()))
+  })
+
+  const discountPct  = partner ? Number(course.discount_percent ?? 0) : 0
+  const partnerName  = partnerRow?.full_name ?? ''
+  const mrp          = Number(course.mrp)
+  const gstPct       = Number(course.gst_percent ?? 18) / 100
+  const netBeforeGst = Math.round(mrp / (1 + gstPct))
+  const gstAmount    = mrp - netBeforeGst
+
+  // Track click (fire and forget)
   if (partner || (await searchParams).enrol) {
-    const sp       = await searchParams
-    const appUrl   = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ostaran.com'
+    const sp     = await searchParams
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ostaran.com'
     void fetch(`${appUrl}/api/track/click`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        link_type:    'enrolment_page',
-        student_email:  sp.email  || null,
-        student_name:   sp.name   || null,
-        student_mobile: sp.mobile || null,
-        partner_code:   partner   || null,
-        utm_medium:     'partner_share',
-        utm_content:    sp.utm_content || null,
-        course_id:      course.id,
-        course_name:    course.name,
-        source_app:     'ostaran',
-      }),
-    }).catch(() => {}) // silently swallow any network error
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ link_type: 'enrolment_page', partner_code: partner ?? null, course_id: course.id, course_name: course.name, student_email: sp.email || null, utm_medium: 'partner_share' }),
+    }).catch(() => {})
   }
 
-  const mrp              = Number(course.mrp)
-  const gstPct           = Number(course.gst_percent ?? 18) / 100
-  const netBeforeGst     = Math.round(mrp / (1 + gstPct))
-  const gstAmount        = mrp - netBeforeGst
+  const enrolProps = {
+    courseId:          course.id,
+    courseName:        course.name,
+    price:             mrp,
+    discountPct,
+    partnerName,
+    defaultPartnerCode: partner ?? '',
+    defaultEmail:      sqEmail ?? '',
+    defaultName:       sqName ?? '',
+    defaultMobile:     sqMobile ?? '',
+  }
 
   return (
-    <div className="min-h-screen bg-[#080e1e] text-white">
+    <>
+      {/* JSON-LD Structured Data */}
+      <CourseSchema course={course} mrp={mrp} netBeforeGst={netBeforeGst} />
 
-      {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="max-w-5xl mx-auto px-4 pt-16 pb-10 text-center">
-        <Badge className="mb-4 text-xs px-3 py-1 bg-indigo-600/20 text-indigo-300 border border-indigo-500/30">
-          🔴 Live Hands-on AI Course
-        </Badge>
-        <h1 className="text-4xl sm:text-5xl font-extrabold mb-4 leading-tight">
-          {course.name}
-        </h1>
-        {course.description && (
-          <p className="text-slate-300 text-lg mb-6 max-w-2xl mx-auto">{course.description}</p>
+      {/* Sticky bottom bar — appears after hero scrolls out */}
+      <CourseStickyBar course={course} mrp={mrp} enrolProps={enrolProps} />
+
+      <div className="min-h-screen" style={{ background: '#06080f' }}>
+
+        {/* 1. Hero — 2-col layout, sticky enrol card */}
+        <CourseHero
+          course={course} mrp={mrp} gstAmount={gstAmount} netBeforeGst={netBeforeGst}
+          discountPct={discountPct} partner={partner} enrolProps={enrolProps}
+        />
+
+        {/* 2. Transformation outcomes */}
+        <CourseOutcomes category={category} />
+
+        {/* 3. What you get — 8 cards */}
+        <CourseWhatYouGet course={course} />
+
+        {/* 4. AI Kit section */}
+        <CourseAIKit />
+
+        {/* 5. Real projects (DB-driven) */}
+        {(projects ?? []).length > 0 && (
+          <CourseProjects projects={projects ?? []} />
         )}
 
-        {/* Urgency */}
-        <div className="inline-block bg-amber-500/10 border border-amber-500/30 rounded-xl px-5 py-3 mb-8 text-sm text-amber-300">
-          ⚠️ <strong>Fee increases ~10% every month</strong> — enrol now to lock in today's price
-        </div>
+        {/* 6. Curriculum */}
+        {course.subjects && Array.isArray(course.subjects) && course.subjects.length > 0 && (
+          <CourseCurriculum subjects={course.subjects as string[]} />
+        )}
 
-        {/* Price + CTA */}
-        <div className="flex flex-col items-center gap-4">
-          <div className="flex items-center gap-4">
-            <span className="text-4xl font-black text-white">{formatCurrency(mrp)}</span>
-            <div className="text-left text-xs text-slate-400 leading-relaxed">
-              <div>incl. 18% GST (₹{gstAmount.toLocaleString('en-IN')})</div>
-              <div>net taxable: ₹{netBeforeGst.toLocaleString('en-IN')}</div>
-            </div>
-          </div>
+        {/* 7. Senior testimonials */}
+        <CourseSeniorTestimonials />
 
-          <PaymentModalTrigger
-            courseId={course.id}
-            courseName={course.name}
-            price={mrp}
-            discountPct={discountPct}
-            partnerName={partnerName}
-            label="🎓 Enrol Now — Lock Today's Price →"
-            className="text-base px-8 py-4 font-bold shadow-lg shadow-indigo-500/30"
-            defaultPartnerCode={partner ?? ''}
-            defaultEmail={sqEmail ?? ''}
-            defaultName={sqName ?? ''}
-            defaultMobile={sqMobile ?? ''}
-          />
+        {/* 8. Learner reviews — marquee */}
+        <CourseLearnerReviews testimonials={testimonials} category={category} />
 
-          <p className="text-xs text-slate-500">
-            Secured by Razorpay · 256-bit SSL · GST invoice issued · 50-50 payment plan available
-          </p>
+        {/* 9. Trainer profile */}
+        <CourseTrainer />
 
-          {partner && (
-            <p className="text-xs text-indigo-400">
-              🤝 Referred by partner: <span className="font-mono font-semibold">{partner}</span>
-            </p>
-          )}
-        </div>
-      </section>
+        {/* 10. Comparison table */}
+        <CourseComparison mrp={mrp} />
 
-      {/* ── Benefits grid ────────────────────────────────────────────────── */}
-      <section className="max-w-5xl mx-auto px-4 py-12">
-        <h2 className="text-2xl font-bold text-center mb-8">What You Get</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {BENEFITS.map(b => (
-            <div key={b.label}
-              className="rounded-2xl p-5 border border-white/8 text-left"
-              style={{ background: 'rgba(255,255,255,0.03)' }}>
-              <div className="text-3xl mb-2">{b.icon}</div>
-              <p className="font-semibold text-sm">{b.label}</p>
-              <p className="text-xs text-slate-400 mt-0.5">{b.sub}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+        {/* 11. FAQs */}
+        <CourseFAQ course={course} />
 
-      {/* ── Subjects (if present) ────────────────────────────────────────── */}
-      {course.subjects && Array.isArray(course.subjects) && course.subjects.length > 0 && (
-        <section className="max-w-5xl mx-auto px-4 py-10">
-          <h2 className="text-2xl font-bold text-center mb-6">Curriculum Highlights</h2>
-          <div className="flex flex-wrap gap-2 justify-center">
-            {(course.subjects as string[]).map((s: string) => (
-              <span key={s} className="text-sm px-3 py-1.5 rounded-full font-medium"
-                style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc' }}>
-                {s}
-              </span>
-            ))}
-          </div>
-        </section>
-      )}
+        {/* 12. Bottom CTA */}
+        <CourseBottomCTA course={course} enrolProps={enrolProps} />
 
-      {/* ── Trainer ──────────────────────────────────────────────────────── */}
-      <section className="max-w-3xl mx-auto px-4 py-12">
-        <h2 className="text-2xl font-bold text-center mb-8">Your Trainer</h2>
-        <div className="rounded-2xl border border-white/8 p-6 flex gap-5 items-start"
-          style={{ background: 'rgba(255,255,255,0.03)' }}>
-          <Image src="/arijit-image.png" alt="Arijit Chowdhury" width={64} height={64}
-            className="w-16 h-16 rounded-full object-cover object-top shrink-0 border-2 border-indigo-500/30" />
-          <div>
-            <p className="font-bold text-lg">{TRAINER.name}</p>
-            <p className="text-indigo-300 text-sm mb-2">{TRAINER.title}</p>
-            <p className="text-slate-400 text-sm leading-relaxed">{TRAINER.bio}</p>
-          </div>
-        </div>
-      </section>
-
-      {/* ── FAQs ─────────────────────────────────────────────────────────── */}
-      <section className="max-w-3xl mx-auto px-4 py-12">
-        <h2 className="text-2xl font-bold text-center mb-8">Frequently Asked Questions</h2>
-        <div className="space-y-3">
-          {FAQS.map(faq => (
-            <details key={faq.q} className="rounded-xl border border-white/8 overflow-hidden"
-              style={{ background: 'rgba(255,255,255,0.03)' }}>
-              <summary className="px-5 py-4 cursor-pointer font-semibold text-sm text-slate-200 hover:text-white transition-colors select-none">
-                {faq.q}
-              </summary>
-              <div className="px-5 pb-4 text-sm text-slate-400 leading-relaxed">{faq.a}</div>
-            </details>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Bottom CTA ───────────────────────────────────────────────────── */}
-      <section className="max-w-3xl mx-auto px-4 py-16 text-center">
-        <h2 className="text-3xl font-extrabold mb-4">Ready to Transform Your Career with AI?</h2>
-        <p className="text-slate-400 mb-8">
-          Join thousands of professionals, students, and entrepreneurs who have already started their AI journey with Arijit.
-        </p>
-        <PaymentModalTrigger
-          courseId={course.id}
-          courseName={course.name}
-          price={mrp}
-          discountPct={discountPct}
-          partnerName={partnerName}
-          label="🎓 Enrol Now →"
-          className="text-base px-8 py-4 font-bold"
-          defaultPartnerCode={partner ?? ''}
-          defaultEmail={sqEmail ?? ''}
-          defaultName={sqName ?? ''}
-          defaultMobile={sqMobile ?? ''}
-        />
-        <p className="text-xs text-slate-600 mt-4">
-          50-50 payment plan available · GST invoice issued · Secured by Razorpay
-        </p>
-      </section>
-
-    </div>
+      </div>
+    </>
   )
 }

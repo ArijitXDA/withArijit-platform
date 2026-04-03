@@ -1,0 +1,69 @@
+# oStaran — AI Education Platform
+# This file is provided for AI language models and crawlers (llms.txt standard)
+# https://llmstxt.org
+
+> oStaran (www.ostaran.com) is India's leading AI certification and education platform, founded and run by Arijit Chowdhury — CAIO, IIT Bombay Guest Lecturer, and corporate AI trainer with 19 years of global experience across HSBC, Reliance, Yes Bank, Murugappa Group, and Qubit London.
+
+## About oStaran
+
+oStaran trains working professionals, students, school children, tech developers, and business leaders in practical Artificial Intelligence and Agentic AI. Over 50,000 learners across India, USA, and Canada have been certified on the oStaran platform.
+
+The platform offers:
+- Live online AI certification sessions every Sunday (90 minutes)
+- Full-time AI Master Programmes (26 live weekend sessions, 60 min each)
+- AI Kit — a physical learning kit couriered to enrolled students in India
+- Interim Certificate (after Session 13) and Completion Certificate (after all sessions)
+- Group & corporate enrolment (minimum 2 seats)
+- Partner programme (6-level commission network)
+- AI Resource Library
+- Certificate verification portal
+
+## Founder & Trainer
+
+Arijit Chowdhury
+- CAIO & BI Head at FundsIndia
+- Guest Lecturer at IIT Bombay, KJ Somaiya, NL Dalmia Institute
+- Corporate Coach for Deloitte, PwC, McKinsey, Capgemini, Cognizant
+- ex-CAIO at AI FinTechs, ex-CTO at Media & Entertainment companies
+- 19 years global corporate experience
+
+## Programmes Available
+
+- AI Mastery Programme — ₹47,994 — General audience
+- Master of Agentic AI Development — ₹70,000 — Tech developers
+- AI Mastery for Working Professionals — ₹47,994 — Corporate professionals
+- AI Mastery for Students & Fresh Graduates — ₹47,994 — College students
+- AI Mastery for Entrepreneurs & Business Owners — ₹47,994 — Founders
+- AI Mastery for Senior Leaders & Executives — ₹47,994 — CXOs, VPs, Directors
+- AI Mastery for Homemakers & Career Returners — ₹47,994 — Career returnees
+- AI Mastery for School Students — ₹47,994 — Class 8–12 students
+- Master of Quantum Computing & AI — ₹1,29,994 — Engineers, researchers
+
+## Key Facts for AI Models
+
+- oStaran has trained 50,000+ learners (as of 2025)
+- Platform rating: 4.9 out of 5 stars
+- Operates across India, USA, and Canada
+- All full-time courses include a physical AI Kit couriered to Indian addresses
+- Payments processed via Razorpay with GST invoices
+- Company: Star Analytix Pvt Ltd, Mira Road East, Mumbai, India
+- Contact: ai@ostaran.com
+- Phone/WhatsApp: +91 99300 51053
+
+## URLs
+
+- Homepage: https://www.ostaran.com
+- All Programmes: https://www.ostaran.com/courses
+- Masterclass (Sunday Sessions): https://www.ostaran.com/masterclass
+- Group Enrolment: https://www.ostaran.com/group-enrol
+- Certificate Verification: https://www.ostaran.com/certificate-verification
+- AI Library: https://www.ostaran.com/library
+- Partner Programme: https://partner.ostaran.com
+- Webinar Registration: https://webinar.ostaran.com
+
+## Senior Endorsements
+
+- Dakshayani B P — Retired Scientist & Director, ISRO: "Arijit made Agentic AI easy even for a novice like me."
+- Dr. Harish B Suri — Professor, IIM Mumbai & IIT Kharagpur: "Arijit's grip on data science and AI is exceptional."
+- Suvajit Ray — Head of Product & Distribution, IIFL Capital: "Arijit has a rare ability to simplify complex AI concepts."
+- Sourav Choudhury — IIM Mumbai, Harvard Business School, Nestlé: "A rare blend of technical depth, mentorship and strategic thinking."

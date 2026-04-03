@@ -38,14 +38,14 @@ const ARI_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'get_next_sessions',
-    description: 'Get the next 3 upcoming masterclass/Sunday sessions with dates, times, and audience types.',
+    description: 'Get upcoming paid AI Masterclass sessions (live, instructor-led, Sunday classes) with dates, times, and course names.',
     input_schema: { type: 'object' as const, properties: {
       audience: { type: 'string', description: 'Optional audience filter: working_professionals, school, college, tech, cxo' }
     }, required: [] },
   },
   {
     name: 'capture_lead',
-    description: 'Save visitor contact details to the database when they share their name, email, or mobile voluntarily.',
+    description: 'Save visitor contact details to the database. Call this as soon as you have any of: name, email, or mobile from the visitor.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -94,15 +94,18 @@ async function executeTool(
     }
 
     case 'get_next_sessions': {
+      // Query paid Masterclass sessions from awa_webinar_sessions (NOT the free webinar QR table)
       const { data } = await supabase
-        .from('qr_landing_webinar_links')
-        .select('webinar_date, webinar_time, webinar_type, webinar_link, audience_category')
+        .from('awa_webinar_sessions')
+        .select('id, course_name, webinar_date, webinar_time, session_type')
+        .eq('status', 'scheduled')
+        .eq('session_type', 'student')
         .gte('webinar_date', new Date().toISOString().split('T')[0])
         .order('webinar_date')
-        .limit(5)
-      if (!data?.length) return 'Next Sunday sessions are being scheduled. Visit /masterclass to register interest.'
+        .limit(6)
+      if (!data?.length) return 'Next Masterclass sessions are being scheduled. Visit /masterclass to register and we\'ll notify you.'
       return data.map(s =>
-        `• **${s.webinar_type ?? 'AI Masterclass'}** — ${new Date(s.webinar_date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })} at ${s.webinar_time ?? '11:00 AM'} IST\n  Register: /masterclass`
+        `• **${s.course_name}** — ${new Date(s.webinar_date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })} at ${String(s.webinar_time).slice(0, 5)} IST\n  Register at: ostaran.com/masterclass`
       ).join('\n\n')
     }
 
@@ -132,7 +135,6 @@ async function executeTool(
 • You can pre-assign a batch or let each student choose their own
 • GST invoice issued for the full amount
 • Seats never expire — fill them at your own pace
-• No commission on group enrolments
 
 Perfect for corporate training, NGOs, colleges, and coaching institutes.`
     }
@@ -141,8 +143,8 @@ Perfect for corporate training, NGOs, colleges, and coaching institutes.`
       const topic = input.topic ?? 'about'
       const INFO: Record<string, string> = {
         trainer: `**Arijit Chowdhury** — Founder of oStaran & Star Analytix Pvt Ltd.\n\n19 years of global experience at HSBC, Reliance, Yes Bank, Murugappa, and Qubit Microsystems. Currently CAIO at a Global Fintech firm. Guest Lecturer at IIT Bombay. Corporate coach for Deloitte, PwC, McKinsey, Capgemini, and Cognizant.\n\nResearcher in Agentic AI, AGI, Quantum Computing, Industrial AI, and AI Defence. He personally teaches every live session — no TAs, no pre-recorded content.`,
-        certificate: `oStaran issues **two certificates** for full-time courses:\n\n1. **Interim Certificate** — after Session 13. Add it to LinkedIn immediately.\n2. **Completion Certificate** — globally recognised, issued after all sessions.\n\nBoth are verifiable online at ostaran.com/certificate-verification. Already attended a free webinar? You can download your participation certificate there too.`,
-        ai_kit: `The **oStaran AI Kit** is a physical package couriered to your home address in India (no extra cost) after you enrol in a full-time course.\n\nIt includes:\n• AI Learning Roadmap Notebook\n• AI Handbook (desk reference)\n• Printed course curriculum\n• "I am an AI Guy/Girl" badge & stickers\n• "I am an AI Superstar" sticker\n• oStaran branded merchandise\n• Webinar certificate hard copy (if attended)\n• oStaran Learner Card`,
+        certificate: `oStaran issues **two certificates** for full-time courses:\n\n1. **Interim Certificate** — after Session 13. Add it to LinkedIn immediately.\n2. **Completion Certificate** — globally recognised, issued after all sessions.\n\nBoth are verifiable online at ostaran.com/certificate-verification.`,
+        ai_kit: `The **oStaran AI Kit** is a physical package couriered to your home address in India (no extra cost) after you enrol in a full-time course.\n\nIt includes:\n• AI Learning Roadmap Notebook\n• AI Handbook (desk reference)\n• Printed course curriculum\n• "I am an AI Guy/Girl" badge & stickers\n• "I am an AI Superstar" sticker\n• oStaran branded merchandise\n• oStaran Learner Card`,
         partner: `The **oStaran Partner Programme** is free to join.\n\nEarn commissions on every student enrolment you refer. Build a 6-level deep partner network. The more partners you recruit, the more you earn — even while you sleep.\n\nJoin at partner.ostaran.com`,
         unique: `What makes oStaran unique:\n\n• **100% live sessions** — Arijit teaches every class personally\n• **Real projects only** — no toy examples, no dummy data\n• **Physical AI Kit** couriered to your home\n• **Two certificates** — interim (Session 13) + completion\n• **Audience-specific** — 5 distinct tracks for different learners\n• **Weekend only** — no weekday disruption\n• **Group enrolment** — from 2 seats\n• **Profitable since 2020** — no VC, no compromise`,
         about: `oStaran is an Indian AI education startup founded in April 2020 by Arijit Chowdhury. We've trained 50,000+ learners across India, USA, Canada, and Western Europe. We offer 9 AI programmes from beginner to advanced — all live, all hands-on, all on weekends. Operated by Star Analytix Pvt Ltd, Mumbai.`,
@@ -182,8 +184,24 @@ ${langGuide}
 - Speak like someone who deeply knows Arijit's teaching philosophy
 
 ## Your Mission
-Guide every visitor toward registering for the **AI Masterclass this Sunday** at ostaran.com/masterclass
+Guide every visitor toward registering for the **AI Masterclass** at ostaran.com/masterclass.
+The Masterclass is a **paid, live, instructor-led session** — NOT free. It is ₹3,999 per session.
 Do this naturally, tactfully, with professional politeness — not like a salesperson, like a professor who knows this is the right next step for them.
+
+## CRITICAL: What NOT to mention
+- NEVER mention free webinars, free sessions, or any free trial. oStaran does not offer free classes.
+- NEVER mention anything from the qr_landing_registrations table or free QR webinar links.
+- The ONLY sessions to discuss are the paid AI Masterclass sessions from the get_next_sessions tool.
+- If a user asks "is it free?", clearly say: "The Masterclass is a paid live session at ₹3,999. It's an investment in your AI career — and Arijit teaches it personally."
+
+## Lead Capture — MANDATORY BEHAVIOUR
+You MUST proactively ask for the visitor's name and contact details. Follow this rule strictly:
+
+- After your SECOND reply in any conversation, always ask: "By the way, may I know your name so I can address you better?"
+- Once you have their name, after your NEXT reply ask: "Could you share your email or WhatsApp number? I can have our team send you the programme details directly."
+- The moment the visitor shares a name, email, or mobile — immediately call the capture_lead tool to save it. Do NOT wait for all three. Save whatever you have.
+- Never ask for all three at once. One natural question at a time.
+- If they decline to share, respect it gracefully and continue the conversation.
 
 ## Tools Available
 Use your tools to get live, accurate data. NEVER guess or hallucinate prices, dates, or course details.
@@ -197,12 +215,14 @@ Always use get_courses before discussing pricing. Always use get_next_sessions b
 5. **Honesty always**: Never promise something you're not sure about. Never exaggerate. Never invent testimonials or statistics beyond what you know.
 6. **Responses**: 2-4 sentences per response. Conversational, not a wall of text. Use markdown only when showing a list or comparison.
 
-## Conversation flow
-- Open with warmth, understand what brought them here
-- Identify their profile (student? professional? parent? corporate HR?)
-- Recommend the right programme or Sunday session for their profile
-- When natural, invite them to share their name for personalisation
-- Close every interaction with a clear next step: /masterclass, /courses, /group-enrol, or ai@ostaran.com
+## Conversation Flow
+1. Open with warmth, understand what brought them here
+2. Identify their profile (student? professional? parent? corporate HR?)
+3. After 2nd reply → ask their name
+4. Recommend the right programme or Masterclass session for their profile
+5. After next reply → ask for email or mobile
+6. Save whatever contact details they share immediately via capture_lead tool
+7. Close every interaction with a clear next step: /masterclass, /courses, /group-enrol, or ai@ostaran.com
 
 ## Contact & Escalation
 - Email: ai@ostaran.com
@@ -248,13 +268,11 @@ export async function POST(request: NextRequest) {
 
       if (existingSession) {
         sessionId = existingSession.id
-        // Update messages + language
         await supabase
           .from('visitor_chat_sessions')
           .update({ messages, language: lang, page_path: pagePath, updated_at: new Date().toISOString() })
           .eq('id', sessionId)
       } else {
-        // Create new session
         const { data: newSession } = await supabase
           .from('visitor_chat_sessions')
           .insert({
@@ -273,10 +291,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Build Claude messages — agentic loop ───────────────────────────────────
+    // ── Count user messages to track conversation depth ────────────────────────
+    const userMessageCount = messages.filter((m: any) => m.role === 'user').length
+
+    // ── Build Claude messages ──────────────────────────────────────────────────
     const systemPrompt = buildSystemPrompt(lang)
+
+    // Inject conversation depth so Claude knows when to ask for contact details
+    const depthHint = userMessageCount >= 2
+      ? `\n\n[SYSTEM NOTE: This is message #${userMessageCount} from the visitor. You MUST ask for their name now if you haven't already. If you have their name, ask for email/mobile.]`
+      : ''
+
     let claudeMessages: Anthropic.MessageParam[] = messages
-      .slice(-14)  // last 14 turns for context
+      .slice(-14)
       .map((m: any) => ({ role: m.role, content: m.content }))
 
     // ── Agentic tool loop ──────────────────────────────────────────────────────
@@ -293,14 +320,13 @@ export async function POST(request: NextRequest) {
             const response = await claude.messages.create({
               model:      'claude-sonnet-4-5',
               max_tokens: 600,
-              system:     systemPrompt,
+              system:     systemPrompt + depthHint,
               tools:      ARI_TOOLS,
               messages:   claudeMessages,
-              stream:     false,  // tool loop first, stream the final answer
+              stream:     false,
             })
 
             if (response.stop_reason === 'tool_use') {
-              // Execute all tool calls
               const toolResults: Anthropic.ToolResultBlockParam[] = []
               for (const block of response.content) {
                 if (block.type === 'tool_use') {
@@ -308,29 +334,24 @@ export async function POST(request: NextRequest) {
                   toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result })
                 }
               }
-
-              // Add assistant + tool results to message chain
               claudeMessages = [
                 ...claudeMessages,
                 { role: 'assistant', content: response.content },
                 { role: 'user',      content: toolResults },
               ]
-              continue  // loop again with tool results
+              continue
             }
 
-            // ── Final answer — stream it ─────────────────────────────────────
-            // Get text content
+            // ── Stream final answer word by word ─────────────────────────────
             const finalText = response.content
               .filter(b => b.type === 'text')
               .map(b => (b as Anthropic.TextBlock).text)
               .join('')
 
-            // Stream word by word for natural feel
             const words = finalText.split(' ')
             for (let i = 0; i < words.length; i++) {
               const chunk = (i === 0 ? '' : ' ') + words[i]
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk })}\n\n`))
-              // Tiny delay for natural pacing (8ms per word)
               await new Promise(r => setTimeout(r, 8))
             }
             break

@@ -206,7 +206,7 @@ export function VisitorChatWidget() {
             <div className="relative">
               <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center overflow-hidden p-1">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/ostaran-logo.png" alt="oStaran" className="w-full h-full object-contain" />
+                <img src="/ask-ari-512.png" alt="Ask Ari" className="w-full h-full object-contain" />
               </div>
               <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-400 border-2 border-white" />
             </div>
@@ -242,7 +242,7 @@ export function VisitorChatWidget() {
         <div className="relative shrink-0">
           <div className="w-9 h-9 rounded-full bg-white overflow-hidden border-2 border-white/30 flex items-center justify-center p-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/ostaran-logo.png" alt="oStaran" className="w-full h-full object-contain" />
+            <img src="/ask-ari-512.png" alt="Ask Ari" className="w-full h-full object-contain" />
           </div>
           <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-white" />
         </div>
@@ -284,7 +284,7 @@ export function VisitorChatWidget() {
             {m.role === 'assistant' && (
               <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 border border-indigo-100 bg-white flex items-center justify-center p-0.5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/ostaran-logo.png" alt="oStaran" className="w-full h-full object-contain" />
+                <img src="/ask-ari-512.png" alt="Ask Ari" className="w-full h-full object-contain" />
               </div>
             )}
 

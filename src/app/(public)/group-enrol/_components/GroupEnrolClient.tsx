@@ -81,9 +81,11 @@ export default function GroupEnrolClient({ courses, batches }: { courses: Course
       if (!orderRes.ok) throw new Error(order.error)
 
       // Open Razorpay
+      // Access NEXT_PUBLIC_ env var — Next.js replaces this at build time
+      const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? 'rzp_live_1hENDuiPNasINC'
       await new Promise<void>((resolve, reject) => {
         const rzp = new window.Razorpay({
-          key:         process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+          key:         razorpayKey,
           order_id:    order.razorpay_order_id,
           amount:      order.amount_paise,
           currency:    'INR',

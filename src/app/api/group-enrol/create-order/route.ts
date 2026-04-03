@@ -155,7 +155,16 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 6. Create Razorpay order ──────────────────────────────────────────────
-    const order = await getRazorpay().orders.create({
+    // Guard: reject placeholder keys before hitting Razorpay API
+    if (!process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID.includes('placeholder')) {
+      return NextResponse.json({
+        error: 'Payment gateway is not configured. Please contact support at ai@ostaran.com'
+      }, { status: 503 })
+    }
+
+    let order: any
+    try {
+      order = await getRazorpay().orders.create({
       amount:   Math.round(totalPayable * 100),   // paise
       currency: 'INR',
       receipt:  `grp_${Date.now()}`,
@@ -169,6 +178,11 @@ export async function POST(req: NextRequest) {
         discount_code:  discount_code?.trim().toUpperCase() ?? '',
       },
     })
+    } catch (rzpErr: any) {
+      const msg = rzpErr?.error?.description ?? rzpErr?.message ?? 'Payment gateway error'
+      console.error('[group-enrol/create-order] Razorpay error:', msg)
+      return NextResponse.json({ error: `Payment gateway error: ${msg}` }, { status: 502 })
+    }
 
     // ── 7. Insert pending group_enrolments row ────────────────────────────────
     const { data: groupEnrolment, error: insertErr } = await supabase

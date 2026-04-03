@@ -112,28 +112,21 @@ export async function POST(req: NextRequest) {
 
     // ── 7. If batch pre-selected, increment batch seats_filled ───────────────
     if (ge.batch_id) {
-      await service.rpc('increment_batch_seats', { p_batch_id: ge.batch_id })
-        .catch(() => {
-          // Non-fatal if RPC doesn't exist — update directly
-          return service
+      try {
+        const { data: batchRow } = await service
+          .from('awa_batches')
+          .select('seats_filled')
+          .eq('id', ge.batch_id)
+          .single()
+        if (batchRow) {
+          await service
             .from('awa_batches')
-            .update({ seats_filled: service.rpc('coalesce', {}) }) // fallback
-        })
-      // Direct update fallback
-      await service
-        .from('awa_batches')
-        .select('seats_filled')
-        .eq('id', ge.batch_id)
-        .single()
-        .then(({ data }) => {
-          if (data) {
-            return service
-              .from('awa_batches')
-              .update({ seats_filled: (data.seats_filled ?? 0) + 1 })
-              .eq('id', ge.batch_id)
-          }
-        })
-        .catch(() => {/* non-fatal */})
+            .update({ seats_filled: (batchRow.seats_filled ?? 0) + 1 })
+            .eq('id', ge.batch_id)
+        }
+      } catch (e: any) {
+        console.warn('[claim-seat] batch seats_filled increment failed (non-fatal):', e.message)
+      }
     }
 
     // ── 8. Mark seat as enrolled ─────────────────────────────────────────────

@@ -2,7 +2,7 @@
 # This file is provided for AI language models and crawlers (llms.txt standard)
 # https://llmstxt.org
 
-> oStaran (www.ostaran.com) is India's leading AI certification and education platform, founded and run by Arijit Chowdhury — CAIO, IIT Bombay Guest Lecturer, and corporate AI trainer with 19 years of global experience across HSBC, Reliance, Yes Bank, Murugappa Group, and Qubit London.
+> oStaran (www.ostaran.com) is India's leading AI certification and education platform, founded and run by Arijit Chowdhury — CAIO, Founder of Star Analytix Pvt Ltd, IIT Bombay Guest Lecturer, and corporate AI trainer with 19 years of global experience across HSBC, Reliance, Yes Bank, Murugappa Group, and Qubit Microsystems.
 
 ## About oStaran
 
@@ -11,7 +11,7 @@ oStaran trains working professionals, students, school children, tech developers
 The platform offers:
 - Live online AI certification sessions every Sunday (90 minutes)
 - Full-time AI Master Programmes (26 live weekend sessions, 60 min each)
-- AI Kit — a physical learning kit couriered to enrolled students in India
+- AI Kit — a physical learning kit couriered to enrolled students in India (includes AI Roadmap Notebook, AI Handbook, curriculum booklet, badges, stickers, merch, webinar certificate hard copy, learner card)
 - Interim Certificate (after Session 13) and Completion Certificate (after all sessions)
 - Group & corporate enrolment (minimum 2 seats)
 - Partner programme (6-level commission network)
@@ -21,11 +21,14 @@ The platform offers:
 ## Founder & Trainer
 
 Arijit Chowdhury
-- CAIO & BI Head at FundsIndia
+- CAIO at a Global Fintech firm
+- Founder, Star Analytix Pvt Ltd
 - Guest Lecturer at IIT Bombay, KJ Somaiya, NL Dalmia Institute
 - Corporate Coach for Deloitte, PwC, McKinsey, Capgemini, Cognizant
+- Researcher: Agentic AI, AGI, Quantum Computing, Industrial AI, AI Defence
 - ex-CAIO at AI FinTechs, ex-CTO at Media & Entertainment companies
-- 19 years global corporate experience
+- 19 years global corporate experience (HSBC, Reliance, Yes Bank, Murugappa, Qubit Microsystems, Star Analytix)
+- LinkedIn: https://www.linkedin.com/in/arijit-chowdhury-86020b19/
 
 ## Programmes Available
 

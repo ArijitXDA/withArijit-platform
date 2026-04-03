@@ -41,10 +41,10 @@ export function CourseSchema({
       '@type':        'Person',
       name:           'Arijit Chowdhury',
       url:            `${appUrl}/about/arijit-chowdhury`,
-      jobTitle:       'CAIO & AI Educator',
-      affiliation:    'oStaran',
+      jobTitle:       'CAIO & AI Researcher',
+      affiliation:    'oStaran · Star Analytix Pvt Ltd',
       alumniOf:       'IIT Bombay (Guest Lecturer)',
-      description:    'AI educator with 19 years global experience. CAIO at FundsIndia. Corporate coach for Deloitte, PwC, McKinsey, Capgemini.',
+      description:    'AI researcher and educator with 19 years global experience across HSBC, Reliance, Yes Bank, Murugappa, Qubit Microsystems, Star Analytix. Researcher in Agentic AI, AGI, Quantum Computing, Industrial AI and AI Defence. Corporate coach for Deloitte, PwC, McKinsey, Capgemini, Cognizant.',
     },
     offers: {
       '@type':         'Offer',

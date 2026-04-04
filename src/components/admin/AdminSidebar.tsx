@@ -19,6 +19,7 @@ import {
   LogOut,
   Megaphone,
   Route,
+  FileText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
@@ -27,6 +28,7 @@ const BASE_NAV = [
   { href: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/admin/students', label: 'Students', icon: Users },
   { href: '/admin/sessions', label: 'Sessions', icon: Calendar },
+  { href: '/admin/sessions/transcripts', label: 'Transcripts', icon: FileText },
   { href: '/admin/session-links', label: 'Session Links', icon: Link2 },
   { href: '/admin/certificates', label: 'Certificates', icon: Award },
   { href: '/admin/library', label: 'Library', icon: Library },

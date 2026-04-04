@@ -128,6 +128,46 @@ export default async function DashboardPage({
         .lt('session_date', today)
     : { count: 0 }
 
+  // ── Stats card config — each card links to its detail page ────────────
+  const STATS = [
+    {
+      label:  'Active Courses',
+      value:  totalCourses || (legacyUser?.course_name ? 1 : 0),
+      icon:   BookOpen,
+      accent: '#2563eb',
+      bg:     '#eff6ff',
+      border: '#bfdbfe',
+      href:   '/dashboard/courses',
+    },
+    {
+      label:  'Sessions Attended',
+      value:  pastCount ?? 0,
+      icon:   Calendar,
+      accent: '#16a34a',
+      bg:     '#f0fdf4',
+      border: '#bbf7d0',
+      href:   '/dashboard/sessions',
+    },
+    {
+      label:  'Upcoming Classes',
+      value:  upcomingSessions.length,
+      icon:   Clock,
+      accent: '#7c3aed',
+      bg:     '#f5f3ff',
+      border: '#ddd6fe',
+      href:   '/dashboard/sessions',
+    },
+    {
+      label:  'Certificates',
+      value:  certCount ?? 0,
+      icon:   Award,
+      accent: '#b45309',
+      bg:     '#fffbeb',
+      border: '#fde68a',
+      href:   '/dashboard/certificates',
+    },
+  ]
+
   return (
     <div className="space-y-5 pb-12 max-w-5xl">
 
@@ -297,25 +337,34 @@ export default async function DashboardPage({
         )}
       </div>
 
-      {/* ── Stats row ────────────────────────────────────────────────────── */}
+      {/* ── Stats row — each card is a clickable link ─────────────────────
+          Active Courses     → /dashboard/courses
+          Sessions Attended  → /dashboard/sessions
+          Upcoming Classes   → /dashboard/sessions
+          Certificates       → /dashboard/certificates                   */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'Active Courses',     value: totalCourses || (legacyUser?.course_name ? 1 : 0), icon: BookOpen, accent: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
-          { label: 'Sessions Attended',  value: pastCount ?? 0,                                    icon: Calendar, accent: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
-          { label: 'Upcoming Classes',   value: upcomingSessions.length,                            icon: Clock,    accent: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
-          { label: 'Certificates',       value: certCount ?? 0,                                    icon: Award,    accent: '#b45309', bg: '#fffbeb', border: '#fde68a' },
-        ].map(({ label, value, icon: Icon, accent, bg, border }) => (
-          <div key={label} className="rounded-2xl p-5 border bg-white"
-            style={{ borderColor: T.border }}>
+        {STATS.map(({ label, value, icon: Icon, accent, bg, border, href }) => (
+          <Link
+            key={label}
+            href={href}
+            className="group rounded-2xl p-5 border bg-white block transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md"
+            style={{ borderColor: T.border }}
+          >
             <div className="flex items-center justify-between mb-3">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center"
                 style={{ background: bg, border: `1px solid ${border}` }}>
                 <Icon size={16} style={{ color: accent }} />
               </div>
+              {/* Arrow appears on hover — signals the card is clickable */}
+              <ChevronRight
+                size={14}
+                className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 -translate-x-1 group-hover:translate-x-0 transition-transform"
+                style={{ color: accent }}
+              />
             </div>
             <p className="text-2xl font-black mb-0.5" style={{ color: T.textPrimary }}>{value}</p>
             <p className="text-xs font-medium" style={{ color: T.textMuted }}>{label}</p>
-          </div>
+          </Link>
         ))}
       </div>
 

@@ -22,6 +22,9 @@ import { CourseFAQ }            from './_components/CourseFAQ'
 import { CourseBottomCTA }      from './_components/CourseBottomCTA'
 import { CourseStickyBar }      from './_components/CourseStickyBar'
 import { CourseSchema }         from './_components/CourseSchema'
+import { CourseAIClassMonitor } from './_components/CourseAIClassMonitor'
+import { CourseAfterOutcomes }  from './_components/CourseAfterOutcomes'
+import { CourseSessionJourney } from './_components/CourseSessionJourney'
 
 export const revalidate = 3600
 
@@ -193,27 +196,36 @@ export default async function CoursePage({
           <CourseProjects projects={projects ?? []} />
         )}
 
-        {/* 6. Curriculum */}
+        {/* 6. What You Will Learn — module accordion */}
         {course.subjects && Array.isArray(course.subjects) && course.subjects.length > 0 && (
-          <CourseCurriculum subjects={course.subjects as string[]} />
+          <CourseCurriculum subjects={course.subjects as string[]} category={category} />
         )}
 
-        {/* 7. Senior testimonials */}
+        {/* 7. 26-Session Journey */}
+        <CourseSessionJourney category={category} />
+
+        {/* 8. What You Walk Away With */}
+        <CourseAfterOutcomes category={category} />
+
+        {/* 9. Senior testimonials */}
         <CourseSeniorTestimonials />
 
-        {/* 8. Learner reviews — marquee */}
+        {/* 10. Learner reviews — marquee */}
         <CourseLearnerReviews testimonials={testimonials} category={category} />
 
-        {/* 9. Trainer profile */}
+        {/* 11. Trainer profile */}
         <CourseTrainer />
 
-        {/* 10. Comparison table */}
+        {/* 12. AI Class Monitor */}
+        <CourseAIClassMonitor />
+
+        {/* 13. Comparison table */}
         <CourseComparison mrp={mrp} />
 
-        {/* 11. FAQs */}
+        {/* 14. FAQs */}
         <CourseFAQ course={course} />
 
-        {/* 12. Bottom CTA */}
+        {/* 15. Bottom CTA */}
         <CourseBottomCTA course={course} enrolProps={enrolProps} />
 
       </div>

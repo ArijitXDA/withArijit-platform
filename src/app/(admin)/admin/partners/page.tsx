@@ -1,4 +1,10 @@
-export default function AdminPartnersPage() {
+import { redirect } from 'next/navigation'
+import { getAdminFromToken, canAccess } from '@/lib/admin-auth'
+
+export default async function AdminPartnersPage() {
+  const admin = await getAdminFromToken()
+  if (!admin || !canAccess(admin, 'partners')) redirect('/admin/dashboard?denied=1')
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Partners</h1>

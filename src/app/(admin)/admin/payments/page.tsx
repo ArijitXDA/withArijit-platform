@@ -1,11 +1,8 @@
+import { redirect } from 'next/navigation'
+import { getAdminFromToken, canAccess } from '@/lib/admin-auth'
 import { createServiceClient } from '@/lib/supabase/service'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -13,13 +10,17 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 function statusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status) {
     case 'captured': return 'default'
-    case 'failed': return 'destructive'
-    case 'pending': return 'secondary'
-    default: return 'outline'
+    case 'failed':   return 'destructive'
+    case 'pending':  return 'secondary'
+    default:         return 'outline'
   }
 }
 
 export default async function AdminPaymentsPage() {
+  // ── Server-side role guard ───────────────────────────────────────────────
+  const admin = await getAdminFromToken()
+  if (!admin || !canAccess(admin, 'payments')) redirect('/admin/dashboard?denied=1')
+
   const supabase = createServiceClient()
   const { data: payments } = await (supabase as any)
     .from('payments')
@@ -48,9 +49,7 @@ export default async function AdminPaymentsPage() {
               <TableCell>{payment.payment_date ? formatDate(payment.payment_date) : '—'}</TableCell>
               <TableCell className="font-mono text-xs text-gray-500">{payment.razorpay_payment_id ?? '—'}</TableCell>
               <TableCell>
-                <Badge variant={statusVariant(payment.status)}>
-                  {payment.status ?? '—'}
-                </Badge>
+                <Badge variant={statusVariant(payment.status)}>{payment.status ?? '—'}</Badge>
               </TableCell>
             </TableRow>
           ))}

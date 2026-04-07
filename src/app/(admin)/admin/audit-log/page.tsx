@@ -1,4 +1,10 @@
-export default function AdminAuditLogPage() {
+import { redirect } from 'next/navigation'
+import { getAdminFromToken, canAccess } from '@/lib/admin-auth'
+
+export default async function AdminAuditLogPage() {
+  const admin = await getAdminFromToken()
+  if (!admin || !canAccess(admin, 'audit-log')) redirect('/admin/dashboard?denied=1')
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Audit Log</h1>

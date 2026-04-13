@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus, MessageSquare, Pin } from 'lucide-react'
 
 interface Thread { id: string; title: string; reply_count: number; last_msg_at: string | null; is_pinned: boolean; creator: { display_name: string; tier: string } }
-interface Channel { id: string; name: string; icon: string; description: string }
+interface Channel { id: string; name: string; icon: string; description: string; sort_order?: number }
 interface Member  { id: string; tier: string; display_name: string }
 
 interface Props {

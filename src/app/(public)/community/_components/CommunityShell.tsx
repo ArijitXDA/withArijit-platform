@@ -6,7 +6,7 @@ import { ThreadList }    from './ThreadList'
 import { ThreadView }    from './ThreadView'
 import { AskAriBadge }  from './AskAriBadge'
 
-interface Channel { id: string; slug: string; name: string; description: string; icon: string; sort_order: number }
+interface Channel { id: string; slug: string; name: string; description: string; icon: string; sort_order?: number }
 interface Member  { id: string; tier: string; expires_at: string | null; display_name: string }
 
 interface Props { channels: Channel[] }

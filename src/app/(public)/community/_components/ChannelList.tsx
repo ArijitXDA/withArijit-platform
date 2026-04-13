@@ -1,6 +1,6 @@
 'use client'
 
-interface Channel { id: string; slug: string; name: string; description: string; icon: string }
+interface Channel { id: string; slug: string; name: string; description: string; icon: string; sort_order?: number }
 interface Props {
   channels:  Channel[]
   active:    Channel

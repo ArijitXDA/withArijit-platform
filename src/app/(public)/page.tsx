@@ -9,6 +9,7 @@ import { HowItWorksSection }      from '@/components/marketing/HowItWorksSection
 import { MasterclassCTASection }  from '@/components/marketing/MasterclassCTASection'
 import { TestimonialsMarquee }    from '@/components/marketing/TestimonialsMarquee'
 import { PartnerSection }         from '@/components/marketing/PartnerSection'
+import { CommunityCTASection }    from '@/components/marketing/CommunityCTASection'
 
 export const revalidate = 3600
 
@@ -77,6 +78,9 @@ export default async function HomePage() {
 
       {/* 9. Partner programme */}
       <PartnerSection />
+
+      {/* 10. AI Discussion Forum CTA */}
+      <CommunityCTASection />
     </>
   )
 }

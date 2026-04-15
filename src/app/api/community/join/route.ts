@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     // Check if member already exists
     const { data: existing } = await db
       .from('community_members')
-      .select('id, tier, expires_at, is_banned, display_name')
+      .select('id, tier, expires_at, is_banned, display_name, points, rank, badges')
       .eq('email', emailLower)
       .maybeSingle()
 
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
       await db.from('community_members')
         .update({ last_seen_at: new Date().toISOString() })
         .eq('id', existing.id)
-      return NextResponse.json({ member: existing })
+      return NextResponse.json({ member: { ...existing, points: existing.points ?? 0, rank: existing.rank ?? 'Explorer', badges: existing.badges ?? [] } })
     }
 
     // New member — resolve tier
@@ -110,11 +110,11 @@ export async function POST(req: NextRequest) {
         expires_at: expiresAt?.toISOString() ?? null,
         last_seen_at: new Date().toISOString(),
       })
-      .select('id, tier, expires_at, display_name')
+      .select('id, tier, expires_at, display_name, points, rank, badges')
       .single()
 
     if (error) throw error
-    return NextResponse.json({ member: newMember })
+    return NextResponse.json({ member: { ...newMember, points: 0, rank: 'Explorer', badges: [] } })
   } catch (err: any) {
     console.error('/api/community/join error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

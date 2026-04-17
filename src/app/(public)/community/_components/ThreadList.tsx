@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, MessageSquare, Pin, HelpCircle, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
+import { plainPreview } from './renderContent'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,6 +12,7 @@ const supabase = createClient(
 interface Thread {
   id: string; title: string; reply_count: number; last_msg_at: string | null
   is_pinned: boolean; is_question: boolean; best_answer_id: string | null
+  first_message: string | null
   creator: { id: string; display_name: string; tier: string; points?: number; rank?: string }
 }
 interface Channel { id: string; name: string; icon: string; description: string }
@@ -152,7 +154,7 @@ export function ThreadList({ channel, member, onSelectThread, onNeedJoin, onExpi
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-semibold truncate" style={{ color: '#111827' }}>{t.title}</p>
+                  <p className="text-sm font-semibold" style={{ color: '#111827' }}>{t.title}</p>
                   {t.best_answer_id && (
                     <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0"
                       style={{ background: '#d1fae5', color: '#065f46' }}>
@@ -160,6 +162,11 @@ export function ThreadList({ channel, member, onSelectThread, onNeedJoin, onExpi
                     </span>
                   )}
                 </div>
+                {t.first_message && (
+                  <p className="text-xs mt-1 leading-relaxed" style={{ color: '#6b7280' }}>
+                    {plainPreview(t.first_message, 200)}
+                  </p>
+                )}
                 <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>
                   by {t.creator?.display_name} · {t.reply_count} {t.reply_count === 1 ? 'reply' : 'replies'}
                   {t.last_msg_at && ` · ${timeAgo(t.last_msg_at)}`}

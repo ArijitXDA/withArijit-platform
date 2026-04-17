@@ -29,7 +29,27 @@ export async function GET(req: NextRequest) {
     .limit(limit)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ threads: data })
+
+  // Fetch first message preview for each thread in one query
+  const threadIds = (data ?? []).map((t: any) => t.id)
+  let previewMap: Record<string, string> = {}
+  if (threadIds.length > 0) {
+    const { data: msgs } = await db
+      .from('community_messages')
+      .select('thread_id, content')
+      .in('thread_id', threadIds)
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: true })
+    // Keep only first message per thread
+    if (msgs) {
+      for (const m of msgs) {
+        if (!previewMap[m.thread_id]) previewMap[m.thread_id] = m.content
+      }
+    }
+  }
+
+  const threads = (data ?? []).map((t: any) => ({ ...t, first_message: previewMap[t.id] ?? null }))
+  return NextResponse.json({ threads })
 }
 
 // POST /api/community/threads

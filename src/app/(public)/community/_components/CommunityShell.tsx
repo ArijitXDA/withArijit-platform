@@ -31,16 +31,28 @@ export function CommunityShell({ channels }: Props) {
   const [activeThread,  setActiveThread]  = useState<{ id: string; title: string; created_by?: string; is_question?: boolean } | null>(null)
   const [expired,       setExpired]       = useState(false)
 
+  // Restore session from localStorage, then refresh points from server
   useEffect(() => {
     const raw = localStorage.getItem('community_member')
     if (raw) {
       try {
         const m = JSON.parse(raw) as Member
         if (m.expires_at && new Date(m.expires_at) < new Date()) {
-          localStorage.removeItem('community_member'); setExpired(true)
-        } else {
-          setMember(m)
+          localStorage.removeItem('community_member'); setExpired(true); return
         }
+        setMember(m)
+        // Refresh points/rank/badges from server (localStorage may be stale)
+        fetch(`/api/community/me?member_id=${m.id}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data.expired) { localStorage.removeItem('community_member'); setExpired(true); return }
+            if (data.member) {
+              const fresh = { ...m, points: data.member.points, rank: data.member.rank, badges: data.member.badges }
+              setMember(fresh)
+              localStorage.setItem('community_member', JSON.stringify(fresh))
+            }
+          })
+          .catch(() => {}) // silently fail — stale data is fine
       } catch { localStorage.removeItem('community_member') }
     }
   }, [])

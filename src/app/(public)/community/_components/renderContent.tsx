@@ -16,7 +16,7 @@ export function renderContent(text: string): React.ReactNode {
       elements.push(<div key={i} className="h-1.5" />)
       return
     }
-    elements.push(<p key={i} className="leading-relaxed">{parseInline(line)}</p>)
+    elements.push(<p key={i} className="leading-relaxed">{parseInline(line, i)}</p>)
   })
 
   return <>{elements}</>
@@ -24,56 +24,79 @@ export function renderContent(text: string): React.ReactNode {
 
 // Returns plain text preview (no HTML) — used for thread list snippets
 export function plainPreview(text: string, maxChars = 180): string {
-  return text
+  const stripped = text
     .replace(/\*\*(.+?)\*\*/g, '$1')
     .replace(/_(.+?)_/g, '$1')
-    .replace(/---/g, '')
+    .replace(/^---$/gm, '')
     .replace(/https?:\/\/\S+/g, '')
     .replace(/\n+/g, ' ')
     .trim()
-    .slice(0, maxChars)
-    + (text.length > maxChars ? '…' : '')
+  return stripped.length <= maxChars ? stripped : stripped.slice(0, maxChars) + '…'
 }
 
-let _key = 0
-function nextKey() { return ++_key }
+type Pattern = {
+  re: RegExp
+  render: (match: RegExpMatchArray, key: number) => React.ReactNode
+}
 
-function parseInline(text: string): React.ReactNode {
+const PATTERNS: Pattern[] = [
+  {
+    re: /\*\*(.+?)\*\*/,
+    render: (m, k) => <strong key={k} className="font-semibold">{m[1]}</strong>,
+  },
+  {
+    re: /_(.+?)_/,
+    render: (m, k) => <em key={k} className="italic opacity-80">{m[1]}</em>,
+  },
+  {
+    re: /https?:\/\/\S+/,
+    render: (m, k) => (
+      <a key={k} href={m[0]} target="_blank" rel="noopener noreferrer"
+        className="underline break-all" style={{ color: '#7c3aed' }}>
+        {m[0]}
+      </a>
+    ),
+  },
+]
+
+function parseInline(text: string, lineKey: number): React.ReactNode {
   const parts: React.ReactNode[] = []
   let remaining = text
-
-  const patterns: Array<{
-    re: RegExp
-    render: (m: RegExpMatchArray) => React.ReactNode
-  }> = [
-    { re: /\*\*(.+?)\*\*/, render: m => <strong key={nextKey()} className="font-semibold">{m[1]}</strong> },
-    { re: /_(.+?)_/,        render: m => <em key={nextKey()} className="italic opacity-80">{m[1]}</em> },
-    { re: /https?:\/\/\S+/, render: m => (
-      <a key={nextKey()} href={m[0]} target="_blank" rel="noopener noreferrer"
-        className="underline break-all" style={{ color: '#7c3aed' }}>{m[0]}</a>
-    )},
-  ]
+  let keyCounter = lineKey * 1000
 
   while (remaining.length > 0) {
-    let earliest = -1
-    let matchIdx = -1
-    let bestMatch: RegExpMatchArray | null = null
+    // Find the earliest matching pattern
+    let earliestIndex = -1
+    let matchedPatternIdx = -1
+    let matchedResult: RegExpMatchArray | null = null
 
-    patterns.forEach((p, pi) => {
-      const m = remaining.match(p.re)
-      if (m && m.index !== undefined && (earliest === -1 || m.index < earliest)) {
-        earliest = m.index; matchIdx = pi; bestMatch = m
+    for (let pi = 0; pi < PATTERNS.length; pi++) {
+      const m = remaining.match(PATTERNS[pi].re)
+      if (m != null && m.index != null) {
+        if (earliestIndex === -1 || m.index < earliestIndex) {
+          earliestIndex = m.index
+          matchedPatternIdx = pi
+          matchedResult = m
+        }
       }
-    })
+    }
 
-    if (earliest === -1 || !bestMatch) {
-      parts.push(<span key={nextKey()}>{remaining}</span>)
+    // No pattern found — push the rest as plain text
+    if (earliestIndex === -1 || matchedResult === null) {
+      parts.push(<span key={keyCounter++}>{remaining}</span>)
       break
     }
 
-    if (earliest > 0) parts.push(<span key={nextKey()}>{remaining.slice(0, earliest)}</span>)
-    parts.push(patterns[matchIdx].render(bestMatch!))
-    remaining = remaining.slice(earliest + bestMatch[0].length)
+    // Text before the match
+    if (earliestIndex > 0) {
+      parts.push(<span key={keyCounter++}>{remaining.slice(0, earliestIndex)}</span>)
+    }
+
+    // Render the matched pattern
+    parts.push(PATTERNS[matchedPatternIdx].render(matchedResult, keyCounter++))
+
+    // Advance past the matched text
+    remaining = remaining.slice(earliestIndex + matchedResult[0].length)
   }
 
   return <>{parts}</>

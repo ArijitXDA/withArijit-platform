@@ -60,22 +60,22 @@ export function CommunityShell({ channels }: Props) {
   const rankColor = RANK_COLORS[member?.rank ?? 'Explorer'] ?? '#94a3b8'
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#05051a' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: '#f6f7f9' }}>
       {/* Top nav — oStaran dark theme */}
-      <header className="sticky top-0 z-30 border-b"
-        style={{ background: 'rgba(8,8,32,0.98)', borderBottomColor: 'rgba(139,92,246,0.18)', backdropFilter: 'blur(12px)' }}>
+      <header className="sticky top-0 z-30 border-b bg-white"
+        style={{ borderBottomColor: '#e5e7eb' }}>
         {/* Violet accent line */}
-        <div className="h-0.5" style={{ background: 'linear-gradient(90deg,#7c3aed,rgba(124,58,237,0.3),transparent)' }} />
+        <div className="h-0.5" style={{ background: 'linear-gradient(90deg,#7c3aed,#a78bfa,transparent)' }} />
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* oStaran logo */}
             <a href="/" className="flex items-center gap-2.5">
               <img src="/ostaran-logo.png" alt="oStaran" className="h-7 object-contain" />
             </a>
-            <span style={{ color: 'rgba(139,92,246,0.4)' }} className="text-xl font-thin">|</span>
-            <span className="text-sm font-semibold" style={{ color: 'rgba(148,163,184,0.8)' }}>AI Community</span>
+            <span style={{ color: '#d1d5db' }} className="text-xl font-thin">|</span>
+            <span className="text-sm font-semibold" style={{ color: '#6b7280' }}>AI Community</span>
             <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-bold"
-              style={{ background: 'rgba(52,211,153,0.12)', color: '#34d399', border: '1px solid rgba(52,211,153,0.25)' }}>
+              style={{ background: '#d1fae5', color: '#065f46', border: '1px solid #6ee7b7' }}>
               🟢 Live
             </span>
           </div>
@@ -84,17 +84,16 @@ export function CommunityShell({ channels }: Props) {
               <div className="flex items-center gap-2">
                 {/* Points pill */}
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full hidden sm:block"
-                  style={{ background: rankColor + '18', color: rankColor, border: `1px solid ${rankColor}30` }}>
+                  style={{ background: rankColor + '18', color: rankColor, border: `1px solid ${rankColor}33` }}>
                   {member.rank ?? 'Explorer'} · {member.points ?? 0} pts
                 </span>
                 {/* Tier badge */}
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.3)' }}>
+                  style={{ background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe' }}>
                   {TIER_LABEL[member.tier] ?? member.tier}
                 </span>
-                <span className="text-sm text-slate-300 font-medium">{member.display_name}</span>
-                <button onClick={handleLeave} className="text-xs transition-colors ml-1"
-                  style={{ color: 'rgba(100,116,139,0.7)' }}>
+                <span className="text-sm font-medium" style={{ color: '#111827' }}>{member.display_name}</span>
+                <button onClick={handleLeave} className="text-xs transition-colors ml-1" style={{ color: '#9ca3af' }}>
                   Leave
                 </button>
               </div>
@@ -112,7 +111,7 @@ export function CommunityShell({ channels }: Props) {
       {/* Expired banner */}
       {expired && (
         <div className="px-4 py-3 text-sm text-center"
-          style={{ background: 'rgba(245,158,11,0.08)', borderBottom: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b' }}>
+          style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d', color: '#92400e' }}>
           Your community access has expired.{' '}
           <a href="https://www.ostaran.com/masterclass" className="font-bold underline hover:opacity-80">
             Register for the AI Masterclass
@@ -129,8 +128,7 @@ export function CommunityShell({ channels }: Props) {
           onSelect={ch => { setActiveChannel(ch); setActiveThread(null) }} />
 
         {/* Centre */}
-        <main className="flex-1 flex flex-col overflow-hidden"
-          style={{ borderLeft: '1px solid rgba(139,92,246,0.08)', borderRight: '1px solid rgba(139,92,246,0.08)' }}>
+        <main className="flex-1 flex flex-col overflow-hidden border-x" style={{ borderColor: '#e5e7eb' }}>
           {activeThread ? (
             <ThreadView
               thread={activeThread}

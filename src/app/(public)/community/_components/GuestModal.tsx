@@ -26,80 +26,67 @@ export function GuestModal({ onJoin, onClose }: Props) {
     onJoin(data.member)
   }
 
+  const inputCls = "w-full rounded-xl px-3.5 py-3 text-sm outline-none transition-all border focus:border-violet-400"
+  const inputStyle = { border: '1px solid #e5e7eb', color: '#111827', background: '#f9fafb' }
+  const labelStyle = { color: '#374151' }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}>
-      <div className="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl"
-        style={{ background: 'linear-gradient(135deg,#0d0b2b,#130d3d)', border: '1px solid rgba(139,92,246,0.25)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)' }}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl bg-white border" style={{ borderColor: '#e5e7eb' }}>
 
         {/* Header */}
-        <div className="px-6 pt-6 pb-4 flex items-start justify-between border-b"
-          style={{ borderColor: 'rgba(139,92,246,0.15)' }}>
+        <div className="px-6 pt-6 pb-4 flex items-start justify-between border-b" style={{ borderColor: '#f3f4f6' }}>
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl"
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0"
               style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' }}>
-              📈
+              💬
             </div>
             <div>
-              <h2 className="text-lg font-extrabold text-white">Join the Community</h2>
-              <p className="text-xs mt-0.5" style={{ color: 'rgba(148,163,184,0.6)' }}>
-                Ask Ari + 1,000+ AI learners are here
-              </p>
+              <h2 className="text-lg font-extrabold" style={{ color: '#111827' }}>Join the Community</h2>
+              <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>Ask Ari + 1,000+ AI learners are here</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl transition-colors"
-            style={{ color: '#475569', background: 'rgba(255,255,255,0.04)' }}>
+          <button onClick={onClose} className="p-2 rounded-xl transition-colors hover:bg-gray-100" style={{ color: '#9ca3af' }}>
             <X size={18} />
           </button>
         </div>
 
         {/* Points teaser */}
-        <div className="mx-6 mt-4 mb-2 rounded-xl px-3 py-2.5 text-xs"
-          style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b' }}>
+        <div className="mx-6 mt-4 mb-2 rounded-xl px-3 py-2.5 text-xs border"
+          style={{ background: '#fffbeb', borderColor: '#fcd34d', color: '#92400e' }}>
           <strong>Earn points for every contribution:</strong> Ask (15 pts) · Answer (10 pts) · Best Answer (50 pts) · Reach 3,000 pts → FREE course!
         </div>
-
-        <div className="mx-6 mb-4 rounded-xl px-3 py-2 text-xs"
-          style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.18)', color: '#a78bfa' }}>
+        <div className="mx-6 mb-4 rounded-xl px-3 py-2 text-xs border"
+          style={{ background: '#f5f3ff', borderColor: '#ddd6fe', color: '#7c3aed' }}>
           <strong>Free access:</strong> 60 days as guest · 30 days post-webinar · Lifetime if enrolled
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-3">
-          {[
-            { label: 'Email *', val: email, set: setEmail, type: 'email', ph: 'you@example.com', required: true,
-              hint: 'We check this against our learner records to set your access tier.' },
-            { label: 'Display name', val: name, set: setName, type: 'text', ph: 'How should others see you?', maxLength: 40 },
-          ].map(f => (
-            <div key={f.label}>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'rgba(148,163,184,0.8)' }}>{f.label}</label>
-              <input type={f.type} required={f.required} autoFocus={f.type === 'email'}
-                value={f.val} onChange={e => f.set(e.target.value)}
-                placeholder={f.ph} maxLength={(f as any).maxLength}
-                className="w-full rounded-xl px-3.5 py-3 text-sm outline-none transition-all"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(139,92,246,0.25)', color: '#e2e8f0' }}
-              />
-              {(f as any).hint && <p className="text-[10px] mt-1" style={{ color: 'rgba(100,116,139,0.7)' }}>{(f as any).hint}</p>}
-            </div>
-          ))}
-
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: 'rgba(148,163,184,0.8)' }}>WhatsApp (optional)</label>
+            <label className="block text-xs font-semibold mb-1" style={labelStyle}>Email *</label>
+            <input type="email" required autoFocus value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com" className={inputCls} style={inputStyle} />
+            <p className="text-[10px] mt-1" style={{ color: '#9ca3af' }}>We check this against our learner records to set your access tier.</p>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1" style={labelStyle}>Display name (optional)</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)}
+              placeholder="How should others see you?" maxLength={40} className={inputCls} style={inputStyle} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1" style={labelStyle}>WhatsApp (optional)</label>
             <div className="flex gap-2">
-              <span className="flex items-center px-3 rounded-xl text-sm font-medium shrink-0"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(139,92,246,0.25)', color: '#94a3b8' }}>
-                +91
-              </span>
+              <span className="flex items-center px-3 rounded-xl text-sm font-medium shrink-0 border"
+                style={{ background: '#f9fafb', borderColor: '#e5e7eb', color: '#374151' }}>+91</span>
               <input type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)}
-                placeholder="9876543210" maxLength={10}
-                className="flex-1 rounded-xl px-3.5 py-3 text-sm outline-none transition-all"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(139,92,246,0.25)', color: '#e2e8f0' }}
-              />
+                placeholder="9876543210" maxLength={10} className={inputCls} style={inputStyle} />
             </div>
           </div>
 
           {error && (
-            <p className="text-xs px-3 py-2 rounded-xl"
-              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171' }}>
+            <p className="text-xs px-3 py-2 rounded-xl border" style={{ background: '#fef2f2', borderColor: '#fecaca', color: '#dc2626' }}>
               {error}
             </p>
           )}
@@ -110,9 +97,9 @@ export function GuestModal({ onJoin, onClose }: Props) {
             {loading ? <><Loader2 size={15} className="animate-spin" /> Checking…</> : 'Enter Community →'}
           </button>
 
-          <p className="text-[11px] text-center" style={{ color: 'rgba(100,116,139,0.7)' }}>
+          <p className="text-[11px] text-center" style={{ color: '#6b7280' }}>
             Access expired?{' '}
-            <a href="https://www.ostaran.com/masterclass" className="font-semibold" style={{ color: '#a78bfa' }}>
+            <a href="https://www.ostaran.com/masterclass" className="font-semibold" style={{ color: '#7c3aed' }}>
               Register for the AI Masterclass
             </a>
           </p>

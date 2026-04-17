@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, MessageSquare, Pin, HelpCircle } from 'lucide-react'
+import { Plus, MessageSquare, Pin, HelpCircle, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -34,11 +34,11 @@ function timeAgo(iso: string): string {
 }
 
 export function ThreadList({ channel, member, onSelectThread, onNeedJoin, onExpired }: Props) {
-  const [threads,  setThreads]  = useState<Thread[]>([])
-  const [loading,  setLoading]  = useState(true)
-  const [newTitle, setNewTitle] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [showNew,  setShowNew]  = useState(false)
+  const [threads,    setThreads]    = useState<Thread[]>([])
+  const [loading,    setLoading]    = useState(true)
+  const [newTitle,   setNewTitle]   = useState('')
+  const [creating,   setCreating]   = useState(false)
+  const [showNew,    setShowNew]    = useState(false)
   const [isQuestion, setIsQuestion] = useState(false)
 
   const loadThreads = useCallback(async () => {
@@ -51,14 +51,11 @@ export function ThreadList({ channel, member, onSelectThread, onNeedJoin, onExpi
 
   useEffect(() => { loadThreads() }, [loadThreads])
 
-  // Realtime: reload thread list when new messages arrive in this channel
   useEffect(() => {
     const ch = supabase
       .channel(`threadlist-${channel.id}`)
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'community_threads',
-        filter: `channel_id=eq.${channel.id}`,
-      }, () => { loadThreads() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'community_threads', filter: `channel_id=eq.${channel.id}` },
+        () => { loadThreads() })
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [channel.id, loadThreads])
@@ -83,17 +80,17 @@ export function ThreadList({ channel, member, onSelectThread, onNeedJoin, onExpi
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: '#080820' }}>
+    <div className="flex flex-col h-full" style={{ background: '#f6f7f9' }}>
       {/* Header */}
-      <div className="px-4 py-3.5 border-b flex items-center justify-between shrink-0"
-        style={{ borderColor: 'rgba(139,92,246,0.15)', background: 'rgba(13,11,43,0.95)' }}>
+      <div className="px-5 py-4 border-b flex items-center justify-between shrink-0 bg-white"
+        style={{ borderColor: '#e5e7eb' }}>
         <div>
-          <h2 className="text-sm font-bold text-white">{channel.icon} #{channel.name}</h2>
-          <p className="text-xs mt-0.5" style={{ color: 'rgba(148,163,184,0.6)' }}>{channel.description}</p>
+          <h2 className="text-sm font-bold" style={{ color: '#111827' }}>{channel.icon} #{channel.name}</h2>
+          <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>{channel.description}</p>
         </div>
         <button
           onClick={() => member ? setShowNew(s => !s) : onNeedJoin()}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:opacity-90"
           style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', color: '#fff' }}>
           <Plus size={12} /> New Thread
         </button>
@@ -101,23 +98,22 @@ export function ThreadList({ channel, member, onSelectThread, onNeedJoin, onExpi
 
       {/* New thread form */}
       {showNew && (
-        <form onSubmit={handleCreate} className="px-4 py-3 border-b space-y-2 shrink-0"
-          style={{ borderColor: 'rgba(139,92,246,0.15)', background: 'rgba(124,58,237,0.06)' }}>
+        <form onSubmit={handleCreate} className="px-5 py-3 border-b space-y-2 shrink-0"
+          style={{ borderColor: '#e5e7eb', background: '#f5f3ff' }}>
           <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)}
             placeholder="Thread title…" maxLength={120}
-            className="w-full text-sm rounded-lg px-3 py-2 outline-none"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(139,92,246,0.3)', color: '#e2e8f0' }}
+            className="w-full text-sm rounded-lg px-3 py-2 outline-none border"
+            style={{ border: '1px solid #ddd6fe', color: '#111827', background: '#fff' }}
           />
           <div className="flex items-center justify-between gap-2">
-            <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: '#94a3b8' }}>
-              <input type="checkbox" checked={isQuestion} onChange={e => setIsQuestion(e.target.checked)}
-                className="accent-violet-500" />
+            <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: '#6b7280' }}>
+              <input type="checkbox" checked={isQuestion} onChange={e => setIsQuestion(e.target.checked)} className="accent-violet-500" />
               <HelpCircle size={12} /> Mark as question (+15 pts)
             </label>
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowNew(false)}
-                className="px-3 py-1.5 text-xs rounded-lg"
-                style={{ color: '#64748b', background: 'rgba(255,255,255,0.04)' }}>
+                className="px-3 py-1.5 text-xs rounded-lg border"
+                style={{ color: '#6b7280', borderColor: '#e5e7eb', background: '#fff' }}>
                 Cancel
               </button>
               <button type="submit" disabled={creating || !newTitle.trim()}
@@ -130,39 +126,42 @@ export function ThreadList({ channel, member, onSelectThread, onNeedJoin, onExpi
         </form>
       )}
 
-      {/* Thread list — sorted by last_msg_at desc */}
+      {/* Thread list */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
-          <div className="flex items-center justify-center h-40 text-slate-500 text-sm">Loading…</div>
+          <div className="flex items-center justify-center h-40 text-sm" style={{ color: '#9ca3af' }}>Loading…</div>
         ) : threads.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-slate-600 gap-2">
-            <MessageSquare size={28} className="opacity-20" />
-            <p className="text-sm">No threads yet. Start one!</p>
+          <div className="flex flex-col items-center justify-center h-64 gap-2" style={{ color: '#d1d5db' }}>
+            <MessageSquare size={28} className="opacity-40" />
+            <p className="text-sm" style={{ color: '#9ca3af' }}>No threads yet. Start one!</p>
           </div>
         ) : (
           threads.map(t => (
-            <button key={t.id} onClick={() => onSelectThread({ id: t.id, title: t.title, created_by: t.creator?.id, is_question: t.is_question })}
-              className="w-full text-left px-4 py-3.5 border-b transition-all hover:bg-white/[0.03] flex items-start gap-3"
-              style={{ borderColor: 'rgba(139,92,246,0.08)' }}>
+            <button key={t.id}
+              onClick={() => onSelectThread({ id: t.id, title: t.title, created_by: t.creator?.id, is_question: t.is_question })}
+              className="w-full text-left px-5 py-4 border-b transition-all hover:bg-white flex items-start gap-3"
+              style={{ borderColor: '#f0f0f0', background: 'transparent' }}>
               {/* Icon */}
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
                 style={t.is_question
-                  ? { background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }
+                  ? { background: '#fff7ed', color: '#f97316' }
                   : t.is_pinned
-                  ? { background: 'rgba(124,58,237,0.18)', color: '#a78bfa' }
-                  : { background: 'rgba(255,255,255,0.04)', color: '#475569' }}>
-                {t.is_question ? <HelpCircle size={14} /> : t.is_pinned ? <Pin size={14} /> : <MessageSquare size={14} />}
+                  ? { background: '#f5f3ff', color: '#7c3aed' }
+                  : { background: '#f3f4f6', color: '#9ca3af' }}>
+                {t.is_question ? <HelpCircle size={15} /> : t.is_pinned ? <Pin size={15} /> : <MessageSquare size={15} />}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <p className="text-sm font-semibold text-slate-200 truncate">{t.title}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-semibold truncate" style={{ color: '#111827' }}>{t.title}</p>
                   {t.best_answer_id && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded font-bold shrink-0"
-                      style={{ background: 'rgba(52,211,153,0.12)', color: '#34d399' }}>✓ Answered</span>
+                    <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0"
+                      style={{ background: '#d1fae5', color: '#065f46' }}>
+                      <CheckCircle2 size={9} /> Answered
+                    </span>
                   )}
                 </div>
-                <p className="text-xs mt-0.5" style={{ color: 'rgba(148,163,184,0.5)' }}>
-                  by {t.creator?.display_name} · {t.reply_count} replies
+                <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>
+                  by {t.creator?.display_name} · {t.reply_count} {t.reply_count === 1 ? 'reply' : 'replies'}
                   {t.last_msg_at && ` · ${timeAgo(t.last_msg_at)}`}
                 </p>
               </div>

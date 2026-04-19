@@ -1,6 +1,18 @@
 'use client'
 import { useState } from 'react'
 
+// ── Canonical class-schedule answer ──────────────────────────────────────────
+// Referenced from every audience's scheduling FAQ so a single edit here
+// propagates everywhere. Use **bold** for emphasis on key USPs.
+const CLASS_SCHEDULE_ANSWER =
+  'Live sessions run primarily on **weekends**, with multiple batches scheduled across **US, Canada, India, and European timezones** — from early morning through late night — so wherever you\'re based, there\'s a slot that fits your day. **Weekday batches** are also available for students and professionals who prefer evenings or specific working hours. Each live session is **60 minutes** of focused instruction, hands-on building, and live Q&A. Every session is **recorded and uploaded to your dashboard within a few hours**, with **lifetime access** — nothing is ever missed. Between classes, your **Assistant Professor (AI) is available 24/7** to explain any concept, demonstrate any tool, platform, or technology, walk through code, or answer questions in **100+ languages**. Live expert teaching + lifetime recordings + an always-on AI professor — the programme fits around your life, not the other way around.'
+
+// Convert **bold** markers to HTML <strong>. All FAQ strings are author-
+// controlled constants in this file, so dangerouslySetInnerHTML is safe here.
+function renderFaqAnswer(text: string): string {
+  return text.replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-200 font-semibold">$1</strong>')
+}
+
 // ── Shared FAQs — appear on all course pages ───────────────────────────────────
 const SHARED_FAQS = [
   {
@@ -9,7 +21,7 @@ const SHARED_FAQS = [
   },
   {
     q: 'What if I miss a class?',
-    a: 'Every live session is recorded and uploaded to your dashboard within 24 hours. You get lifetime access to all recordings. That said, live attendance is where the real learning happens — Arijit builds systems live and takes questions in real time.',
+    a: 'Every live session is recorded and uploaded to your dashboard **within a few hours**, with **lifetime access** to all recordings. On top of that, your **Assistant Professor (AI)** is available **24/7** to walk you through anything from the missed session — concepts, code, tools, or platform demos in 100+ languages. That said, live attendance is where the real learning happens — our Industrial AI Leaders teach live, build systems in real time, and take questions on the spot.',
   },
   {
     q: 'What is the AI Kit and when does it arrive?',
@@ -46,7 +58,7 @@ const AUDIENCE_FAQS: Record<string, { q: string; a: string }[]> = {
     },
     {
       q: 'When are the classes held?',
-      a: 'All sessions are live on weekends — typically Sunday mornings 11 AM IST. Your weekdays are completely unaffected. Each session is 90 minutes of live instruction, hands-on building, and Q&A — no pre-recorded filler.',
+      a: CLASS_SCHEDULE_ANSWER,
     },
     {
       q: 'How fast can I expect results?',
@@ -60,7 +72,7 @@ const AUDIENCE_FAQS: Record<string, { q: string; a: string }[]> = {
     },
     {
       q: 'When are the sessions? Will it affect my studies?',
-      a: 'Sessions are held on Sunday mornings — typically 11 AM to 12:30 PM IST. There are no weekday classes, no homework deadlines, and no pressure. One 90-minute live session per week is all it takes. Many of our school students have attended throughout their board exam prep without any disruption.',
+      a: CLASS_SCHEDULE_ANSWER,
     },
     {
       q: 'Do I need to know coding?',
@@ -82,7 +94,7 @@ const AUDIENCE_FAQS: Record<string, { q: string; a: string }[]> = {
     },
     {
       q: 'When are the sessions? Do they clash with college schedules?',
-      a: 'All sessions are on Sunday — typically 11 AM IST. No weekday classes, no conflicts with lectures, exams, or placement drives. You can complete the entire programme without missing a single college commitment.',
+      a: CLASS_SCHEDULE_ANSWER,
     },
     {
       q: 'Do I need a coding background?',
@@ -104,7 +116,7 @@ const AUDIENCE_FAQS: Record<string, { q: string; a: string }[]> = {
     },
     {
       q: 'When are the sessions?',
-      a: 'Sundays, typically 11 AM IST. Sessions run 90 minutes and are dense — expect to be coding alongside Arijit throughout. Recordings are available within 24 hours if you need to catch up on anything.',
+      a: CLASS_SCHEDULE_ANSWER,
     },
   ],
   cxo: [
@@ -114,7 +126,7 @@ const AUDIENCE_FAQS: Record<string, { q: string; a: string }[]> = {
     },
     {
       q: 'When are the sessions and what is the time commitment?',
-      a: 'One 90-minute live session every Sunday — typically 11 AM IST. That\'s the only mandatory time commitment. There are no assignments, no exams, and no weekday obligations. Many CXO-track learners attend from their homes or even while travelling.',
+      a: CLASS_SCHEDULE_ANSWER,
     },
     {
       q: 'How is this relevant to my specific industry?',
@@ -159,7 +171,8 @@ export function CourseFAQ({ course }: { course: any }) {
               {open === i && (
                 <div className="px-5 pb-4 text-sm text-slate-400 leading-relaxed border-t"
                   style={{ borderColor: 'rgba(99,102,241,0.15)' }}>
-                  <p className="pt-3">{faq.a}</p>
+                  <p className="pt-3"
+                    dangerouslySetInnerHTML={{ __html: renderFaqAnswer(faq.a) }} />
                 </div>
               )}
             </div>

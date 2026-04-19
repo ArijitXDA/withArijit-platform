@@ -125,7 +125,7 @@ export function CourseHero({
               {[
                 ['📅', `${course.total_sessions ?? 26} live sessions`],
                 ['⏱',  `${course.session_duration_mins ?? 60} min each`],
-                ['🗓', 'Weekend only'],
+                ['🌍', 'Weekends · multi-timezone'],
                 ['♾️', 'Lifetime recordings'],
                 ['🎁', 'AI Kit couriered'],
               ].map(([icon, text]) => (

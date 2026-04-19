@@ -211,9 +211,12 @@ export function ThreadView({ thread, member, onBack, onNeedJoin, onExpired }: Pr
         </div>
       </div>
 
-      {/* Messages */}
+      {/* Messages — min-h-0 is CRITICAL here so the scroll area can shrink
+          below its content height. Without it, a tall OpeningPost card
+          pushes the container past the ThreadView bounds and the composer
+          below gets clipped by <main>'s overflow-hidden on mobile. */}
       <div ref={containerRef} onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-5 relative" style={{ background: '#f6f7f9' }}>
+        className="flex-1 min-h-0 overflow-y-auto px-4 py-5 relative" style={{ background: '#f6f7f9' }}>
         {/* Opening Post — full title, author, body (news / social / first-reply) */}
         {origin && <OpeningPost origin={origin} replyCount={messages.length} />}
 

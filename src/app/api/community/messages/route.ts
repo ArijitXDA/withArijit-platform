@@ -61,33 +61,18 @@ export async function GET(req: NextRequest) {
   const news     = newsRes.data
   const allMsgs  = msgsRes.data ?? []
 
-  // Decide what content goes into origin.body:
-  //   1. If a news_log row exists — use the LinkedIn post (it's what got cross-posted).
-  //   2. Otherwise, if the OP's first message in community_messages is non-Ari,
-  //      promote it to origin.body and remove it from the replies list so it
-  //      doesn't render twice.
-  //   3. Otherwise origin.body is null (thread has a title only, no preamble).
-  let originBody: string | null = null
-  let promotedMessageId: string | null = null
+  // origin.body is populated ONLY for externally-sourced content (news bot
+  // cross-posted to LinkedIn, social imports, etc.). We never promote a
+  // user's reply into origin.body because the OP often IS the first
+  // replier on their own thread — promoting the reply would make it
+  // silently disappear from the replies list. For user-created threads,
+  // the title alone is the opening post.
+  const originBody: string | null = news?.linkedin_post ?? null
 
-  if (news?.linkedin_post) {
-    originBody = news.linkedin_post
-  } else if (thread) {
-    const firstMsg = allMsgs.find(m => !m.is_ask_ari && m.member_id === thread.created_by)
-    if (firstMsg) {
-      originBody = firstMsg.content
-      promotedMessageId = firstMsg.id
-    }
-  }
-
-  const repliesRaw = promotedMessageId
-    ? allMsgs.filter(m => m.id !== promotedMessageId)
-    : allMsgs
-
-  // Fetch caller's upvotes for the remaining messages
+  // Fetch caller's upvotes for the messages we'll return
   let myUpvotes: Set<string> = new Set()
-  if (member_id && repliesRaw.length) {
-    const ids = repliesRaw.map(m => m.id)
+  if (member_id && allMsgs.length) {
+    const ids = allMsgs.map(m => m.id)
     const { data: uvData } = await db
       .from('community_upvotes')
       .select('message_id')
@@ -96,7 +81,7 @@ export async function GET(req: NextRequest) {
     myUpvotes = new Set((uvData ?? []).map((u: any) => u.message_id))
   }
 
-  const messages = repliesRaw.map(m => ({ ...m, my_upvote: myUpvotes.has(m.id) }))
+  const messages = allMsgs.map(m => ({ ...m, my_upvote: myUpvotes.has(m.id) }))
 
   const origin = thread ? {
     title:        thread.title,

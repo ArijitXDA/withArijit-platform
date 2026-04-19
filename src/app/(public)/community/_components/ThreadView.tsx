@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ArrowLeft, Send, Loader2, ThumbsUp, Award, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Send, Loader2, ThumbsUp, Award, MessageSquare, ArrowDown } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
 import { renderContent } from './renderContent'
 
@@ -38,22 +38,68 @@ export function ThreadView({ thread, member, onBack, onNeedJoin, onExpired }: Pr
   const [text,     setText]     = useState('')
   const [sending,  setSending]  = useState(false)
   const [error,    setError]    = useState('')
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const [atBottom, setAtBottom] = useState(true)
+  const [unread,   setUnread]   = useState(0)
+  const bottomRef    = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const prevCountRef = useRef(0)
 
-  const scrollToBottom = useCallback(() => {
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+  // Smooth-scroll to the latest message. 'instant' for initial load to
+  // avoid a visible jump; 'smooth' for live updates.
+  const scrollToBottom = useCallback((behavior: 'smooth' | 'auto' = 'smooth') => {
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior, block: 'end' }), 50)
+  }, [])
+
+  // Track whether the user is currently near the bottom of the list.
+  // If they've scrolled up to read older messages, we must NOT yank them
+  // back when a new message arrives.
+  const handleScroll = useCallback(() => {
+    const el = containerRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    const isNearBottom = distanceFromBottom < 140
+    setAtBottom(isNearBottom)
+    if (isNearBottom) setUnread(0)
   }, [])
 
   const loadMessages = useCallback(async () => {
     const res  = await fetch(`/api/community/messages?thread_id=${thread.id}&limit=80${member ? `&member_id=${member.id}` : ''}`)
     const data = await res.json()
-    setMessages(data.messages ?? [])
+    const msgs = data.messages ?? []
+    setMessages(msgs)
     setLoading(false)
-    scrollToBottom()
+    prevCountRef.current = msgs.length
+    // Always scroll to bottom on initial load so user sees latest.
+    scrollToBottom('auto')
+    setAtBottom(true)
+    setUnread(0)
   }, [thread.id, member, scrollToBottom])
 
   useEffect(() => { loadMessages() }, [loadMessages])
-  useEffect(() => { if (!loading) scrollToBottom() }, [messages, loading, scrollToBottom])
+
+  // On new messages: if user is at bottom, auto-scroll. If they're reading
+  // older messages (scrolled up), increment the unread counter so they see
+  // a "N new messages ↓" pill instead of being yanked to the bottom.
+  useEffect(() => {
+    if (loading) return
+    const prev = prevCountRef.current
+    const next = messages.length
+    if (next <= prev) { prevCountRef.current = next; return }
+
+    const incoming = next - prev
+    prevCountRef.current = next
+
+    // Detect whether the new message is from the current member — if so,
+    // always scroll (they just posted and want to see their own message).
+    const last = messages[next - 1]
+    const ownPost = last && member && last.member?.id === member.id
+
+    if (atBottom || ownPost) {
+      scrollToBottom('smooth')
+    } else {
+      setUnread(u => u + incoming)
+    }
+  }, [messages, loading, atBottom, member, scrollToBottom])
 
   useEffect(() => {
     const channel = supabase
@@ -118,19 +164,31 @@ export function ThreadView({ thread, member, onBack, onNeedJoin, onExpired }: Pr
   const isThreadOwner = member?.id === (thread as any).created_by
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-white relative">
       {/* Header */}
-      <div className="px-4 py-3 border-b flex items-center gap-3 shrink-0 bg-white" style={{ borderColor: '#e5e7eb' }}>
-        <button onClick={onBack} className="p-1.5 rounded-lg transition-colors hover:bg-gray-100" style={{ color: '#6b7280' }}>
+      <div className="px-4 py-3 border-b flex items-start gap-3 shrink-0 bg-white" style={{ borderColor: '#e5e7eb' }}>
+        <button onClick={onBack} className="p-1.5 rounded-lg transition-colors hover:bg-gray-100 shrink-0 mt-0.5" style={{ color: '#6b7280' }}>
           <ArrowLeft size={16} />
         </button>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-bold truncate" style={{ color: '#111827' }}>{thread.title}</h3>
-          <p className="text-xs mt-0.5" style={{ color: '#a78bfa' }}>@AskAri is active · Tag @AskAri for instant AI reply</p>
+          {/* Allow the title to wrap up to 2 lines — critical for news-bot
+              titles like "Afternoon Tech Pulse — Adobe Launches Firefly..." */}
+          <h3 className="text-sm sm:text-base font-bold leading-snug"
+            style={{
+              color: '#111827',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              wordBreak: 'break-word',
+            }}>
+            {thread.title}
+          </h3>
+          <p className="text-[11px] mt-1" style={{ color: '#a78bfa' }}>@AskAri is active · Tag @AskAri for instant AI reply</p>
         </div>
-        {/* Share */}
-        <div className="flex items-center gap-1 shrink-0">
-          <span className="text-[10px] mr-1 hidden sm:block" style={{ color: '#9ca3af' }}>Share:</span>
+        {/* Share — hidden below sm to give the title more room on mobile */}
+        <div className="hidden sm:flex items-center gap-1 shrink-0 mt-0.5">
+          <span className="text-[10px] mr-1" style={{ color: '#9ca3af' }}>Share:</span>
           {SHARE_LINKS.map(s => (
             <a key={s.label} href={s.url} target="_blank" rel="noopener noreferrer"
               className="text-[10px] font-semibold px-2 py-1 rounded-md transition-all hover:opacity-80 border"
@@ -142,7 +200,8 @@ export function ThreadView({ thread, member, onBack, onNeedJoin, onExpired }: Pr
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4" style={{ background: '#f6f7f9' }}>
+      <div ref={containerRef} onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-4 py-5 space-y-4 relative" style={{ background: '#f6f7f9' }}>
         {loading ? (
           <div className="flex items-center justify-center h-40 text-sm" style={{ color: '#9ca3af' }}>
             <Loader2 size={18} className="animate-spin mr-2" /> Loading…
@@ -163,6 +222,22 @@ export function ThreadView({ thread, member, onBack, onNeedJoin, onExpired }: Pr
         )}
         <div ref={bottomRef} />
       </div>
+
+      {/* "N new messages ↓" pill — only visible when user scrolled up and new
+          messages have arrived. Tap to jump to latest. */}
+      {unread > 0 && (
+        <button
+          onClick={() => { scrollToBottom('smooth'); setUnread(0) }}
+          className="absolute left-1/2 -translate-x-1/2 z-10 px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg transition-all hover:opacity-90"
+          style={{
+            background: 'linear-gradient(135deg,#7c3aed,#6d28d9)',
+            color: '#fff',
+            bottom: '96px',
+          }}>
+          <ArrowDown size={12} />
+          {unread} new message{unread === 1 ? '' : 's'}
+        </button>
+      )}
 
       {/* Input */}
       <div className="border-t px-4 py-3 shrink-0 bg-white" style={{ borderColor: '#e5e7eb' }}>

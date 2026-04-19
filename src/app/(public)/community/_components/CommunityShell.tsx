@@ -72,9 +72,10 @@ export function CommunityShell({ channels }: Props) {
   const rankColor = RANK_COLORS[member?.rank ?? 'Explorer'] ?? '#94a3b8'
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#f6f7f9' }}>
+    <div className="flex flex-col overflow-hidden"
+      style={{ height: '100dvh', background: '#f6f7f9' }}>
       {/* Top nav — oStaran dark theme */}
-      <header className="sticky top-0 z-30 border-b bg-white"
+      <header className="shrink-0 border-b bg-white"
         style={{ borderBottomColor: '#e5e7eb' }}>
         {/* Violet accent line */}
         <div className="h-0.5" style={{ background: 'linear-gradient(90deg,#7c3aed,#a78bfa,transparent)' }} />
@@ -125,7 +126,7 @@ export function CommunityShell({ channels }: Props) {
 
       {/* Expired banner */}
       {expired && (
-        <div className="px-4 py-3 text-sm text-center"
+        <div className="shrink-0 px-4 py-3 text-sm text-center"
           style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d', color: '#92400e' }}>
           Your community access has expired.{' '}
           <a href="https://www.ostaran.com/masterclass" className="font-bold underline hover:opacity-80">
@@ -135,13 +136,13 @@ export function CommunityShell({ channels }: Props) {
         </div>
       )}
 
-      {/* Main layout ─ outer column holds the optional mobile channel strip
-          on top (mobile only) plus the horizontal row (desktop) / fullwidth
-          main (mobile) below. Uses 100dvh so iOS Safari's collapsible URL
-          bar doesn't cut off the bottom. min-h-0 on the inner row is
-          critical so flex-col children can actually shrink. */}
-      <div className="flex-1 max-w-7xl w-full mx-auto flex flex-col overflow-hidden"
-        style={{ height: 'calc(100dvh - 57px)' }}>
+      {/* Main layout ─ flex-1 takes remaining height after header + any
+          expired banner. No inline `height: calc(100dvh - 57px)` anymore;
+          body itself is 100dvh and flex-1 handles the rest. The previous
+          approach fought with `min-h-screen` (= 100vh > 100dvh on iOS)
+          and produced a container taller than the visible viewport,
+          pushing the bottom composer off-screen on mobile. */}
+      <div className="flex-1 max-w-7xl w-full mx-auto flex flex-col overflow-hidden min-h-0">
 
         {/* Mobile-only channel strip ─ horizontal scrolling pills above main */}
         <nav className="sm:hidden flex overflow-x-auto shrink-0 bg-white border-b px-2 py-2 gap-1.5"

@@ -91,6 +91,21 @@ export function HeroSection() {
             Personalised for your career — not a generic course.
           </p>
 
+          {/* ── Bold hype line — the three pillars of every oStaran programme ── */}
+          <div className="inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 mb-6 px-5 py-3 rounded-2xl font-bold text-sm md:text-base"
+            style={{
+              background: 'linear-gradient(90deg, rgba(124,58,237,0.18), rgba(79,70,229,0.18), rgba(6,182,212,0.15))',
+              border: '1px solid rgba(124,58,237,0.4)',
+              color: '#e0e7ff',
+              boxShadow: '0 0 32px rgba(124,58,237,0.15)',
+            }}>
+            <span>🎥 <span className="text-white">Live Classes</span> by Industrial AI Leaders</span>
+            <span className="text-indigo-400">·</span>
+            <span>🛠️ <span className="text-white">Real Projects</span>, No Toys</span>
+            <span className="text-indigo-400">·</span>
+            <span style={{ color: '#c4b5fd' }}>🎓 <span className="text-white">Assistant Professor (AI)</span>, 24/7 in 100+ languages</span>
+          </div>
+
           {/* Audience pills */}
           <div className="flex flex-wrap justify-center gap-2 mb-10">
             {[

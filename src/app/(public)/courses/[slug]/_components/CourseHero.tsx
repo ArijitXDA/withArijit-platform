@@ -60,6 +60,20 @@ export function CourseHero({
               {tag.emoji} {tag.label} · Live Course
             </div>
 
+            {/* ── Bold hype strip — top-3 USPs ─────────────────────────── */}
+            <div className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 mb-5 px-4 py-2 rounded-xl font-bold text-sm"
+              style={{
+                background: 'linear-gradient(90deg, rgba(124,58,237,0.15), rgba(79,70,229,0.15))',
+                border: '1px solid rgba(124,58,237,0.35)',
+                color: '#e0e7ff',
+              }}>
+              <span>🎥 Live Classes by Industrial AI Leaders</span>
+              <span className="text-indigo-400">·</span>
+              <span>🛠️ Real Projects, No Toys</span>
+              <span className="text-indigo-400">·</span>
+              <span style={{ color: '#c4b5fd' }}>🎓 Your Own Assistant Professor (AI), 24/7</span>
+            </div>
+
             {/* H1 */}
             <h1 className="text-4xl md:text-5xl font-extrabold text-white leading-[1.1] mb-4 tracking-tight">
               {course.name}

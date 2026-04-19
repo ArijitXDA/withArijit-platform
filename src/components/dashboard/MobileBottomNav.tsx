@@ -2,14 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, BookOpen, Award, CreditCard, User } from 'lucide-react'
+import { LayoutDashboard, BookOpen, Sparkles, CreditCard, User } from 'lucide-react'
 
 const BOTTOM_TABS = [
-  { href: '/dashboard',              label: 'Home',      icon: LayoutDashboard, exact: true },
-  { href: '/dashboard/courses',      label: 'Courses',   icon: BookOpen },
-  { href: '/dashboard/certificates', label: 'Certs',     icon: Award },
-  { href: '/dashboard/payments',     label: 'Payments',  icon: CreditCard },
-  { href: '/dashboard/profile',      label: 'Profile',   icon: User },
+  { href: '/dashboard',                  label: 'Home',     icon: LayoutDashboard, exact: true },
+  { href: '/dashboard/courses',          label: 'Courses',  icon: BookOpen },
+  { href: '/dashboard/assistant-professor', label: 'AI Prof',  icon: Sparkles },
+  { href: '/dashboard/payments',         label: 'Payments', icon: CreditCard },
+  { href: '/dashboard/profile',          label: 'Profile',  icon: User },
 ]
 
 export function MobileBottomNav() {

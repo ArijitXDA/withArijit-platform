@@ -2,36 +2,46 @@
 
 import { useState } from 'react'
 
+/**
+ * Assistant Professor (AI) — the personal 24/7 AI professor bundled with
+ * every oStaran course. Formerly known internally as "Class Monitor".
+ * See /dashboard/assistant-professor for the live student-facing chat.
+ *
+ * Renamed: 2026-04-19. File name retained as CourseAIClassMonitor.tsx to
+ * avoid breaking imports in a fast deploy; safe to rename file + exported
+ * symbol in a follow-up commit once all references are audited.
+ */
+
 const FEATURES = [
   {
     icon: '🧠',
     title: 'Explains Any Concept',
-    desc: 'Ask it to break down any session topic — from LLM architecture to MCP protocols — in plain language, with examples.',
+    desc: 'Ask your Assistant Professor to break down any session topic — from LLM architecture to MCP protocols — in plain language, with examples from your own course context.',
   },
   {
     icon: '🐛',
     title: 'Debugs Your Code',
-    desc: 'Paste your code, describe the error, and Class Monitor walks you through exactly what went wrong and how to fix it.',
+    desc: 'Paste your code, describe the error, and your Assistant Professor walks you through exactly what went wrong and how to fix it — like a patient 1-on-1 mentor.',
   },
   {
     icon: '🌍',
     title: '100+ Languages',
-    desc: 'Ask in Hindi, Tamil, Bengali, Marathi, Telugu, Kannada, or any of 100+ languages. Class Monitor responds in the same language.',
+    desc: 'Ask in Hindi, Tamil, Bengali, Marathi, Telugu, Kannada, or any of 100+ languages. Your Assistant Professor responds in the same language, fluently.',
   },
   {
     icon: '⏰',
     title: '24/7 — Never Offline',
-    desc: 'Stuck at 2am before a session? Class Monitor is always available — no waiting, no tickets, no office hours.',
+    desc: 'Stuck at 2am before a session? Preparing between classes? Your Assistant Professor is always available — no waiting, no tickets, no office hours.',
   },
   {
     icon: '📚',
     title: 'Knows Your Curriculum',
-    desc: "Trained on your exact course sessions. It knows what you've covered, what's coming, and gives context-aware answers.",
+    desc: "Trained on your exact course sessions. It knows what you've covered, what's coming next, and gives context-aware answers — not generic internet replies.",
   },
   {
     icon: '🎯',
     title: 'Session-Specific Help',
-    desc: 'Tell it which session you\'re on and it gives targeted, relevant help — not generic AI answers from the internet.',
+    desc: "Tell it which session you're on and it gives targeted, relevant help. Your own AI professor, for your own journey.",
   },
 ]
 
@@ -45,8 +55,8 @@ const DEMO_EXCHANGES = [
     a: 'यह error तब आती है जब आप किसी None value पर loop चलाने की कोशिश करते हैं। सबसे common कारण: आपका function कुछ return नहीं कर रहा, या API response None आ गई। अपना code paste करें, main मैं देखता हूँ कहाँ गड़बड़ है।',
   },
   {
-    q: 'Can I use Class Monitor after the course ends?',
-    a: 'Yes — you have lifetime access to Class Monitor just like your session recordings. Any time you\'re building something months later and get stuck, Class Monitor is still there for you.',
+    q: 'Can I use my Assistant Professor after the course ends?',
+    a: "Yes — you have lifetime access to your Assistant Professor (AI), just like your session recordings. Months later when you're building something at work and get stuck, your professor is still here for you. That's the whole point: a teacher who never leaves.",
   },
 ]
 
@@ -69,14 +79,14 @@ export function CourseAIClassMonitor() {
         <div className="text-center mb-14">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-5"
             style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.4)' }}>
-            🤖 World&apos;s First AI Tutor Built Into a Course
+            🎓 World&apos;s First AI Professor Built Into a Course
           </div>
           <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4 leading-tight">
-            Meet <span style={{ color: '#818cf8' }}>AI Class Monitor</span>
+            Meet Your <span style={{ color: '#818cf8' }}>Assistant Professor (AI)</span>
           </h2>
           <p className="text-slate-400 text-base max-w-2xl mx-auto leading-relaxed">
-            Every oStaran student gets a personal AI tutor — available 24/7, trained on your exact curriculum, 
-            and fluent in over 100 languages. No other programme in the world offers this.
+            Every enrolled oStaran student gets a personal AI professor — available 24/7, trained on your exact curriculum,
+            and fluent in over 100 languages. <strong className="text-white">No other programme in the world offers this.</strong>
           </p>
         </div>
 
@@ -107,11 +117,11 @@ export function CourseAIClassMonitor() {
             <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'rgba(99,102,241,0.2)', background: 'rgba(99,102,241,0.1)' }}>
               <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
                 style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
-                🤖
+                🎓
               </div>
               <div>
-                <p className="text-white text-sm font-bold">AI Class Monitor</p>
-                <p className="text-indigo-300 text-xs">● Online · Responds instantly</p>
+                <p className="text-white text-sm font-bold">Assistant Professor (AI)</p>
+                <p className="text-indigo-300 text-xs">● Online · Responds instantly · 100+ languages</p>
               </div>
             </div>
 
@@ -130,7 +140,7 @@ export function CourseAIClassMonitor() {
               <div className="flex justify-start gap-2">
                 <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5"
                   style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
-                  🤖
+                  🎓
                 </div>
                 <div className="max-w-[90%] rounded-2xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed"
                   style={{ background: 'rgba(255,255,255,0.05)', color: '#cbd5e1' }}>
@@ -179,7 +189,8 @@ export function CourseAIClassMonitor() {
 
         {/* Differentiator note */}
         <p className="text-center text-slate-500 text-xs mt-6">
-          No other AI certification programme in India, US, or EU includes a 24/7 AI tutor trained on your curriculum.
+          No other AI certification programme in India, the US, or EU includes a 24/7 AI professor trained on your curriculum.
+          <span className="text-slate-600"> (Only for enrolled students.)</span>
         </p>
       </div>
     </section>

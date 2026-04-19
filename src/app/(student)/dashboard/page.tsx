@@ -337,6 +337,42 @@ export default async function DashboardPage({
         )}
       </div>
 
+      {/* ── Assistant Professor (AI) — hero callout ───────────────── */}
+      <Link
+        href="/dashboard/assistant-professor"
+        className="block rounded-2xl overflow-hidden relative group transition-all hover:shadow-xl hover:-translate-y-0.5"
+        style={{
+          background: 'linear-gradient(135deg, #4c1d95 0%, #4f46e5 50%, #7c3aed 100%)',
+          boxShadow: '0 4px 24px rgba(124,58,237,0.22)',
+        }}
+      >
+        {/* decorative dots */}
+        <div className="absolute inset-0 opacity-15"
+          style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+
+        <div className="relative px-5 py-5 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 text-2xl"
+            style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)' }}>
+            🎓
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-extrabold text-base flex items-center gap-2 flex-wrap">
+              Your Assistant Professor (AI)
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ background: 'rgba(255,255,255,0.2)', color: '#fff' }}>
+                24/7 · 100+ languages
+              </span>
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: '#ddd6fe' }}>
+              Ask anything about your course, sessions, a concept you want explained — your own AI professor, for life.
+            </p>
+          </div>
+          <div className="shrink-0 flex items-center gap-1 text-white font-bold text-sm opacity-90 group-hover:opacity-100 transition-opacity">
+            Chat now <ChevronRight size={16} />
+          </div>
+        </div>
+      </Link>
+
       {/* ── Stats row — each card is a clickable link ─────────────────────
           Active Courses     → /dashboard/courses
           Sessions Attended  → /dashboard/sessions

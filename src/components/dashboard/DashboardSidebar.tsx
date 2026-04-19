@@ -20,7 +20,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/profile',        label: 'Profile',          icon: User },
   { href: '/dashboard/career',         label: 'Career',           icon: Briefcase },
   { href: '/dashboard/become-partner', label: 'Become Partner',   icon: Users },
-  { href: '/dashboard/ai-monitor',     label: 'Class Monitor AI', icon: Sparkles },
+  { href: '/dashboard/assistant-professor', label: 'Assistant Professor (AI)', icon: Sparkles },
 ]
 
 export function DashboardSidebar() {
@@ -56,7 +56,7 @@ export function DashboardSidebar() {
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
           const isActive = exact ? pathname === href : pathname.startsWith(href)
-          const isAI     = href === '/dashboard/ai-monitor'
+          const isAI     = href === '/dashboard/assistant-professor'
 
           return (
             <Link

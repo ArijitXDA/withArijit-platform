@@ -216,7 +216,7 @@ export default async function CoursePage({
         {/* 11. Trainer profile */}
         <CourseTrainer />
 
-        {/* 12. AI Class Monitor */}
+        {/* 12. Assistant Professor (AI) */}
         <CourseAIClassMonitor />
 
         {/* 13. Comparison table */}

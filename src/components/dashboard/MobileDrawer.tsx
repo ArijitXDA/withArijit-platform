@@ -20,7 +20,7 @@ const DRAWER_ITEMS = [
   { href: '/dashboard/library',        label: 'Library',          icon: Library },
   { href: '/dashboard/career',         label: 'Career',           icon: Briefcase },
   { href: '/dashboard/become-partner', label: 'Become Partner',   icon: Users },
-  { href: '/dashboard/ai-monitor',     label: 'Class Monitor AI', icon: Sparkles },
+  { href: '/dashboard/assistant-professor', label: 'Assistant Professor (AI)', icon: Sparkles },
 ]
 
 interface MobileDrawerProps {
@@ -91,7 +91,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
         <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
           {DRAWER_ITEMS.map(({ href, label, icon: Icon, exact }) => {
             const isActive = exact ? pathname === href : pathname.startsWith(href)
-            const isAI     = href === '/dashboard/ai-monitor'
+            const isAI     = href === '/dashboard/assistant-professor'
 
             return (
               <Link

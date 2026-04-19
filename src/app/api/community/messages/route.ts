@@ -11,6 +11,13 @@ const ANON_KEY     = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 const ARI_EVERY_N  = 3
 
 // GET /api/community/messages?thread_id=xxx&limit=50
+//
+// Returns { origin, messages } where:
+//   origin   — thread header content (title, creator, posted body from
+//              community_news_log OR the OP's own first message). Used by
+//              the frontend to render the Opening Post card before replies.
+//   messages — replies in the thread, minus the OP's first message if we
+//              promoted it into origin.body (so it doesn't duplicate).
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const thread_id  = searchParams.get('thread_id')
@@ -20,23 +27,67 @@ export async function GET(req: NextRequest) {
   if (!thread_id) return NextResponse.json({ error: 'thread_id required' }, { status: 400 })
 
   const db = admin()
-  const { data, error } = await db
-    .from('community_messages')
-    .select(`
-      id, content, is_ask_ari, created_at, upvote_count, is_best_answer,
-      member:community_members!community_messages_member_id_fkey(id, display_name, tier, points, rank)
-    `)
-    .eq('thread_id', thread_id)
-    .eq('is_deleted', false)
-    .order('created_at', { ascending: true })
-    .limit(limit)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // Fetch thread + creator, news log, and messages in parallel
+  const [threadRes, newsRes, msgsRes] = await Promise.all([
+    db.from('community_threads')
+      .select(`
+        id, title, is_question, created_at, created_by,
+        creator:community_members!community_threads_created_by_fkey(id, display_name, tier, points, rank)
+      `)
+      .eq('id', thread_id)
+      .maybeSingle(),
 
-  // Fetch caller's upvotes for these messages
+    db.from('community_news_log')
+      .select('slot, topic, linkedin_post, linkedin_url, news_items, status')
+      .eq('thread_id', thread_id)
+      .eq('status', 'posted')
+      .maybeSingle(),
+
+    db.from('community_messages')
+      .select(`
+        id, content, is_ask_ari, created_at, upvote_count, is_best_answer, member_id,
+        member:community_members!community_messages_member_id_fkey(id, display_name, tier, points, rank)
+      `)
+      .eq('thread_id', thread_id)
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: true })
+      .limit(limit),
+  ])
+
+  if (msgsRes.error) return NextResponse.json({ error: msgsRes.error.message }, { status: 500 })
+
+  const thread   = threadRes.data
+  const news     = newsRes.data
+  const allMsgs  = msgsRes.data ?? []
+
+  // Decide what content goes into origin.body:
+  //   1. If a news_log row exists — use the LinkedIn post (it's what got cross-posted).
+  //   2. Otherwise, if the OP's first message in community_messages is non-Ari,
+  //      promote it to origin.body and remove it from the replies list so it
+  //      doesn't render twice.
+  //   3. Otherwise origin.body is null (thread has a title only, no preamble).
+  let originBody: string | null = null
+  let promotedMessageId: string | null = null
+
+  if (news?.linkedin_post) {
+    originBody = news.linkedin_post
+  } else if (thread) {
+    const firstMsg = allMsgs.find(m => !m.is_ask_ari && m.member_id === thread.created_by)
+    if (firstMsg) {
+      originBody = firstMsg.content
+      promotedMessageId = firstMsg.id
+    }
+  }
+
+  const repliesRaw = promotedMessageId
+    ? allMsgs.filter(m => m.id !== promotedMessageId)
+    : allMsgs
+
+  // Fetch caller's upvotes for the remaining messages
   let myUpvotes: Set<string> = new Set()
-  if (member_id && data?.length) {
-    const ids = data.map(m => m.id)
+  if (member_id && repliesRaw.length) {
+    const ids = repliesRaw.map(m => m.id)
     const { data: uvData } = await db
       .from('community_upvotes')
       .select('message_id')
@@ -45,8 +96,21 @@ export async function GET(req: NextRequest) {
     myUpvotes = new Set((uvData ?? []).map((u: any) => u.message_id))
   }
 
-  const messages = (data ?? []).map(m => ({ ...m, my_upvote: myUpvotes.has(m.id) }))
-  return NextResponse.json({ messages })
+  const messages = repliesRaw.map(m => ({ ...m, my_upvote: myUpvotes.has(m.id) }))
+
+  const origin = thread ? {
+    title:        thread.title,
+    is_question:  thread.is_question,
+    created_at:   thread.created_at,
+    creator:      thread.creator,
+    body:         originBody,
+    news_items:   news?.news_items ?? null,
+    linkedin_url: news?.linkedin_url ?? null,
+    slot:         news?.slot ?? null,
+    is_news:      !!news,
+  } : null
+
+  return NextResponse.json({ origin, messages })
 }
 
 // POST /api/community/messages

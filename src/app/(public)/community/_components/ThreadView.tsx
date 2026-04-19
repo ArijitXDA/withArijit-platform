@@ -23,6 +23,23 @@ interface Message {
   upvote_count: number; is_best_answer: boolean; my_upvote?: boolean
   member: { id: string; display_name: string; tier: string; points?: number; rank?: string }
 }
+
+interface NewsItem {
+  title?: string; source?: string; url?: string; summary?: string; significance?: string
+}
+
+interface Origin {
+  title:        string
+  is_question:  boolean
+  created_at:   string
+  creator:      { id: string; display_name: string; tier: string; rank?: string; points?: number } | null
+  body:         string | null
+  news_items:   NewsItem[] | null
+  linkedin_url: string | null
+  slot:         string | null
+  is_news:      boolean
+}
+
 interface Member { id: string; tier: string; display_name: string }
 interface Props {
   thread:     { id: string; title: string; created_by?: string; is_question?: boolean }
@@ -34,6 +51,7 @@ interface Props {
 
 export function ThreadView({ thread, member, onBack, onNeedJoin, onExpired }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
+  const [origin,   setOrigin]   = useState<Origin | null>(null)
   const [loading,  setLoading]  = useState(true)
   const [text,     setText]     = useState('')
   const [sending,  setSending]  = useState(false)
@@ -66,6 +84,7 @@ export function ThreadView({ thread, member, onBack, onNeedJoin, onExpired }: Pr
     const res  = await fetch(`/api/community/messages?thread_id=${thread.id}&limit=80${member ? `&member_id=${member.id}` : ''}`)
     const data = await res.json()
     const msgs = data.messages ?? []
+    setOrigin(data.origin ?? null)
     setMessages(msgs)
     setLoading(false)
     prevCountRef.current = msgs.length
@@ -105,11 +124,15 @@ export function ThreadView({ thread, member, onBack, onNeedJoin, onExpired }: Pr
     const channel = supabase
       .channel(`thread-${thread.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_messages', filter: `thread_id=eq.${thread.id}` },
-        async (payload) => {
-          const res  = await fetch(`/api/community/messages?thread_id=${thread.id}&limit=1${member ? `&member_id=${member.id}` : ''}`)
+        async () => {
+          // Refresh the whole thread payload. The server now decides which
+          // message (if any) gets promoted into origin.body, so we can't
+          // safely just append a single row here — the server's reply list
+          // may exclude a message the realtime event told us about.
+          const res  = await fetch(`/api/community/messages?thread_id=${thread.id}&limit=80${member ? `&member_id=${member.id}` : ''}`)
           const data = await res.json()
-          const newMsg = (data.messages ?? []).find((m: Message) => m.id === payload.new.id)
-          if (newMsg) setMessages(prev => prev.find(m => m.id === newMsg.id) ? prev : [...prev, newMsg])
+          setOrigin(data.origin ?? null)
+          setMessages(data.messages ?? [])
         })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
@@ -165,29 +188,18 @@ export function ThreadView({ thread, member, onBack, onNeedJoin, onExpired }: Pr
 
   return (
     <div className="flex flex-col h-full bg-white relative">
-      {/* Header */}
-      <div className="px-4 py-3 border-b flex items-start gap-3 shrink-0 bg-white" style={{ borderColor: '#e5e7eb' }}>
-        <button onClick={onBack} className="p-1.5 rounded-lg transition-colors hover:bg-gray-100 shrink-0 mt-0.5" style={{ color: '#6b7280' }}>
+      {/* Header — compact nav bar. Title and body live in the OpeningPost
+          card below, inside the scroll area, so the reader sees the full
+          question/headline without truncation. */}
+      <div className="px-4 py-3 border-b flex items-center gap-3 shrink-0 bg-white" style={{ borderColor: '#e5e7eb' }}>
+        <button onClick={onBack} className="p-1.5 rounded-lg transition-colors hover:bg-gray-100 shrink-0" style={{ color: '#6b7280' }}>
           <ArrowLeft size={16} />
         </button>
         <div className="flex-1 min-w-0">
-          {/* Allow the title to wrap up to 2 lines — critical for news-bot
-              titles like "Afternoon Tech Pulse — Adobe Launches Firefly..." */}
-          <h3 className="text-sm sm:text-base font-bold leading-snug"
-            style={{
-              color: '#111827',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              wordBreak: 'break-word',
-            }}>
-            {thread.title}
-          </h3>
-          <p className="text-[11px] mt-1" style={{ color: '#a78bfa' }}>@AskAri is active · Tag @AskAri for instant AI reply</p>
+          <p className="text-[11px] truncate" style={{ color: '#a78bfa' }}>@AskAri is active · Tag @AskAri for instant AI reply</p>
         </div>
-        {/* Share — hidden below sm to give the title more room on mobile */}
-        <div className="hidden sm:flex items-center gap-1 shrink-0 mt-0.5">
+        {/* Share — hidden below sm to give more room on mobile */}
+        <div className="hidden sm:flex items-center gap-1 shrink-0">
           <span className="text-[10px] mr-1" style={{ color: '#9ca3af' }}>Share:</span>
           {SHARE_LINKS.map(s => (
             <a key={s.label} href={s.url} target="_blank" rel="noopener noreferrer"
@@ -201,25 +213,30 @@ export function ThreadView({ thread, member, onBack, onNeedJoin, onExpired }: Pr
 
       {/* Messages */}
       <div ref={containerRef} onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-5 space-y-4 relative" style={{ background: '#f6f7f9' }}>
-        {loading ? (
-          <div className="flex items-center justify-center h-40 text-sm" style={{ color: '#9ca3af' }}>
-            <Loader2 size={18} className="animate-spin mr-2" /> Loading…
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="text-center py-16" style={{ color: '#9ca3af' }}>
-            <MessageSquare size={32} className="mx-auto mb-2 opacity-30" />
-            <p className="text-sm">No messages yet — start the conversation!</p>
-          </div>
-        ) : (
-          messages.map(msg => (
-            <MessageBubble key={msg.id} msg={msg}
-              isOwn={msg.member?.id === member?.id}
-              isThreadOwner={isThreadOwner}
-              onUpvote={handleUpvote}
-              onBestAnswer={handleBestAnswer} />
-          ))
-        )}
+        className="flex-1 overflow-y-auto px-4 py-5 relative" style={{ background: '#f6f7f9' }}>
+        {/* Opening Post — full title, author, body (news / social / first-reply) */}
+        {origin && <OpeningPost origin={origin} replyCount={messages.length} />}
+
+        <div className="space-y-4">
+          {loading ? (
+            <div className="flex items-center justify-center h-40 text-sm" style={{ color: '#9ca3af' }}>
+              <Loader2 size={18} className="animate-spin mr-2" /> Loading…
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="text-center py-8" style={{ color: '#9ca3af' }}>
+              <MessageSquare size={24} className="mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No replies yet — be the first!</p>
+            </div>
+          ) : (
+            messages.map(msg => (
+              <MessageBubble key={msg.id} msg={msg}
+                isOwn={msg.member?.id === member?.id}
+                isThreadOwner={isThreadOwner}
+                onUpvote={handleUpvote}
+                onBestAnswer={handleBestAnswer} />
+            ))
+          )}
+        </div>
         <div ref={bottomRef} />
       </div>
 
@@ -404,5 +421,146 @@ function MessageBubble({ msg, isOwn, isThreadOwner, onUpvote, onBestAnswer }: {
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * OpeningPost renders the "first message" of a thread as a distinguished
+ * card above the replies. Content sources, in priority order:
+ *   1. community_news_log.linkedin_post — for news-bot threads cross-posted
+ *      to LinkedIn (origin.is_news === true).
+ *   2. The thread creator's first reply in community_messages, promoted by
+ *      the messages API when no news_log row exists.
+ *   3. Just the title, when the thread has no body content yet.
+ *
+ * When `news_items` are present, a compact source list renders below the
+ * body — each item is a tappable link to the original article.
+ */
+function OpeningPost({ origin, replyCount }: { origin: Origin; replyCount: number }) {
+  const creator   = origin.creator
+  const isNewsBot = creator?.display_name === 'oStaran News Bot'
+  const rank      = RANKS[creator?.rank ?? 'Explorer'] ?? RANKS.Explorer
+  const initial   = (creator?.display_name ?? '?').trim().charAt(0).toUpperCase() || '?'
+
+  // Accent colour on the left edge conveys what kind of opening post this is
+  const leftAccent = origin.is_question ? '#f97316'
+                   : isNewsBot          ? '#7c3aed'
+                   :                      '#3b82f6'
+
+  const ts = new Date(origin.created_at).toLocaleString('en-IN', {
+    day:    'numeric',
+    month:  'short',
+    hour:   '2-digit',
+    minute: '2-digit',
+  })
+
+  const items = Array.isArray(origin.news_items) ? origin.news_items : []
+
+  return (
+    <article className="rounded-2xl bg-white shadow-sm overflow-hidden mb-6"
+      style={{
+        border:     '1px solid #e5e7eb',
+        borderLeft: `4px solid ${leftAccent}`,
+      }}>
+
+      {/* Meta strip */}
+      <header className="flex items-center gap-2.5 px-4 py-2.5 border-b"
+        style={{ borderColor: '#f3f4f6', background: '#fafafa' }}>
+        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+          style={isNewsBot
+            ? { background: '#f5f3ff', color: '#7c3aed' }
+            : { background: rank.bg, color: rank.color }}>
+          {isNewsBot ? '📰' : initial}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs font-bold truncate"
+              style={{ color: isNewsBot ? '#7c3aed' : '#111827' }}>
+              {creator?.display_name ?? 'Unknown'}
+            </span>
+            {isNewsBot ? (
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                style={{ background: '#f5f3ff', color: '#7c3aed' }}>
+                AI Digest
+              </span>
+            ) : creator?.rank && (
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                style={{ background: rank.bg, color: rank.color }}>
+                {rank.icon} {rank.label}
+              </span>
+            )}
+            {origin.is_question && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{ background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' }}>
+                ❓ Question
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] mt-0.5 truncate" style={{ color: '#9ca3af' }}>
+            {ts}
+            {origin.linkedin_url && (
+              <>
+                {' · '}
+                <a href={origin.linkedin_url} target="_blank" rel="noopener noreferrer"
+                  className="font-semibold hover:underline" style={{ color: '#0A66C2' }}>
+                  View on LinkedIn ↗
+                </a>
+              </>
+            )}
+          </p>
+        </div>
+      </header>
+
+      {/* Title — always shown, full length, never truncated */}
+      <h1 className="px-4 pt-4 pb-2 text-base sm:text-lg font-extrabold leading-snug"
+        style={{ color: '#111827', wordBreak: 'break-word' }}>
+        {origin.title}
+      </h1>
+
+      {/* Body — rendered only when content exists */}
+      {origin.body && (
+        <div className="px-4 pb-4 text-sm leading-relaxed" style={{ color: '#374151' }}>
+          {renderContent(origin.body)}
+        </div>
+      )}
+
+      {/* News sources list — compact, tappable links to the original articles */}
+      {items.length > 0 && (
+        <div className="px-4 pb-4">
+          <p className="text-[10px] font-bold uppercase tracking-wider mb-2"
+            style={{ color: '#9ca3af' }}>
+            Sources · {items.length}
+          </p>
+          <div className="space-y-1.5">
+            {items.slice(0, 8).map((item, i) => (
+              item.url ? (
+                <a key={i} href={item.url} target="_blank" rel="noopener noreferrer"
+                  className="block rounded-lg border px-3 py-2 text-xs transition-all hover:bg-violet-50"
+                  style={{ borderColor: '#e5e7eb' }}>
+                  <p className="font-semibold leading-snug" style={{ color: '#111827' }}>
+                    {item.title ?? item.url}
+                  </p>
+                  {item.source && (
+                    <p className="text-[10px] mt-0.5" style={{ color: '#9ca3af' }}>
+                      {item.source} ↗
+                    </p>
+                  )}
+                </a>
+              ) : null
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Reply count footer */}
+      <footer className="px-4 py-2 border-t text-[11px] font-medium"
+        style={{ borderColor: '#f3f4f6', color: '#6b7280', background: '#fafafa' }}>
+        {replyCount === 0
+          ? '💬 Be the first to reply'
+          : replyCount === 1
+            ? '💬 1 reply'
+            : `💬 ${replyCount} replies`}
+      </footer>
+    </article>
   )
 }

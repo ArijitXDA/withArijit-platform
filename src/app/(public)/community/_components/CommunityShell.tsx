@@ -93,19 +93,22 @@ export function CommunityShell({ channels }: Props) {
           </div>
           <div className="flex items-center gap-3">
             {member ? (
-              <div className="flex items-center gap-2">
-                {/* Points pill */}
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full hidden sm:block"
+              <div className="flex items-center gap-2 min-w-0">
+                {/* Points pill — compact on mobile (just points), full "Rank · N pts" on sm+ */}
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
                   style={{ background: rankColor + '18', color: rankColor, border: `1px solid ${rankColor}33` }}>
-                  {member.rank ?? 'Explorer'} · {member.points ?? 0} pts
+                  <span className="hidden sm:inline">{member.rank ?? 'Explorer'} · </span>{member.points ?? 0} pts
                 </span>
                 {/* Tier badge */}
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
                   style={{ background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe' }}>
                   {TIER_LABEL[member.tier] ?? member.tier}
                 </span>
-                <span className="text-sm font-medium" style={{ color: '#111827' }}>{member.display_name}</span>
-                <button onClick={handleLeave} className="text-xs transition-colors ml-1" style={{ color: '#9ca3af' }}>
+                {/* Display name — hidden on xs to save header space */}
+                <span className="text-sm font-medium hidden sm:inline truncate max-w-[140px]" style={{ color: '#111827' }}>
+                  {member.display_name}
+                </span>
+                <button onClick={handleLeave} className="text-xs transition-colors ml-1 shrink-0" style={{ color: '#9ca3af' }}>
                   Leave
                 </button>
               </div>
@@ -132,40 +135,74 @@ export function CommunityShell({ channels }: Props) {
         </div>
       )}
 
-      {/* Main layout */}
-      <div className="flex-1 max-w-7xl w-full mx-auto flex overflow-hidden"
-        style={{ height: 'calc(100vh - 57px)' }}>
-        {/* Channels sidebar */}
-        <ChannelList channels={channels} active={activeChannel}
-          onSelect={ch => { setActiveChannel(ch); setActiveThread(null) }} />
+      {/* Main layout ─ outer column holds the optional mobile channel strip
+          on top (mobile only) plus the horizontal row (desktop) / fullwidth
+          main (mobile) below. Uses 100dvh so iOS Safari's collapsible URL
+          bar doesn't cut off the bottom. min-h-0 on the inner row is
+          critical so flex-col children can actually shrink. */}
+      <div className="flex-1 max-w-7xl w-full mx-auto flex flex-col overflow-hidden"
+        style={{ height: 'calc(100dvh - 57px)' }}>
 
-        {/* Centre */}
-        <main className="flex-1 flex flex-col overflow-hidden border-x" style={{ borderColor: '#e5e7eb' }}>
-          {activeThread ? (
-            <ThreadView
-              thread={activeThread}
-              member={member}
-              onBack={() => setActiveThread(null)}
-              onNeedJoin={() => setShowGuest(true)}
-              onExpired={handleExpired}
-            />
-          ) : (
-            <ThreadList
-              channel={activeChannel}
-              member={member}
-              onSelectThread={setActiveThread}
-              onNeedJoin={() => setShowGuest(true)}
-              onExpired={handleExpired}
-            />
-          )}
-        </main>
+        {/* Mobile-only channel strip ─ horizontal scrolling pills above main */}
+        <nav className="sm:hidden flex overflow-x-auto shrink-0 bg-white border-b px-2 py-2 gap-1.5"
+          style={{ borderColor: '#e5e7eb', scrollbarWidth: 'none' }}
+          aria-label="Channels">
+          {channels.map(ch => {
+            const isActive = activeChannel.id === ch.id
+            return (
+              <button key={ch.id}
+                onClick={() => { setActiveChannel(ch); setActiveThread(null) }}
+                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex items-center gap-1 transition-all border"
+                style={isActive ? {
+                  background: 'linear-gradient(135deg,#7c3aed,#6d28d9)',
+                  color: '#fff',
+                  borderColor: '#7c3aed',
+                } : {
+                  background: '#fff',
+                  color: '#6b7280',
+                  borderColor: '#e5e7eb',
+                }}>
+                <span>{ch.icon}</span>
+                <span>#{ch.slug}</span>
+              </button>
+            )
+          })}
+        </nav>
 
-        {/* Right: leaderboard + points */}
-        <LeaderboardPanel member={member ? {
-          points: member.points ?? 0,
-          rank:   member.rank ?? 'Explorer',
-          badges: member.badges ?? [],
-        } : null} />
+        {/* Row: sidebar (sm+) | main | leaderboard (lg+) */}
+        <div className="flex-1 flex overflow-hidden min-h-0">
+          <ChannelList channels={channels} active={activeChannel}
+            onSelect={ch => { setActiveChannel(ch); setActiveThread(null) }} />
+
+          {/* Centre */}
+          <main className="flex-1 flex flex-col overflow-hidden min-w-0 sm:border-x"
+            style={{ borderColor: '#e5e7eb' }}>
+            {activeThread ? (
+              <ThreadView
+                thread={activeThread}
+                member={member}
+                onBack={() => setActiveThread(null)}
+                onNeedJoin={() => setShowGuest(true)}
+                onExpired={handleExpired}
+              />
+            ) : (
+              <ThreadList
+                channel={activeChannel}
+                member={member}
+                onSelectThread={setActiveThread}
+                onNeedJoin={() => setShowGuest(true)}
+                onExpired={handleExpired}
+              />
+            )}
+          </main>
+
+          {/* Right: leaderboard + points */}
+          <LeaderboardPanel member={member ? {
+            points: member.points ?? 0,
+            rank:   member.rank ?? 'Explorer',
+            badges: member.badges ?? [],
+          } : null} />
+        </div>
       </div>
 
       {showGuest && <GuestModal onJoin={handleJoin} onClose={() => setShowGuest(false)} />}

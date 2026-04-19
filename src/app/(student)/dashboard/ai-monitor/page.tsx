@@ -1,4 +1,4 @@
-import { redirect, permanentRedirect } from 'next/navigation'
+import { permanentRedirect } from 'next/navigation'
 
 /**
  * /dashboard/ai-monitor → /dashboard/assistant-professor
@@ -9,6 +9,6 @@ import { redirect, permanentRedirect } from 'next/navigation'
  * break. Safe to remove once the old path hasn't been hit for 90+ days
  * (check Vercel access logs).
  */
-export default function LegacyAIMonitorPage() {
+export default function LegacyAIMonitorPage(): never {
   permanentRedirect('/dashboard/assistant-professor')
 }

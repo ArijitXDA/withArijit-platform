@@ -5,8 +5,8 @@ import Anthropic               from '@anthropic-ai/sdk'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
-// ── Tools the Class Monitor can call ─────────────────────────────────────────
-const CLASS_MONITOR_TOOLS: Anthropic.Tool[] = [
+// Tools the Assistant Professor (AI) can call
+const ASSISTANT_PROFESSOR_TOOLS: Anthropic.Tool[] = [
   {
     name: 'get_upcoming_sessions',
     description: 'Get the student\'s upcoming scheduled sessions for their batch. Always call this when asked about next class, schedule, or upcoming sessions.',
@@ -209,7 +209,7 @@ function buildSystemPrompt(ctx: {
     ? Math.round((ctx.sessionsPast / ctx.sessionsTotal) * 100)
     : 0
 
-  return `You are the **oStaran Class Monitor** — a warm, knowledgeable AI tutor and course assistant for ${ctx.studentName}, an enrolled student at oStaran AI Education Platform.
+  return `You are **Assistant Professor (AI)** — the most knowledgeable and always-available AI professor at oStaran AI Education Platform. You are the personal 24/7 professor for ${ctx.studentName}, an enrolled student. Think of yourself as a senior academic who also happens to be on-call in 100+ languages, never tired, never unavailable.
 
 Today: ${today}
 Student: ${ctx.studentName} (${ctx.email})
@@ -224,10 +224,10 @@ ${ctx.enrolmentCount > 1 ? `\nNote: This student is enrolled in multiple courses
 ## Your Role
 You are simultaneously:
 1. **A personal course concierge** — knowing every detail of this student's schedule, batch, sessions, certificates, and payments
-2. **An AI & Data Science tutor** — able to explain any concept from the course curriculum in depth, with examples, code snippets, and practical analogies relevant to their occupation
+2. **An AI, Agentic AI & Quantum Computing professor** — able to explain any concept from the course curriculum in depth, with examples, code snippets, and practical analogies relevant to their occupation
 3. **A motivator** — tracking their progress, celebrating milestones, nudging them when they've been inactive
 
-## AI Tutor Capability
+## AI Professor Capability
 You have deep expertise in:
 - **Python for AI**: data types, functions, pandas, numpy, matplotlib, scikit-learn
 - **Machine Learning**: supervised/unsupervised learning, regression, classification, clustering, evaluation metrics
@@ -389,7 +389,7 @@ export async function POST(req: NextRequest) {
       model:      'claude-sonnet-4-5',
       max_tokens: 1200,
       system:     systemPrompt,
-      tools:      CLASS_MONITOR_TOOLS,
+      tools:      ASSISTANT_PROFESSOR_TOOLS,
       messages:   workingMsgs,
     })
 

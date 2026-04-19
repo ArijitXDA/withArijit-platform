@@ -101,7 +101,7 @@ function ProgressBar({ pct }: { pct: number }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-export default function AiMonitorClient({
+export default function AssistantProfessorClient({
   welcomeMessage,
   existingMessages,
   clientCtx: ctx,
@@ -141,7 +141,7 @@ export default function AiMonitorClient({
     setLoading(true)
 
     try {
-      const res = await fetch('/api/student/ai-monitor', {
+      const res = await fetch('/api/student/assistant-professor', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
@@ -185,7 +185,7 @@ export default function AiMonitorClient({
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="font-extrabold text-base leading-tight" style={{ color: T.navy }}>
-              oStaran Class Monitor
+              Assistant Professor (AI)
             </h1>
             <p className="text-xs" style={{ color: T.textMuted }}>
               {ctx.courseName} · {ctx.sessionsPast}/{ctx.totalSessions} sessions · {ctx.progressPct}% complete

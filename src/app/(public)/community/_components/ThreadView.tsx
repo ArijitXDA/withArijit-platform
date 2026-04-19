@@ -176,38 +176,21 @@ export function ThreadView({ thread, member, onBack, onNeedJoin, onExpired }: Pr
   }
 
   const shareUrl  = `https://www.ostaran.com/community?thread=${thread.id}`
-  const shareText = `Discussing: "${thread.title}" on oStaran AI Community`
-  const SHARE_LINKS = [
-    { label: 'WhatsApp', color: '#25D366', url: `https://wa.me/?text=${encodeURIComponent(shareText + '\n' + shareUrl)}` },
-    { label: 'LinkedIn', color: '#0A66C2', url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}` },
-    { label: 'X',        color: '#111827', url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}` },
-    { label: 'Facebook', color: '#1877F2', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
-  ]
+  const shareText = `💬 Join me in this discussion on oStaran AI Community:\n\n"${thread.title}"`
 
   const isThreadOwner = member?.id === (thread as any).created_by
 
   return (
     <div className="flex flex-col h-full bg-white relative">
-      {/* Header — compact nav bar. Title and body live in the OpeningPost
-          card below, inside the scroll area, so the reader sees the full
-          question/headline without truncation. */}
+      {/* Header — compact nav bar. Title, body, and share actions live in
+          the OpeningPost card below. Mobile users get the full share bar
+          inline with the opening post content instead of a cramped header. */}
       <div className="px-4 py-3 border-b flex items-center gap-3 shrink-0 bg-white" style={{ borderColor: '#e5e7eb' }}>
         <button onClick={onBack} className="p-1.5 rounded-lg transition-colors hover:bg-gray-100 shrink-0" style={{ color: '#6b7280' }}>
           <ArrowLeft size={16} />
         </button>
         <div className="flex-1 min-w-0">
           <p className="text-[11px] truncate" style={{ color: '#a78bfa' }}>@AskAri is active · Tag @AskAri for instant AI reply</p>
-        </div>
-        {/* Share — hidden below sm to give more room on mobile */}
-        <div className="hidden sm:flex items-center gap-1 shrink-0">
-          <span className="text-[10px] mr-1" style={{ color: '#9ca3af' }}>Share:</span>
-          {SHARE_LINKS.map(s => (
-            <a key={s.label} href={s.url} target="_blank" rel="noopener noreferrer"
-              className="text-[10px] font-semibold px-2 py-1 rounded-md transition-all hover:opacity-80 border"
-              style={{ color: s.color, borderColor: s.color + '44', background: s.color + '0d' }}>
-              {s.label}
-            </a>
-          ))}
         </div>
       </div>
 
@@ -218,7 +201,7 @@ export function ThreadView({ thread, member, onBack, onNeedJoin, onExpired }: Pr
       <div ref={containerRef} onScroll={handleScroll}
         className="flex-1 min-h-0 overflow-y-auto px-4 py-5 relative" style={{ background: '#f6f7f9' }}>
         {/* Opening Post — full title, author, body (news / social / first-reply) */}
-        {origin && <OpeningPost origin={origin} replyCount={messages.length} />}
+        {origin && <OpeningPost origin={origin} replyCount={messages.length} shareUrl={shareUrl} shareText={shareText} />}
 
         <div className="space-y-4">
           {loading ? (
@@ -259,8 +242,14 @@ export function ThreadView({ thread, member, onBack, onNeedJoin, onExpired }: Pr
         </button>
       )}
 
-      {/* Input */}
-      <div className="border-t px-4 py-3 shrink-0 bg-white" style={{ borderColor: '#e5e7eb' }}>
+      {/* Input — padding-bottom respects iOS home indicator safe area so
+          the textarea isn't cut in half by the home bar on phones. */}
+      <div className="border-t px-4 shrink-0 bg-white"
+        style={{
+          borderColor: '#e5e7eb',
+          paddingTop:    '0.75rem',
+          paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+        }}>
         {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
         {!member ? (
           <button onClick={onNeedJoin}
@@ -432,14 +421,57 @@ function MessageBubble({ msg, isOwn, isThreadOwner, onUpvote, onBestAnswer }: {
  * card above the replies. Content sources, in priority order:
  *   1. community_news_log.linkedin_post — for news-bot threads cross-posted
  *      to LinkedIn (origin.is_news === true).
- *   2. The thread creator's first reply in community_messages, promoted by
- *      the messages API when no news_log row exists.
- *   3. Just the title, when the thread has no body content yet.
+ *   2. Just the title, when the thread has no body content.
  *
  * When `news_items` are present, a compact source list renders below the
  * body — each item is a tappable link to the original article.
+ *
+ * Share bar sits above the reply count footer and invites friends to
+ * join the discussion via WhatsApp, X, LinkedIn, Facebook, Instagram
+ * (copy-link with paste hint), Copy Link, or the native share sheet
+ * (mobile only — shown when navigator.share is available).
  */
-function OpeningPost({ origin, replyCount }: { origin: Origin; replyCount: number }) {
+function OpeningPost({ origin, replyCount, shareUrl, shareText }: {
+  origin:     Origin
+  replyCount: number
+  shareUrl:   string
+  shareText:  string
+}) {
+  const [copyMsg,     setCopyMsg]     = useState('')
+  const [canShareApi, setCanShareApi] = useState(false)
+
+  useEffect(() => {
+    setCanShareApi(typeof navigator !== 'undefined' && !!(navigator as any).share)
+  }, [])
+
+  const shareBody = `${shareText}\n\n${shareUrl}`
+
+  function flashToast(msg: string) {
+    setCopyMsg(msg)
+    setTimeout(() => setCopyMsg(''), 2500)
+  }
+
+  async function copyLink(toast: string) {
+    try {
+      await navigator.clipboard.writeText(shareBody)
+      flashToast(toast)
+    } catch {
+      flashToast('Copy failed — please try again')
+    }
+  }
+
+  function nativeShare() {
+    try {
+      ;(navigator as any).share({
+        title: 'oStaran AI Community',
+        text:  shareText,
+        url:   shareUrl,
+      }).catch(() => {})
+    } catch {
+      copyLink('Link copied — paste anywhere to share')
+    }
+  }
+
   const creator   = origin.creator
   const isNewsBot = creator?.display_name === 'oStaran News Bot'
   const rank      = RANKS[creator?.rank ?? 'Explorer'] ?? RANKS.Explorer
@@ -458,6 +490,33 @@ function OpeningPost({ origin, replyCount }: { origin: Origin; replyCount: numbe
   })
 
   const items = Array.isArray(origin.news_items) ? origin.news_items : []
+
+  const SHARE_PLATFORMS = [
+    {
+      label: 'WhatsApp',
+      icon:  '💬',
+      color: '#25D366',
+      url:   `https://wa.me/?text=${encodeURIComponent(shareBody)}`,
+    },
+    {
+      label: 'X',
+      icon:  '𝕏',
+      color: '#111827',
+      url:   `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
+    },
+    {
+      label: 'LinkedIn',
+      icon:  'in',
+      color: '#0A66C2',
+      url:   `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
+    },
+    {
+      label: 'Facebook',
+      icon:  'f',
+      color: '#1877F2',
+      url:   `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+    },
+  ]
 
   return (
     <article className="rounded-2xl bg-white shadow-sm overflow-hidden mb-6"
@@ -554,6 +613,58 @@ function OpeningPost({ origin, replyCount }: { origin: Origin; replyCount: numbe
           </div>
         </div>
       )}
+
+      {/* Share bar — invite friends to join the discussion */}
+      <div className="px-4 py-3 border-t" style={{ borderColor: '#f3f4f6' }}>
+        <p className="text-[11px] font-semibold mb-2 flex items-center gap-1" style={{ color: '#374151' }}>
+          <span>📣</span>
+          <span>Invite friends to join this discussion</span>
+        </p>
+        <div className="flex gap-1.5 flex-wrap items-center">
+          {SHARE_PLATFORMS.map(p => (
+            <a key={p.label} href={p.url} target="_blank" rel="noopener noreferrer"
+              className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-all hover:opacity-80 border inline-flex items-center gap-1.5"
+              style={{ color: p.color, borderColor: p.color + '44', background: p.color + '0d' }}>
+              <span className="font-extrabold" style={{ minWidth: '0.75rem', textAlign: 'center' }}>{p.icon}</span>
+              <span>{p.label}</span>
+            </a>
+          ))}
+
+          {/* Instagram — no web share API; copy link with paste instruction */}
+          <button
+            onClick={() => copyLink('Link copied — paste in your Instagram story or DM')}
+            className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-all hover:opacity-80 border inline-flex items-center gap-1.5"
+            style={{ color: '#E4405F', borderColor: '#E4405F44', background: '#E4405F0d' }}>
+            <span className="font-extrabold" style={{ minWidth: '0.75rem', textAlign: 'center' }}>📷</span>
+            <span>Instagram</span>
+          </button>
+
+          {/* Copy link */}
+          <button
+            onClick={() => copyLink('Link copied to clipboard')}
+            className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-all hover:opacity-80 border inline-flex items-center gap-1.5"
+            style={{ color: '#6b7280', borderColor: '#e5e7eb', background: '#fff' }}>
+            <span>📋</span>
+            <span>Copy link</span>
+          </button>
+
+          {/* Native share — only when the browser supports navigator.share */}
+          {canShareApi && (
+            <button
+              onClick={nativeShare}
+              className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-all hover:opacity-80 border inline-flex items-center gap-1.5"
+              style={{ color: '#7c3aed', borderColor: '#ddd6fe', background: '#f5f3ff' }}>
+              <span>📤</span>
+              <span>More…</span>
+            </button>
+          )}
+        </div>
+        {copyMsg && (
+          <p className="text-[10px] mt-2 font-semibold" style={{ color: '#059669' }}>
+            ✓ {copyMsg}
+          </p>
+        )}
+      </div>
 
       {/* Reply count footer */}
       <footer className="px-4 py-2 border-t text-[11px] font-medium"

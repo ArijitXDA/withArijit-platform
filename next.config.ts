@@ -26,6 +26,16 @@ const nextConfig: NextConfig = {
         destination: '/api/student/assistant-professor',
         permanent: true,
       },
+      // AI Spots consolidated into Partner Programme — 2026-04-20.
+      // The /ai-spots page was a placeholder; AI Spot (cafes/restaurants) is one
+      // of five partner archetypes now managed at partner.ostaran.com. AI Spot
+      // signup continues separately via AIwithArijit.com (Make scenarios 7811188
+      // + 7542384 still active on aispot_master table).
+      {
+        source: '/ai-spots',
+        destination: 'https://partner.ostaran.com',
+        permanent: true,
+      },
     ]
   },
 };

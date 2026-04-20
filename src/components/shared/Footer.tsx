@@ -15,7 +15,6 @@ const FOOTER_LINKS = {
   Platform: [
     { href: '/masterclass',        label: 'AI Masterclass'         },
     { href: '/library',            label: 'Resource Library'       },
-    { href: '/ai-spots',           label: 'AI Spots'               },
     { href: '/find-ai-job',        label: 'Find AI Jobs'           },
     { href: '/build-ai-projects',  label: 'Build AI Projects'      },
     { href: '/ai-readiness-quiz',  label: 'AI Readiness Quiz'      },

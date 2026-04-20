@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { Linkedin, Youtube, Instagram, Twitter, Mail, Phone, MapPin } from 'lucide-react'
+import { Linkedin, Facebook, Youtube, Instagram, Twitter, Mail, Phone, MapPin } from 'lucide-react'
 
 const FOOTER_LINKS = {
   Programmes: [
@@ -36,9 +36,10 @@ const FOOTER_LINKS = {
 }
 
 const SOCIAL_LINKS = [
-  { href: 'https://linkedin.com/company/ostaran',  Icon: Linkedin,  label: 'LinkedIn'  },
-  { href: 'https://youtube.com/@AIwithArijit',     Icon: Youtube,   label: 'YouTube'   },
-  { href: 'https://instagram.com/aiwitharijit',    Icon: Instagram, label: 'Instagram' },
+  { href: 'https://linkedin.com/company/ostaran',      Icon: Linkedin,  label: 'LinkedIn'  },
+  { href: 'https://www.facebook.com/808142865707700',  Icon: Facebook,  label: 'Facebook'  },
+  { href: 'https://youtube.com/@AIwithArijit',         Icon: Youtube,   label: 'YouTube'   },
+  { href: 'https://instagram.com/aiwitharijit',        Icon: Instagram, label: 'Instagram' },
 ]
 
 const TRUST_BADGES = [

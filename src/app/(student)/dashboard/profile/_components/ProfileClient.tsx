@@ -7,6 +7,7 @@ import {
   Upload, Save, CheckCircle, AlertCircle, Loader2, Camera,
   BookOpen, FileText, Shield,
 } from 'lucide-react'
+import CvUploadCard from '@/components/student/CvUploadCard'
 
 // ── Light-theme tokens ────────────────────────────────────────────────────────
 const T = {
@@ -221,13 +222,11 @@ export default function ProfileClient({ email, userId, profile, enrolment, webin
 }) {
   const supabase = createClient()
   const photoRef = useRef<HTMLInputElement>(null)
-  const cvRef    = useRef<HTMLInputElement>(null)
 
   const [saving,         setSaving]         = useState(false)
   const [saved,          setSaved]          = useState(false)
   const [error,          setError]          = useState('')
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const [uploadingCv,    setUploadingCv]    = useState(false)
   const [skillInput,     setSkillInput]     = useState('')
 
   const [form, setForm] = useState({
@@ -281,15 +280,8 @@ export default function ProfileClient({ email, userId, profile, enrolment, webin
     setUploadingPhoto(false)
   }
 
-  async function uploadCv(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]; if (!file) return
-    setUploadingCv(true)
-    const path = `${userId}/cv-${Date.now()}.${file.name.split('.').pop()}`
-    const { error: upErr } = await (supabase as any).storage.from('student-cvs').upload(path, file, { upsert: true })
-    if (upErr) { setError('CV upload failed'); setUploadingCv(false); return }
-    const { data: { publicUrl } } = (supabase as any).storage.from('student-cvs').getPublicUrl(path)
-    set('cv_url', publicUrl); setUploadingCv(false)
-  }
+  // ── CV upload is handled by the CvUploadCard + /api/student/cv/upload ──────
+  // (authenticated, writes storage path directly to student_profiles.cv_url).
 
   async function handleSave() {
     setSaving(true); setError(''); setSaved(false)
@@ -321,7 +313,9 @@ export default function ProfileClient({ email, userId, profile, enrolment, webin
         instagram_url:         form.instagram_url || null,
         facebook_url:          form.facebook_url || null,
         portfolio_url:         form.portfolio_url || null,
-        cv_url:                form.cv_url || null,
+        // NOTE: cv_url is written by the CV upload API (/api/student/cv/upload);
+        // we no longer include it in this save payload so an empty form value
+        // can never overwrite an uploaded resume.
         updated_at:            new Date().toISOString(),
       }
       const { error: upsertErr } = await (supabase as any)
@@ -527,33 +521,17 @@ export default function ProfileClient({ email, userId, profile, enrolment, webin
         </div>
       </Section>
 
-      {/* ── CV ────────────────────────────────────────────────────────── */}
+      {/* ── CV / Resume ──────────────────────────────────────────────── */}
       <Section title="CV / Resume" icon={FileText} color={T.purple} colorBg={T.purpleBg}>
-        <div className="flex items-center gap-4">
-          {form.cv_url ? (
-            <div className="flex items-center gap-3 flex-1">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                style={{ background: T.purpleBg, border: `1px solid ${T.purpleBorder}` }}>
-                <FileText size={16} style={{ color: T.purple }} />
-              </div>
-              <div>
-                <p className="text-sm font-medium" style={{ color: T.textPrimary }}>CV uploaded</p>
-                <a href={form.cv_url} target="_blank" rel="noopener noreferrer"
-                  className="text-xs hover:underline" style={{ color: T.blue }}>View / Download →</a>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm flex-1" style={{ color: T.textMuted }}>No CV uploaded yet</p>
-          )}
-          <button onClick={() => cvRef.current?.click()} disabled={uploadingCv}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-40"
-            style={{ background: T.purpleBg, color: T.purple, border: `1px solid ${T.purpleBorder}` }}>
-            {uploadingCv ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-            {form.cv_url ? 'Update CV' : 'Upload CV'}
-          </button>
-          <input ref={cvRef} type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={uploadCv} />
-        </div>
-        <p className="text-xs mt-3" style={{ color: T.textMuted }}>Accepted formats: PDF, DOC, DOCX. Max 10 MB.</p>
+        <CvUploadCard
+          variant="inline"
+          initialCvPath={form.cv_url || null}
+          onChange={(path) => set('cv_url', path ?? '')}
+          showStructuredFormCta={false}
+        />
+        <p className="text-xs mt-3" style={{ color: T.textMuted }}>
+          Accepted formats: PDF, DOC, DOCX. Max 10 MB. Your resume stays private — only you and oStaran staff can access it.
+        </p>
       </Section>
 
       {/* ── Account Security ─────────────────────────────────────────── */}

@@ -36,6 +36,16 @@ const nextConfig: NextConfig = {
         destination: 'https://partner.ostaran.com',
         permanent: true,
       },
+      // Library moved behind auth — 2026-04-21. Old public /library page used
+      // the `library_items` table (10 items); new /dashboard/library uses the
+      // richer `library` table (29 items) with category/author/level search,
+      // modal reader, and URL-hiding proxy at /api/student/library/stream/[id].
+      // Student auth middleware handles the sign-in prompt when unauthenticated.
+      {
+        source: '/library',
+        destination: '/dashboard/library',
+        permanent: true,
+      },
     ]
   },
 };

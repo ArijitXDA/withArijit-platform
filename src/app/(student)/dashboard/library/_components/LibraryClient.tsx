@@ -360,6 +360,15 @@ function LibraryReaderModal({
 
   const streamSrc = `/api/student/library/stream/${item.id}#toolbar=0&navpanes=0&statusbar=0`
 
+  // Chrome's built-in PDF viewer does not reliably fire iframe.onLoad, so
+  // we also force the spinner to clear after a short grace period. The
+  // iframe itself is always visible (no opacity gate) so the PDF plugin
+  // can take over as soon as bytes arrive.
+  useEffect(() => {
+    const t = setTimeout(() => setLoaded(true), 1200)
+    return () => clearTimeout(t)
+  }, [item.id])
+
   // ── Close on Esc + soft-block save/print shortcuts ───────────────────
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -457,13 +466,13 @@ function LibraryReaderModal({
             ref={iframeRef}
             src={streamSrc}
             className="w-full h-full"
-            style={{ border: 0, opacity: loaded ? 1 : 0 }}
+            style={{ border: 0, background: '#0b1426' }}
             onLoad={() => setLoaded(true)}
             onError={() => setError('We could not load this item. Please try again shortly.')}
-            // NOTE: Chrome's built-in PDF viewer requires scripts to run,
-            // so we allow scripts + same-origin. The real protection is the
-            // proxy (source URL never reaches the client) and auth gate.
-            sandbox="allow-same-origin allow-scripts"
+            // NO sandbox here: Chrome's native PDF viewer is an internal
+            // plugin that gets blocked by sandbox="allow-same-origin
+            // allow-scripts". The real protection is the proxy (source
+            // URL never reaches the client) + auth gate + watermark.
             title={item.title}
           />
 

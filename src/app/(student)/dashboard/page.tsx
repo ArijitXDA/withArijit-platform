@@ -74,13 +74,17 @@ export default async function DashboardPage({
 
   const { data: enrolments } = await service
     .from('student_enrolments')
-    .select('*, course:course_id(name, short_name, total_sessions), batch:batch_id(label, day_of_week, start_time, meeting_link)')
+    .select('*, amount_paid, course:course_id(name, short_name, total_sessions), batch:batch_id(label, day_of_week, start_time, meeting_link)')
     .eq('student_email', email)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
 
   const enrolment    = enrolments?.[0] ?? null
   const totalCourses = enrolments?.length ?? 0
+
+  // Paying student = has at least one active enrolment with amount_paid > 0
+  // OR has a legacy users row (pre-migration paying student)
+  const hasPaidEnrolment = (enrolments ?? []).some((e: any) => Number(e.amount_paid ?? 0) > 0)
 
   const { data: legacyUser } = await service
     .from('users')
@@ -90,7 +94,14 @@ export default async function DashboardPage({
 
   const studentName = enrolment?.student_name ?? legacyUser?.name ?? user.email?.split('@')[0] ?? 'Student'
   const firstName   = studentName.split(' ')[0]
-  const courseName  = (enrolment?.course as any)?.name ?? legacyUser?.course_name ?? 'AI Mastery Programme'
+
+  // Paying student flag (combines new + legacy paths)
+  const isPayingStudent = hasPaidEnrolment || !!legacyUser?.course_name
+
+  // courseName: only set for paying students. Non-payers see a dedicated hero.
+  const courseName  = isPayingStudent
+    ? ((enrolment?.course as any)?.name ?? legacyUser?.course_name ?? null)
+    : null
   const batchLabel  = (enrolment?.batch as any)?.label ?? legacyUser?.batch_day_time ?? null
   const batchTime   = (enrolment?.batch as any)?.start_time ?? null
   const meetingLink = (enrolment?.batch as any)?.meeting_link ?? null
@@ -231,8 +242,10 @@ export default async function DashboardPage({
                   </span>
                 ))}
               </div>
-            ) : (
+            ) : courseName ? (
               <p className="text-sm mt-1" style={{ color: '#bfdbfe' }}>{courseName}</p>
+            ) : (
+              <p className="text-sm mt-1" style={{ color: '#bfdbfe' }}>Ready to start? Pick a course to unlock your learning path.</p>
             )}
             {batchLabel && totalCourses === 1 && (
               <p className="text-xs mt-0.5" style={{ color: 'rgba(191,219,254,0.7)' }}>
@@ -250,6 +263,44 @@ export default async function DashboardPage({
           )}
         </div>
       </div>
+
+      {/* ── Non-payer CTA card ─────────────────────────────────────────────── */}
+      {!isPayingStudent && (
+        <div className="rounded-2xl overflow-hidden relative"
+          style={{ background: 'linear-gradient(135deg, #4c1d95 0%, #4f46e5 55%, #7c3aed 100%)', boxShadow: '0 4px 20px rgba(124,58,237,0.18)' }}>
+          <div className="absolute inset-0 opacity-15"
+            style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+
+          <div className="relative px-6 py-6 md:px-8 md:py-7">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 text-xl"
+                style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)' }}>
+                🎓
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-white font-extrabold text-lg md:text-xl mb-1">
+                  Unlock your AI learning path
+                </h2>
+                <p className="text-sm" style={{ color: '#ddd6fe' }}>
+                  Enrol in any oStaran programme to unlock live cohort sessions, your <strong>Assistant Professor (AI)</strong>, industry certification, and the community.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/courses"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:shadow-lg"
+                style={{ background: 'white', color: '#4f46e5' }}>
+                📚 Browse courses <ChevronRight size={14} />
+              </Link>
+              <Link href="/free-webinar"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+                style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', backdropFilter: 'blur(8px)' }}>
+                🎥 Free webinar first
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Multi-course cards ───────────────────────────────────────────── */}
       {totalCourses > 1 && (

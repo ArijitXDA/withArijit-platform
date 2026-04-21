@@ -2,6 +2,7 @@ import { createClient }        from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { redirect }            from 'next/navigation'
 import AssistantProfessorClient from './_components/AssistantProfessorClient'
+import AssistantProfessorUpgrade from './_components/AssistantProfessorUpgrade'
 
 export default async function AssistantProfessorPage() {
   const supabase = await createClient()
@@ -11,6 +12,28 @@ export default async function AssistantProfessorPage() {
   const service = createServiceClient()
   const email   = user.email!
   const today   = new Date().toISOString().split('T')[0]
+
+  // ── Paywall: require at least one active paid enrolment ────────────────
+  // Non-paying users see a tailored upgrade screen inside the student layout
+  // (sidebar + top-nav remain intact — they're still signed in).
+  const { data: paidEnrolments } = await service
+    .from('student_enrolments')
+    .select('id')
+    .eq('student_email', email)
+    .eq('is_active', true)
+    .gt('amount_paid', 0)
+    .limit(1)
+
+  if (!paidEnrolments || paidEnrolments.length === 0) {
+    // Fetch first name for personal greeting
+    const { data: profile } = await service
+      .from('student_profiles')
+      .select('full_name')
+      .eq('email', email)
+      .maybeSingle()
+    const firstName = (profile?.full_name ?? email.split('@')[0]).split(' ')[0]
+    return <AssistantProfessorUpgrade firstName={firstName} />
+  }
 
   // ── Fetch all student data in parallel ─────────────────────────────────────
   const [

@@ -269,6 +269,36 @@ export async function POST(req: NextRequest) {
   const service = createServiceClient()
   const email   = user.email!
 
+  // ── Paywall: Assistant Professor requires an active PAID enrolment ────────
+  // A row exists in student_enrolments with is_active=true and amount_paid>0.
+  // Non-paying users get a friendly upgrade CTA instead of the full agent.
+  const { data: paidEnrolments } = await service
+    .from('student_enrolments')
+    .select('id')
+    .eq('student_email', email)
+    .eq('is_active', true)
+    .gt('amount_paid', 0)
+    .limit(1)
+
+  if (!paidEnrolments || paidEnrolments.length === 0) {
+    return NextResponse.json({
+      reply: [
+        `Hi! Your **Assistant Professor (AI)** is ready to unlock — it's bundled with every oStaran course.`,
+        ``,
+        `**What you get the moment you enrol:**`,
+        `• **24/7 personal AI professor** (that's me!) in 100+ languages`,
+        `• **Live cohort sessions** with Arijit and industry mentors`,
+        `• **Curriculum tailored to your background** — AI, Agentic AI, Quantum`,
+        `• **Industry-recognised certification** to put on your CV and LinkedIn`,
+        ``,
+        `Have a look at the programmes on offer — there's one for every stage:`,
+        `👉 [Browse courses](/courses)`,
+      ].join('\n'),
+      locked: true,
+      lock_reason: 'no_active_paid_enrolment',
+    }, { status: 200 })
+  }
+
   const { messages, courseId } = await req.json()
   if (!messages) return NextResponse.json({ error: 'Missing messages' }, { status: 400 })
 

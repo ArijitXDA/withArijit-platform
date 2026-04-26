@@ -48,7 +48,9 @@ export default async function UnsubscribePage({ params }: PageProps) {
       .maybeSingle()
 
     if (enrolment?.email) {
-      email = enrolment.email
+      // Capture into const so TS preserves narrowing across awaits below
+      const enrolmentEmail: string = enrolment.email
+      email = enrolmentEmail
       mobile = enrolment.mobile ?? null
 
       // Get a friendly sequence label
@@ -63,7 +65,7 @@ export default async function UnsubscribePage({ params }: PageProps) {
       const { data: existingSuppression } = await supabase
         .from('lifecycle_suppression')
         .select('channels')
-        .eq('email', email.toLowerCase())
+        .eq('email', enrolmentEmail.toLowerCase())
         .maybeSingle()
       if (existingSuppression && Array.isArray(existingSuppression.channels)
           && existingSuppression.channels.includes('email')) {

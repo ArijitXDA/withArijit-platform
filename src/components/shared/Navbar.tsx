@@ -20,7 +20,6 @@ const COURSES_BY_AUDIENCE = [
 const RESOURCES_LINKS = [
   { href: '/library',           label: 'AI Resource Library', desc: '300+ guides, templates and tools'  },
   { href: '/ai-readiness-quiz', label: 'AI Readiness Quiz',   desc: 'Find your AI skill level in 5 min' },
-  { href: '/ai-spots',          label: 'AI Spots',            desc: 'Find AI learning hubs near you'     },
   { href: '/find-ai-job',       label: 'Find AI Jobs',        desc: 'Curated AI career opportunities'    },
 ]
 

@@ -13,7 +13,6 @@ const STATIC_PAGES = [
   { url: '/library',            priority: 0.7, changeFrequency: 'weekly'  as const },
   { url: '/become-a-partner',   priority: 0.8, changeFrequency: 'monthly' as const },
   { url: '/ai-certification',   priority: 0.8, changeFrequency: 'monthly' as const },
-  { url: '/ai-spots',           priority: 0.6, changeFrequency: 'weekly'  as const },
   { url: '/find-ai-job',        priority: 0.6, changeFrequency: 'weekly'  as const },
   { url: '/build-ai-projects',  priority: 0.6, changeFrequency: 'monthly' as const },
   { url: '/ai-readiness-quiz',  priority: 0.6, changeFrequency: 'monthly' as const },

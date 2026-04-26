@@ -1,23 +1,78 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Mail, ArrowLeft } from 'lucide-react'
+import { Loader2, Mail, ArrowLeft, FileText } from 'lucide-react'
 
+// ─────────────────────────────────────────────────────────────────────────
+// Suspense boundary wrapper (useSearchParams requires CSR boundary in Next 15+)
+// ─────────────────────────────────────────────────────────────────────────
 export default function SignUpPage() {
+  return (
+    <Suspense fallback={<SignUpSkeleton />}>
+      <SignUpInner />
+    </Suspense>
+  )
+}
+
+function SignUpSkeleton() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-4 animate-pulse">
+        <div className="h-8 bg-gray-200 rounded w-1/2 mx-auto" />
+        <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto" />
+        <div className="h-11 bg-gray-200 rounded" />
+        <div className="h-11 bg-gray-200 rounded" />
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+function SignUpInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
-  const [email, setEmail] = useState('')
+
+  // ── Prefill from URL params ─────────────────────────────────────────
+  const prefilledEmail = searchParams.get('email') ?? ''
+  const resumeToken    = searchParams.get('resume_token')
+
+  const [email, setEmail] = useState(prefilledEmail)
   const [otp, setOtp] = useState('')
   const [step, setStep] = useState<'email' | 'otp'>('email')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // If email arrived prefilled, show a subtle hint that it came from their resume flow
+  const fromResume = !!resumeToken
+
+  // Compute redirect target. If we have a resume token, include it so /auth/callback
+  // (Google OAuth path) can forward it; for email OTP we handle it in verifyOtp.
+  const nextPath = fromResume
+    ? `/dashboard/profile?onboarding=true&from=resume`
+    : `/dashboard/profile?onboarding=true`
+
+  // ── Link resume submission to authenticated user (idempotent, fire-and-forget) ──
+  async function linkResumeSubmission() {
+    if (!resumeToken) return
+    try {
+      await fetch('/api/resume/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submission_token: resumeToken }),
+      })
+    } catch (e) {
+      // Non-blocking — parser will still run eventually via email-match fallback
+      console.warn('[signup] resume link failed:', e)
+    }
+  }
 
   async function sendOtp() {
     if (!email.trim()) return
@@ -50,16 +105,24 @@ export default function SignUpPage() {
       setLoading(false)
       return
     }
-    // New student → onboarding flow
-    router.push('/dashboard/profile?onboarding=true')
+
+    // Link resume submission BEFORE redirect (best-effort, non-blocking)
+    if (resumeToken) await linkResumeSubmission()
+
+    router.push(nextPath)
     router.refresh()
   }
 
   async function signUpWithGoogle() {
+    // Forward resume_token through /auth/callback → next URL so we can link after OAuth
+    const nextWithToken = resumeToken
+      ? `${nextPath}&resume_token=${encodeURIComponent(resumeToken)}`
+      : nextPath
+
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent('/dashboard/profile?onboarding=true')}`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextWithToken)}`,
       },
     })
   }
@@ -76,6 +139,21 @@ export default function SignUpPage() {
             {step === 'email' ? 'Start your AI learning journey today.' : `Check your inbox at ${email}`}
           </p>
         </div>
+
+        {/* Resume-continuation hint */}
+        {fromResume && step === 'email' && (
+          <div className="rounded-xl px-4 py-3 flex items-center gap-3"
+               style={{ background: '#eef2ff', border: '1px solid #c7d2fe' }}>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                 style={{ background: '#fff', border: '1px solid #c7d2fe' }}>
+              <FileText size={16} className="text-indigo-600" />
+            </div>
+            <div className="flex-1 text-sm">
+              <p className="font-semibold text-indigo-900">Résumé received!</p>
+              <p className="text-indigo-700/80 text-xs">Sign up to unlock your personalised course pathway.</p>
+            </div>
+          </div>
+        )}
 
         {step === 'email' ? (
           <div className="space-y-4">

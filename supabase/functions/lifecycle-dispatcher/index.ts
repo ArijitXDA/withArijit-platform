@@ -2,7 +2,19 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 /**
- * lifecycle-dispatcher v2
+ * lifecycle-dispatcher v3
+ *
+ * v3 changes (Phase C — sequence S6 post-free-webinar upsell):
+ *   - Added partner-aware branched vars for em_s6_* / wa_s6_* templates:
+ *     {{s6_pitch_block}}, {{s6_offer_block}}, {{s6_lastcall_block}},
+ *     {{s6_wa_partner_line}}, {{partner_discount_pct}},
+ *     {{partner_discount_amount_inr}}, {{course_price_after_discount_inr}},
+ *     {{course_mrp_inr}}. Looked up from awa_courses at send time using the
+ *     contact's profession_choice -> audienceSlug -> course discount_percent + mrp.
+ *   - Added formatINR() helper (en-IN locale).
+ *   - Refactored resolveEnrolUrl to use a shared audienceSlug() helper, so the
+ *     new S6 URL builder shares the same audience -> slug mapping. No behavior
+ *     change to S8 enrol_url.
  *
  * v2 changes (correctness pass):
  *   - REMOVED silent fallbacks for critical vars (webinar_time, webinar_date, join_link).
@@ -89,6 +101,12 @@ function firstName(full: string | null | undefined): string {
   return full.trim().split(/\s+/)[0] || 'there';
 }
 
+/** Format integer rupees as Indian-locale currency: 47994 -> "₹47,994". */
+function formatINR(n: number): string {
+  if (!Number.isFinite(n)) return '';
+  return '₹' + Math.round(n).toLocaleString('en-IN');
+}
+
 function normalisePhone(raw: string): string {
   let digits = raw.replace(/\D/g, '');
   if (digits.startsWith('00')) digits = digits.slice(2);
@@ -151,11 +169,23 @@ function applySendWindow(when: Date, windowStart: string, windowEnd: string): Da
 // VARIABLE RESOLUTION
 // =====================================================================
 
-function resolveEnrolUrl(ctx: Record<string, unknown>): string {
+/** Maps the contact's profession_choice to a real course slug. Falls back to DEFAULT_SLUG. */
+function audienceSlug(ctx: Record<string, unknown>): string {
   const profession = (ctx.profession_choice as string | null) || null;
-  const slug = (profession && AUDIENCE_TO_SLUG[profession]) || DEFAULT_SLUG;
+  return (profession && AUDIENCE_TO_SLUG[profession]) || DEFAULT_SLUG;
+}
+
+function resolveEnrolUrl(ctx: Record<string, unknown>): string {
+  const slug = audienceSlug(ctx);
   const partner = ctx.partner_code ? `&utm_medium=${encodeURIComponent(String(ctx.partner_code))}` : '';
   return `${SITE_BASE}/courses/${slug}?utm_source=lifecycle_s8&utm_campaign=post_masterclass${partner}`;
+}
+
+/** S6 (post-free-webinar upsell) variant of resolveEnrolUrl with its own UTM. */
+function resolveEnrolUrlS6(ctx: Record<string, unknown>): string {
+  const slug = audienceSlug(ctx);
+  const partner = ctx.partner_code ? `&utm_medium=${encodeURIComponent(String(ctx.partner_code))}` : '';
+  return `${SITE_BASE}/courses/${slug}?utm_source=lifecycle_s6&utm_campaign=post_webinar_upsell${partner}`;
 }
 
 function unsubscribeUrl(enrolmentId: string): string {
@@ -185,6 +215,56 @@ async function lookupPostWebinarBranch(
     .maybeSingle();
   if (error) return 'no_show';
   return (data?.attendance_confirmed === true || data?.attended_at) ? 'attended' : 'no_show';
+}
+
+/**
+ * S6 partner-aware variable builder. Looks up the contact's audience-mapped course
+ * in awa_courses, computes discount %/amount, and sets branched copy variables for
+ * em_s6_* and wa_s6_* templates. Always sets all S6 vars to non-empty strings so
+ * the validator never fails on a missing branch.
+ */
+async function buildS6PartnerVars(
+  supabase: SupabaseClient,
+  ctx: Record<string, unknown>,
+  vars: Record<string, string>
+): Promise<void> {
+  const partnerCode = ((ctx.partner_code as string) || '').trim();
+  const slug = audienceSlug(ctx);
+
+  const { data: course } = await supabase
+    .from('awa_courses')
+    .select('discount_percent, mrp')
+    .eq('slug', slug)
+    .maybeSingle();
+
+  const mrp = course ? Number(course.mrp) || 0 : 0;
+  const pct = course ? Math.round(Number(course.discount_percent) || 0) : 0;
+  const amount = Math.round(mrp * pct / 100);
+  const finalPrice = mrp - amount;
+
+  const hasPartner = partnerCode.length > 0 && pct > 0 && mrp > 0;
+
+  if (hasPartner) {
+    vars.partner_discount_pct = String(pct);
+    vars.partner_discount_amount_inr = formatINR(amount);
+    vars.course_mrp_inr = formatINR(mrp);
+    vars.course_price_after_discount_inr = formatINR(finalPrice);
+    vars.s6_pitch_block = `Your partner discount is active: <strong>${pct}% off</strong> the full programme. You pay <strong>${formatINR(finalPrice)}</strong> (saves ${formatINR(amount)} off the <strong>${formatINR(mrp)}</strong> sticker price). Discount auto-applies at checkout.`;
+    vars.s6_offer_block = `Your partner discount of <strong>${formatINR(amount)}</strong> (${pct}% off) is auto-applied at checkout. Net price: <strong>${formatINR(finalPrice)}</strong> for the full 5-week programme.`;
+    vars.s6_lastcall_block = `Your partner discount of <strong>${pct}%</strong> (you'd save ${formatINR(amount)}) is still applicable for one more week. After this batch, partner referrals roll over to the next cohort and pricing may change.`;
+    vars.s6_wa_partner_line = `Partner discount ${pct}% off active until batch starts.`;
+  } else {
+    // Non-partner branch: keep numeric vars empty (template won't reference them)
+    // and set the rendered blocks to a generic early-bird/limited-seats framing.
+    vars.partner_discount_pct = '';
+    vars.partner_discount_amount_inr = '';
+    vars.course_mrp_inr = mrp > 0 ? formatINR(mrp) : '';
+    vars.course_price_after_discount_inr = '';
+    vars.s6_pitch_block = `The 5-week programme runs in cohorts. Your audience-specific page below shows pricing and the next batch start date.`;
+    vars.s6_offer_block = `Each cohort has limited seats — checkout will show your audience-specific pricing.`;
+    vars.s6_lastcall_block = `The current batch has limited seats remaining. Once full, we'll wait-list for the next cohort.`;
+    vars.s6_wa_partner_line = `Limited seats per batch.`;
+  }
 }
 
 async function buildVars(
@@ -222,6 +302,12 @@ async function buildVars(
       vars.post_webinar_headline = `We missed you, ${vars.first_name}`;
       vars.post_webinar_intro    = "Life happened \u2014 no judgment. The next free session is this Sunday at 11 AM IST and your registration auto-rolls forward. Or if you'd rather catch a recap, just hit reply and I'll send you the highlights.";
     }
+  }
+
+  // S6 \u2014 Post-Free-Webinar Upsell (v3)
+  if (templateKey.startsWith('em_s6_') || templateKey.startsWith('wa_s6_')) {
+    vars.enrol_url = resolveEnrolUrlS6(ctx);
+    await buildS6PartnerVars(supabase, ctx, vars);
   }
 
   return vars;

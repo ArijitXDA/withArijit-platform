@@ -1,0 +1,31 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- LIFECYCLE — Phase F: bulk sequences (E1, E2, E3, E4, S4)
+-- ════════════════════════════════════════════════════════════════════════════
+-- Applied via Supabase MCP `apply_migration` on 2026-05-07.
+--
+-- Creates:
+--   • 5 sequences (all is_active=FALSE pending selective activation):
+--     - e1_community_welcome      (trigger: community_joined)
+--     - e2_library_nurture        (trigger: library_view)
+--     - e3_quiz_followup          (trigger: quiz_completed — activates 98 dormant leads)
+--     - e4_resume_followup        (trigger: resume_submitted)
+--     - s4_welcome_to_programme   (trigger: course_enrolled)
+--   • 17 sequence steps (3+3+4+3+4)
+--   • 17 email templates with full HTML bodies (matched to S1/S6/S8 visual style)
+--
+-- The full canonical SQL — including every body_html — is stored in:
+--   supabase_migrations.schema_migrations.statements
+-- WHERE version = '20260507092530' AND name = 'lifecycle_phase_f_bulk_sequences_e1_e2_e3_e4_s4'
+--
+-- To replay on a fresh database:
+--   1. Pull the `statements` array from the source DB
+--   2. Re-apply via `mcp__supabase__apply_migration` with the same `name`
+-- (Or: write a one-time dump script that materialises this file from the DB.)
+--
+-- Variable strategy: only first_name + unsubscribe_url declared required; enrol_url
+-- declared on templates that reference it (always safe — DEFAULT_SLUG fallback).
+-- Hardcoded URLs in body: /community, /library, /free-webinar, /dashboard,
+-- /dashboard/career, /find-ai-job.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- (Full SQL not duplicated here — see header note above for canonical source.)

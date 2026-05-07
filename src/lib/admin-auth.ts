@@ -110,6 +110,7 @@ export type AdminPage =
   | 'crm'
   | 'partners'
   | 'audit-log'
+  | 'lifecycle-status'
 
 /**
  * Which non-dev roles can access each page.
@@ -129,11 +130,12 @@ const PAGE_PERMISSIONS: Record<AdminPage, AdminRole[]> = {
   journey:        ['super_admin', 'channel_admin'],
 
   // super_admin only
-  payments:       ['super_admin'],
-  'email-queue':  ['super_admin'],
-  partners:       ['super_admin'],
-  crm:            ['super_admin'],
-  'audit-log':    ['super_admin'],
+  payments:          ['super_admin'],
+  'email-queue':     ['super_admin'],
+  partners:          ['super_admin'],
+  crm:               ['super_admin'],
+  'audit-log':       ['super_admin'],
+  'lifecycle-status':['super_admin'],
 }
 
 // ── URL → page key mapping (used in middleware) ───────────────────────────────
@@ -152,5 +154,6 @@ export const ROUTE_PAGE_MAP: Record<string, AdminPage> = {
   '/admin/journey':      'journey',
   '/admin/crm':          'crm',
   '/admin/partners':     'partners',
-  '/admin/audit-log':    'audit-log',
+  '/admin/audit-log':       'audit-log',
+  '/admin/lifecycle-status':'lifecycle-status',
 }

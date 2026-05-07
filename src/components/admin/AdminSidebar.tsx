@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, Calendar, Link2, Award, Library,
   BookOpen, CreditCard, Mail, MapPin, UserCheck, Building2,
   ScrollText, LogOut, Megaphone, Route, FileText, Shield,
-  ChevronRight,
+  ChevronRight, Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
@@ -37,11 +37,12 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/admin/journey',       label: 'Journey Report', icon: Route,     page: 'journey',       group: 'ops' },
 
   // ── Super (super_admin only)
-  { href: '/admin/payments',   label: 'Payments',   icon: CreditCard,  page: 'payments',   group: 'super' },
-  { href: '/admin/email-queue',label: 'Email Queue', icon: Mail,        page: 'email-queue',group: 'super' },
-  { href: '/admin/partners',   label: 'Partners',   icon: Building2,   page: 'partners',   group: 'super' },
-  { href: '/admin/crm',        label: 'CRM',        icon: UserCheck,   page: 'crm',        group: 'super' },
-  { href: '/admin/audit-log',  label: 'Audit Log',  icon: ScrollText,  page: 'audit-log',  group: 'super' },
+  { href: '/admin/payments',         label: 'Payments',         icon: CreditCard, page: 'payments',         group: 'super' },
+  { href: '/admin/email-queue',      label: 'Email Queue',      icon: Mail,       page: 'email-queue',      group: 'super' },
+  { href: '/admin/partners',         label: 'Partners',         icon: Building2,  page: 'partners',         group: 'super' },
+  { href: '/admin/crm',              label: 'CRM',              icon: UserCheck,  page: 'crm',              group: 'super' },
+  { href: '/admin/audit-log',        label: 'Audit Log',        icon: ScrollText, page: 'audit-log',        group: 'super' },
+  { href: '/admin/lifecycle-status', label: 'Lifecycle Status', icon: Activity,   page: 'lifecycle-status', group: 'super' },
 ]
 
 // ── Permission check (client-side mirror of lib/admin-auth canAccess) ─────────
@@ -53,21 +54,22 @@ const ROLE_LEVEL: Record<AdminRole, number> = {
 }
 
 const PAGE_MIN_ROLE: Record<AdminPage, AdminRole> = {
-  dashboard:      'root_partner_admin',
-  students:       'root_partner_admin',
-  sessions:       'channel_admin',
-  'session-links':'channel_admin',
-  certificates:   'channel_admin',
-  library:        'channel_admin',
-  courses:        'channel_admin',
-  'ai-spots':     'channel_admin',
-  communications: 'channel_admin',
-  journey:        'channel_admin',
-  payments:       'super_admin',
-  'email-queue':  'super_admin',
-  partners:       'super_admin',
-  crm:            'super_admin',
-  'audit-log':    'super_admin',
+  dashboard:         'root_partner_admin',
+  students:          'root_partner_admin',
+  sessions:          'channel_admin',
+  'session-links':   'channel_admin',
+  certificates:      'channel_admin',
+  library:           'channel_admin',
+  courses:           'channel_admin',
+  'ai-spots':        'channel_admin',
+  communications:    'channel_admin',
+  journey:           'channel_admin',
+  payments:          'super_admin',
+  'email-queue':     'super_admin',
+  partners:          'super_admin',
+  crm:               'super_admin',
+  'audit-log':       'super_admin',
+  'lifecycle-status':'super_admin',
 }
 
 function clientCanAccess(role: AdminRole, page: AdminPage): boolean {

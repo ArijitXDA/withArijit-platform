@@ -2,7 +2,19 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 /**
- * lifecycle-dispatcher v3
+ * lifecycle-dispatcher v4
+ *
+ * v4 changes (Phase F — webinar-register URL with partner attribution):
+ *   - Added resolveWebinarRegisterUrl() helper. Resolves the {{webinar_register_url}}
+ *     variable used by Phase F templates (em_e2_last_call_v1 + em_e3_*) with a
+ *     priority chain:
+ *       1) ctx.partner_code from trigger event metadata
+ *       2) latest non-empty utm_source on qr_landing_registrations for this email
+ *       3) default fallback: 'ARIBOMBAY-0326' (Arijit's partner code)
+ *     Output: https://www.ostaran.com/free-webinar?utm_source=<code>&utm_medium=email&utm_campaign=lifecycle_<seq>
+ *   - Plumbed into buildVars: only set webinar_register_url when sequenceKey starts
+ *     with 'e2_' or 'e3_' to avoid an unnecessary DB lookup on every send.
+ *   - Renamed buildVars _sequenceKey → sequenceKey since it's now used.
  *
  * v3 changes (Phase C — sequence S6 post-free-webinar upsell):
  *   - Added partner-aware branched vars for em_s6_* / wa_s6_* templates:
@@ -188,6 +200,48 @@ function resolveEnrolUrlS6(ctx: Record<string, unknown>): string {
   return `${SITE_BASE}/courses/${slug}?utm_source=lifecycle_s6&utm_campaign=post_webinar_upsell${partner}`;
 }
 
+/**
+ * Resolve the /free-webinar register URL for Phase F templates (E2/E3) with
+ * partner-code attribution. Priority chain:
+ *   1. ctx.partner_code (from trigger event metadata)
+ *   2. Latest non-empty utm_source on qr_landing_registrations for this email
+ *   3. Default fallback: 'ARIBOMBAY-0326' (Arijit's personal partner code)
+ *
+ * Builds: https://www.ostaran.com/free-webinar?utm_source=<code>&utm_medium=email&utm_campaign=lifecycle_<seq>
+ * where <seq> is the short sequence prefix (e.g. 'e3' from 'e3_quiz_followup').
+ */
+async function resolveWebinarRegisterUrl(
+  supabase: SupabaseClient,
+  ctx: Record<string, unknown>,
+  email: string,
+  sequenceKey: string
+): Promise<string> {
+  let code = ((ctx.partner_code as string) || '').trim();
+
+  if (!code) {
+    const { data } = await supabase
+      .from('qr_landing_registrations')
+      .select('utm_source')
+      .eq('email', email.toLowerCase())
+      .not('utm_source', 'is', null)
+      .neq('utm_source', '')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data?.utm_source) code = String(data.utm_source).trim();
+  }
+
+  if (!code) code = 'ARIBOMBAY-0326';
+
+  const seqShort = sequenceKey.split('_')[0]; // 'e3', 'e2', etc.
+  const params = new URLSearchParams({
+    utm_source:   code,
+    utm_medium:   'email',
+    utm_campaign: `lifecycle_${seqShort}`,
+  });
+  return `${SITE_BASE}/free-webinar?${params.toString()}`;
+}
+
 function unsubscribeUrl(enrolmentId: string): string {
   return `${SITE_BASE}/unsubscribe/${enrolmentId}`;
 }
@@ -271,7 +325,7 @@ async function buildVars(
   supabase: SupabaseClient,
   enrolment: { id: string; email: string; mobile: string | null; context: Record<string, unknown>; enrolled_at: string },
   templateKey: string,
-  _sequenceKey: string
+  sequenceKey: string
 ): Promise<Record<string, string>> {
   const ctx = enrolment.context || {};
   const fullName = (ctx.full_name as string) || '';
@@ -308,6 +362,13 @@ async function buildVars(
   if (templateKey.startsWith('em_s6_') || templateKey.startsWith('wa_s6_')) {
     vars.enrol_url = resolveEnrolUrlS6(ctx);
     await buildS6PartnerVars(supabase, ctx, vars);
+  }
+
+  // E2 + E3 \u2014 webinar register URL with partner attribution (v4)
+  if (sequenceKey.startsWith('e2_') || sequenceKey.startsWith('e3_')) {
+    vars.webinar_register_url = await resolveWebinarRegisterUrl(
+      supabase, ctx, enrolment.email, sequenceKey
+    );
   }
 
   return vars;

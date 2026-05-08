@@ -1,0 +1,23 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- LIFECYCLE — Phase H.1: E5 + S9 (with new triggers/cron)
+-- ════════════════════════════════════════════════════════════════════════════
+-- Applied via Supabase MCP `apply_migration` on 2026-05-08.
+--
+-- Adds infrastructure + sequences:
+--   • TRIGGER  trg_lifecycle_contact_form_submitted on contact_enquiries
+--     → emits 'contact_form_submitted' lifecycle event on form submission
+--   • CRON     lifecycle-course-completion-tick (daily 22:00 UTC)
+--     → scans student_enrolments for access_end_date < CURRENT_DATE,
+--       emits 'course_completed' events (idempotent via existence check)
+--   • SEQUENCE e5_contact_form_followup (3 email steps, paused)
+--   • SEQUENCE s9_alumni_referral       (3 email steps, paused)
+--   • 6 email templates total (3+3)
+--
+-- Both new functions follow the canonical pattern: SECURITY DEFINER + EXCEPTION
+-- WHEN OTHERS so any lifecycle bug can NEVER break a source INSERT or the cron.
+--
+-- Full canonical SQL stored in supabase_migrations.schema_migrations.statements
+-- WHERE version = '20260508092509'.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- (Full SQL not duplicated here — see header note above for canonical source.)

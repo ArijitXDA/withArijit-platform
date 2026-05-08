@@ -1,0 +1,23 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- LIFECYCLE — Phase H.2 (part 2): inactivity cron + E6 + X1
+-- ════════════════════════════════════════════════════════════════════════════
+-- Applied via Supabase MCP `apply_migration` on 2026-05-08.
+--
+-- Adds infrastructure + sequences:
+--   • CRON FUNCTION lifecycle_emit_inactivity_tick (daily 22:30 UTC)
+--     → scans lifecycle_contact_profile for last_event_at older than 60/90 days,
+--       emits inactive_60d / inactive_90d events
+--     → idempotent via NOT EXISTS check (won't re-emit within 180 days per email)
+--     → 60d only fires for warm contacts (lead_score >= 30, suppressed=FALSE)
+--     → 90d fires for everyone qualifying (suppressed=FALSE)
+--   • SEQUENCE e6_cold_lead_rewarm   (3 steps: T+1h, T+168h, T+504h, paused)
+--   • SEQUENCE x1_cold_reengagement  (3 steps: T+1h, T+336h, T+720h, paused)
+--   • 6 email templates total (3+3)
+--
+-- Companion to migration 20260508092547 which adds the enum values.
+--
+-- Full canonical SQL stored in supabase_migrations.schema_migrations.statements
+-- WHERE version = '20260508092729'.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- (Full SQL not duplicated here — see header note above for canonical source.)

@@ -2,7 +2,18 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 /**
- * lifecycle-dispatcher v4
+ * lifecycle-dispatcher v5
+ *
+ * v5 fix (Phase F bug):
+ *   - resolveWebinarRegisterUrl() now points directly at webinar.ostaran.com
+ *     instead of www.ostaran.com/free-webinar. The platform repo's /free-webinar
+ *     does redirect('https://webinar.ostaran.com') as a hardcoded server-side
+ *     redirect, which DROPS ALL query params — losing the partner_code attribution.
+ *   - Going direct: https://webinar.ostaran.com/?utm_source=<code>&utm_medium=email&utm_campaign=lifecycle_<seq>
+ *   - The webinar.ostaran.com landing form captures utm_source into
+ *     qr_landing_registrations.utm_source = the canonical partner_code field
+ *     (verified by existing data: RYANPINTO-2603, ARIBOMBAY-0326, etc. all stored
+ *     this way).
  *
  * v4 changes (Phase F — webinar-register URL with partner attribution):
  *   - Added resolveWebinarRegisterUrl() helper. Resolves the {{webinar_register_url}}
@@ -239,7 +250,10 @@ async function resolveWebinarRegisterUrl(
     utm_medium:   'email',
     utm_campaign: `lifecycle_${seqShort}`,
   });
-  return `${SITE_BASE}/free-webinar?${params.toString()}`;
+  // Direct link to webinar.ostaran.com — the platform repo's /free-webinar
+  // route does a hardcoded redirect that strips query params, breaking
+  // partner attribution. Skip it entirely.
+  return `https://webinar.ostaran.com/?${params.toString()}`;
 }
 
 function unsubscribeUrl(enrolmentId: string): string {

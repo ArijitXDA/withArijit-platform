@@ -1,0 +1,19 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- LIFECYCLE — Phase G: S2 + S3 + S4 weeks 3-5 extension
+-- ════════════════════════════════════════════════════════════════════════════
+-- Applied via Supabase MCP `apply_migration` on 2026-05-08.
+--
+-- Creates:
+--   • S2 — Paid-MC Reg Drop-off  (4 steps, masterclass_registered trigger)
+--   • S3 — Paid-MC No-Show       (3 steps, masterclass_paid trigger, anchored to webinar_date)
+--   • S4 extension steps 4-6     (weeks 3-5 of programme — absorbs what would have been S7)
+--   • 10 new email templates total
+--
+-- All sequences ship is_active=FALSE pending selective activation.
+-- Standard variables only (first_name + unsubscribe_url declared).
+--
+-- Full canonical SQL stored in supabase_migrations.schema_migrations.statements
+-- WHERE version = '20260508090714'.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- (Full SQL not duplicated here — see header note above for canonical source.)

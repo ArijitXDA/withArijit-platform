@@ -1,0 +1,43 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- LIFECYCLE — Phase K: Dispatcher v6 — no-show + payment-URL resolvers
+-- ════════════════════════════════════════════════════════════════════════════
+-- This is a CODE-ONLY phase; no DB changes. Stub kept here for migration log
+-- continuity so the lifecycle change history reads as one timeline.
+--
+-- Deployed via Supabase MCP `deploy_edge_function` on 2026-05-11 at 07:37 UTC.
+-- Function: lifecycle-dispatcher, version 5 → 6, status ACTIVE.
+--
+-- Canonical source:
+--   /Users/Arijit_WS/withArijit-platform/supabase/functions/lifecycle-dispatcher/index.ts
+--
+-- v6 changes:
+--   1. resolveNoShowVars(supabase, email, registrationType, vars)
+--      For S3 (paid-MC no-show) and S7 (free-webinar no-show) sequences:
+--        • Looks up the contact's most recent matching qr_landing_registrations
+--          row (course_id + join_token)
+--        • Overrides {{join_link}} with that row's join_token (contact-scoped,
+--          works for rolled-forward sessions)
+--        • Queries awa_webinar_sessions for the next status='scheduled' row
+--          matching course_id with webinar_date >= today, ASC order
+--        • Sets {{next_webinar_date_display}} + {{next_webinar_time_display}}
+--      Silent fail leaves vars untouched — validateRequiredVars() handles the
+--      missing-var exit cleanly.
+--
+--   2. resolveMasterclassPaymentUrl(supabase, ctx, email)
+--      For wa_s2_complete_payment_v1. Same priority chain as
+--      resolveWebinarRegisterUrl(): ctx.partner_code → utm_source → default.
+--      Output: https://www.ostaran.com/masterclass?utm_source=<code>&utm_medium=whatsapp&utm_campaign=lifecycle_s2_wa_payment
+--
+--   3. buildVars() plumbing:
+--        • S3/S7 sequenceKey triggers resolveNoShowVars()
+--        • wa_s2_complete_payment_v1 templateKey triggers resolveMasterclassPaymentUrl()
+--        • Phase H.3 also broadened resolveWebinarRegisterUrl() scope to E5/E6/X1
+--          alongside the existing E2/E3 (low-cost lookup, no behavior change for
+--          sequences that don't reference {{webinar_register_url}} in their templates)
+--
+-- Effect: S3 + S7 sequences (currently paused) can now be safely activated
+-- once their copy is reviewed. wa_s2_complete_payment_v1 is functional once
+-- Meta approves the WA template via AiSensy.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- (No SQL — code-only deployment, see header.)

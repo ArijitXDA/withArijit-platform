@@ -1,0 +1,38 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- LIFECYCLE — Phase J v2: No-show copy corrections + WA sign-off retro
+-- ════════════════════════════════════════════════════════════════════════════
+-- Applied via Supabase MCP `apply_migration` on 2026-05-11.
+--
+-- Three editorial corrections after stakeholder review of Phase J:
+--   1. WA sign-off "- Arijit" → "- Ops Team, oStaran" (retro across all live
+--      WA templates for voice consistency).
+--   2. No-show copy must not ask the contact to re-register — their seat is
+--      already held automatically when they roll forward. New copy confirms
+--      the held seat and surfaces the specific next session date/time.
+--   3. Generic "every Sunday" replaced with a concrete next-session line
+--      that uses {{next_webinar_date_display}} / {{next_webinar_time_display}}
+--      / {{join_link}} merge fields.
+--
+-- Templates touched:
+--   em_s7_we_missed_you_v1   (Free webinar no-show, Day 1)
+--   em_s7_recap_v1            (Free webinar no-show, Day 3)
+--   em_s7_next_session_v1     (Free webinar no-show, Day 7)
+--   wa_s7_we_missed_you_v1    (Free webinar no-show, Day 1 WA)
+--   em_s3_we_missed_you_v1    (Paid-MC no-show, wd+24h)
+--   em_s3_recap_v1            (Paid-MC no-show, wd+72h)
+--   em_s3_next_session_v1     (Paid-MC no-show, wd+168h)
+--   wa_s1_day_before_v1       (sign-off retro)
+--   wa_s1_one_hour_v1         (sign-off retro)
+--   wa_s1_live_now_v1         (sign-off retro)
+--   wa_s8_offer_reminder_v1   (sign-off retro)
+--   wa_s8_48h_left_v1         (sign-off retro)
+--
+-- ⚠️ DEPENDS ON Phase K (dispatcher resolvers for the new merge fields).
+--    S3 and S7 stay paused (is_active=FALSE) until Phase K ships, otherwise
+--    recipients would see literal "{{next_webinar_date_display}}" strings.
+--
+-- Full canonical SQL stored in supabase_migrations.schema_migrations.statements
+-- WHERE version = '20260511071500'.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- (Full SQL not duplicated here — see header note above for canonical source.)

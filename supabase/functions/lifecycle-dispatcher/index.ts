@@ -2,7 +2,48 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 /**
- * lifecycle-dispatcher v5
+ * lifecycle-dispatcher v7
+ *
+ * v7 changes (Phase N — partner track support):
+ *   - New ctx → vars fallback: any primitive value in enrolment.context (set by
+ *     a trigger/cron in the lifecycle_event's metadata) auto-populates the
+ *     vars map if a matching key isn't explicitly set. Lets partner crons and
+ *     triggers bake metrics directly into the event metadata (week_label,
+ *     cohort_rank, top_partner_tactic, student_first_name, commission_amount_inr,
+ *     etc.) and have them render without dispatcher code changes.
+ *   - Added resolvePartnerProfileVars() — for any p*-prefixed sequenceKey, looks
+ *     up partners by email and fills partner_code, partner_share_url,
+ *     qr_code_url, dashboard_url, commission_rate, cascade_rate, network_size.
+ *   - Added resolveNextPartnerWebinar() — for em_p1_week1_checkin_v1 specifically,
+ *     queries awa_webinar_sessions WHERE session_type='partner' AND
+ *     status='scheduled' AND webinar_date >= today for the next session.
+ *   - Partner-track unsubscribe URL points to partner.ostaran.com/unsubscribe/{id}
+ *     instead of www.ostaran.com.
+ *   - Dual-write to partner_comms_log on successful send when sequence.track='partner'
+ *     (keeps backward compat with existing admin views that read this table).
+ *
+ * v6 changes (Phase K — no-show + S2 payment URL resolvers):
+ *   - Added resolveNoShowVars() helper. For S3 (paid-MC no-show) and S7
+ *     (free-webinar no-show) sequences, looks up the contact's most recent
+ *     qr_landing_registrations row of the matching registration_type and:
+ *       (a) overrides {{join_link}} with that row's join_token (so the URL
+ *           still works for the rolled-forward session — join_token is
+ *           contact-scoped, not session-scoped)
+ *       (b) queries awa_webinar_sessions for the next status='scheduled' row
+ *           matching the same course_id with webinar_date >= today, and sets
+ *           {{next_webinar_date_display}} + {{next_webinar_time_display}}
+ *           from it (ordered ascending so we pick the immediate next session)
+ *     Falls back silently to empty strings if lookups fail — pre-send
+ *     validateRequiredVars() will then exit the enrolment cleanly with a
+ *     skip_reason rather than send a broken email.
+ *   - Added resolveMasterclassPaymentUrl() for {{masterclass_payment_url}}
+ *     used by wa_s2_complete_payment_v1. Same partner-attribution priority
+ *     chain as resolveWebinarRegisterUrl(): ctx.partner_code →
+ *     qr_landing_registrations.utm_source → ARIBOMBAY-0326 default.
+ *     Output: https://www.ostaran.com/masterclass?utm_source=<code>&utm_medium=whatsapp&utm_campaign=lifecycle_s2_wa_payment
+ *   - Plumbed both into buildVars(): triggered only for the specific
+ *     sequenceKey / templateKey that need them, so no extra DB roundtrips
+ *     for the rest of the lifecycle traffic.
  *
  * v5 fix (Phase F bug):
  *   - resolveWebinarRegisterUrl() now points directly at webinar.ostaran.com
@@ -260,6 +301,110 @@ function unsubscribeUrl(enrolmentId: string): string {
   return `${SITE_BASE}/unsubscribe/${enrolmentId}`;
 }
 
+/**
+ * Phase K — Builds the masterclass payment URL with partner attribution.
+ * Used by wa_s2_complete_payment_v1 to drive abandoned-checkout completions
+ * while preserving partner attribution. Mirrors resolveWebinarRegisterUrl()'s
+ * priority chain: ctx.partner_code → utm_source on contact's QR registration
+ * → ARIBOMBAY-0326 default.
+ */
+async function resolveMasterclassPaymentUrl(
+  supabase: SupabaseClient,
+  ctx: Record<string, unknown>,
+  email: string
+): Promise<string> {
+  let code = ((ctx.partner_code as string) || '').trim();
+
+  if (!code) {
+    const { data } = await supabase
+      .from('qr_landing_registrations')
+      .select('utm_source')
+      .eq('email', email.toLowerCase())
+      .not('utm_source', 'is', null)
+      .neq('utm_source', '')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data?.utm_source) code = String(data.utm_source).trim();
+  }
+
+  if (!code) code = 'ARIBOMBAY-0326';
+
+  const params = new URLSearchParams({
+    utm_source:   code,
+    utm_medium:   'whatsapp',
+    utm_campaign: 'lifecycle_s2_wa_payment',
+  });
+  return `https://www.ostaran.com/masterclass?${params.toString()}`;
+}
+
+/**
+ * Phase K — Resolves no-show flow vars for S3 (paid-MC) and S7 (free-webinar).
+ *
+ * For a contact who registered, didn't attend, and is now in a recovery
+ * sequence, we want to tell them:
+ *   - "Your seat is held for next session on {{next_webinar_date_display}}
+ *      at {{next_webinar_time_display}} IST"
+ *   - "Same join link: {{join_link}}" (their existing reusable join token)
+ *
+ * Lookups:
+ *   1. Find their most recent qr_landing_registrations row of the matching
+ *      registration_type. This gives us their course_id (which course they
+ *      registered for) and join_token (their reusable join URL).
+ *   2. Find the next scheduled awa_webinar_sessions for the same course_id
+ *      where webinar_date >= today, ordered ASC. This is the session their
+ *      seat rolls forward to.
+ *
+ * If either lookup fails, leaves vars untouched — validateRequiredVars() will
+ * then exit the enrolment cleanly with skip_reason='missing_critical_vars:...'
+ * rather than send a broken email with literal {{next_webinar_date_display}}.
+ */
+async function resolveNoShowVars(
+  supabase: SupabaseClient,
+  email: string,
+  registrationType: 'webinar' | 'masterclass',
+  vars: Record<string, string>
+): Promise<void> {
+  // Step 1 — contact's most recent matching registration
+  const { data: reg } = await supabase
+    .from('qr_landing_registrations')
+    .select('course_id, join_token')
+    .eq('email', email.toLowerCase())
+    .eq('registration_type', registrationType)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!reg) return;
+
+  // Override {{join_link}} with this specific registration's token if present.
+  // joinLinkFromContext() may have set it already from ctx.join_token but
+  // re-resolving here ensures we have the right token for no-show flows.
+  if (reg.join_token) {
+    vars.join_link = `${JOIN_BASE}/${reg.join_token}?ref=lifecycle`;
+  }
+
+  if (!reg.course_id) return;
+
+  // Step 2 — next scheduled session of the same course
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const { data: nextSess } = await supabase
+    .from('awa_webinar_sessions')
+    .select('webinar_date, webinar_time')
+    .eq('course_id', reg.course_id)
+    .eq('status', 'scheduled')
+    .gte('webinar_date', todayIso)
+    .order('webinar_date', { ascending: true })
+    .order('webinar_time', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (nextSess) {
+    vars.next_webinar_date_display = fmtDate(nextSess.webinar_date);
+    vars.next_webinar_time_display = fmtTime(nextSess.webinar_time);
+  }
+}
+
 /** Returns '' if no real join_token -- NEVER falls back to webinar.ostaran.com. */
 function joinLinkFromContext(ctx: Record<string, unknown>): string {
   const token = ctx.join_token as string | undefined;
@@ -335,6 +480,64 @@ async function buildS6PartnerVars(
   }
 }
 
+/**
+ * Phase N — partner profile vars resolver.
+ * For p*-prefixed partner-track sequences, looks up the partner by email and
+ * sets the standard partner vars used across P1–P6 templates. Falls back to
+ * ctx values when partners table doesn't have the data.
+ */
+async function resolvePartnerProfileVars(
+  supabase: SupabaseClient,
+  email: string,
+  ctx: Record<string, unknown>,
+  vars: Record<string, string>
+): Promise<void> {
+  const { data: p } = await supabase
+    .from('partners')
+    .select('partner_code, qr_code_url, commission_rate, cascade_rate, total_network_size, full_name')
+    .eq('email', email.toLowerCase())
+    .maybeSingle();
+
+  const partnerCode = p?.partner_code || (ctx.partner_code as string) || '';
+  if (partnerCode) {
+    vars.partner_code = partnerCode;
+    if (!vars.partner_share_url) {
+      vars.partner_share_url = `https://webinar.ostaran.com/?utm_source=${encodeURIComponent(partnerCode)}`;
+    }
+  }
+  if (p?.qr_code_url) vars.qr_code_url = p.qr_code_url;
+  if (p?.commission_rate != null) vars.commission_rate = String(Math.round(Number(p.commission_rate)));
+  if (p?.cascade_rate != null) vars.cascade_rate = String(Math.round(Number(p.cascade_rate)));
+  if (p?.total_network_size != null) vars.network_size = String(p.total_network_size);
+  if (!vars.dashboard_url) vars.dashboard_url = 'https://partner.ostaran.com/dashboard';
+}
+
+/**
+ * Phase N — Next scheduled partner orientation webinar (em_p1_week1_checkin_v1).
+ * Queries awa_webinar_sessions filtered to session_type='partner'.
+ */
+async function resolveNextPartnerWebinar(
+  supabase: SupabaseClient,
+  vars: Record<string, string>
+): Promise<void> {
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const { data } = await supabase
+    .from('awa_webinar_sessions')
+    .select('webinar_date, webinar_time, ms_teams_link')
+    .eq('session_type', 'partner')
+    .eq('status', 'scheduled')
+    .gte('webinar_date', todayIso)
+    .order('webinar_date', { ascending: true })
+    .order('webinar_time', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (data) {
+    vars.next_partner_webinar_date = fmtDate(data.webinar_date);
+    vars.next_partner_webinar_time = fmtTime(data.webinar_time);
+    vars.partner_webinar_join_link = data.ms_teams_link || '';
+  }
+}
+
 async function buildVars(
   supabase: SupabaseClient,
   enrolment: { id: string; email: string; mobile: string | null; context: Record<string, unknown>; enrolled_at: string },
@@ -346,20 +549,35 @@ async function buildVars(
   const webinarDate = (ctx.webinar_date as string) || '';
   const webinarTime = (ctx.webinar_time as string) || ''; // NO fallback
 
-  const vars: Record<string, string> = {
-    first_name:            firstName(fullName),
-    full_name:             fullName,
-    email:                 enrolment.email,
-    mobile:                enrolment.mobile || '',
-    webinar_date_display:  fmtDate(webinarDate),         // '' if missing/malformed
-    webinar_time_display:  fmtTime(webinarTime),         // '' if missing/malformed
-    registered_at_display: fmtRegisteredAt(enrolment.enrolled_at),
-    course_name:           (ctx.course_name as string) || '',
-    partner_code:          (ctx.partner_code as string) || '',
-    join_link:             joinLinkFromContext(ctx),     // '' if no token
-    enrol_url:             resolveEnrolUrl(ctx),         // always valid (default slug)
-    unsubscribe_url:       unsubscribeUrl(enrolment.id), // always valid (we have id)
-  };
+  // Phase N — Pre-populate vars from ctx (primitive values only). Specific
+  // hardcoded vars below override these. Lets triggers/crons bake metrics
+  // directly into the lifecycle_event metadata and have them render without
+  // dispatcher code changes.
+  const vars: Record<string, string> = {};
+  for (const [k, v] of Object.entries(ctx)) {
+    if (v === null || v === undefined) continue;
+    if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+      vars[k] = String(v);
+    }
+  }
+
+  // Explicit hardcoded vars (override ctx if both present)
+  vars.first_name            = firstName(fullName);
+  vars.full_name             = fullName;
+  vars.email                 = enrolment.email;
+  vars.mobile                = enrolment.mobile || '';
+  vars.webinar_date_display  = fmtDate(webinarDate);         // '' if missing/malformed
+  vars.webinar_time_display  = fmtTime(webinarTime);         // '' if missing/malformed
+  vars.registered_at_display = fmtRegisteredAt(enrolment.enrolled_at);
+  vars.course_name           = (ctx.course_name as string) || '';
+  vars.partner_code          = (ctx.partner_code as string) || vars.partner_code || '';
+  vars.join_link             = joinLinkFromContext(ctx);     // '' if no token
+  vars.enrol_url             = resolveEnrolUrl(ctx);         // always valid (default slug)
+  // Partner-track sequences get a partner-domain unsubscribe; everything else
+  // uses the www.ostaran.com base.
+  vars.unsubscribe_url       = sequenceKey.startsWith('p') && !sequenceKey.startsWith('phase_')
+    ? `https://partner.ostaran.com/unsubscribe/${enrolment.id}`
+    : unsubscribeUrl(enrolment.id);
 
   if (templateKey === 'em_s1_post_webinar_v1' && webinarDate) {
     const branch = await lookupPostWebinarBranch(supabase, enrolment.email, webinarDate);
@@ -379,10 +597,50 @@ async function buildVars(
   }
 
   // E2 + E3 \u2014 webinar register URL with partner attribution (v4)
-  if (sequenceKey.startsWith('e2_') || sequenceKey.startsWith('e3_')) {
+  // Phase H.3 added E5, E6, X1 \u2014 same resolver, broader scope.
+  if (
+    sequenceKey.startsWith('e2_') ||
+    sequenceKey.startsWith('e3_') ||
+    sequenceKey.startsWith('e5_') ||
+    sequenceKey.startsWith('e6_') ||
+    sequenceKey.startsWith('x1_')
+  ) {
     vars.webinar_register_url = await resolveWebinarRegisterUrl(
       supabase, ctx, enrolment.email, sequenceKey
     );
+  }
+
+  // Phase K \u2014 No-show flows: resolve next-session date/time + join_link
+  if (sequenceKey === 's3_paidmc_noshow_reengage') {
+    await resolveNoShowVars(supabase, enrolment.email, 'masterclass', vars);
+  } else if (sequenceKey === 's7_free_webinar_noshow_recovery') {
+    await resolveNoShowVars(supabase, enrolment.email, 'webinar', vars);
+  }
+
+  // Phase K \u2014 wa_s2 payment URL with partner attribution
+  if (templateKey === 'wa_s2_complete_payment_v1') {
+    vars.masterclass_payment_url = await resolveMasterclassPaymentUrl(
+      supabase, ctx, enrolment.email
+    );
+  }
+
+  // Phase N \u2014 Partner-track sequences (P1\u2013P6)
+  if (
+    sequenceKey === 'p1_partner_welcome_onboarding' ||
+    sequenceKey === 'p2_partner_first_student_referral' ||
+    sequenceKey === 'p3_partner_first_commission' ||
+    sequenceKey === 'p4_partner_weekly_pulse' ||
+    sequenceKey === 'p5_subpartner_added' ||
+    sequenceKey === 'p6_partner_dormancy_recovery'
+  ) {
+    await resolvePartnerProfileVars(supabase, enrolment.email, ctx, vars);
+    // webinar_date_display is also used in P2 (first student); ctx.webinar_date is set by the trigger
+    if (webinarDate && !vars.webinar_date_display) {
+      vars.webinar_date_display = fmtDate(webinarDate);
+    }
+  }
+  if (templateKey === 'em_p1_week1_checkin_v1') {
+    await resolveNextPartnerWebinar(supabase, vars);
   }
 
   return vars;
@@ -769,6 +1027,29 @@ async function processEnrolment(
     error_message: result.error || null,
     duration_ms: Date.now() - startTs,
   });
+
+  // Phase N — Dual-write to partner_comms_log for backwards-compat with
+  // existing admin views that read this table. Fire-and-forget; failure to
+  // log here doesn't fail the send.
+  if (sequence.track === 'partner') {
+    try {
+      await supabase.from('partner_comms_log').insert({
+        channel: template.channel,
+        send_mode: 'lifecycle',
+        template_slug: template.template_key,
+        partner_code: vars.partner_code || null,
+        aisensy_campaign: template.aisensy_campaign_name || null,
+        triggered_by: 'lifecycle_dispatcher',
+        triggered_at: new Date().toISOString(),
+        status: result.ok ? 'sent' : 'failed',
+        ref_id: enrolmentId,
+        ref_type: 'lifecycle_enrolment',
+        notes: result.error || null,
+      });
+    } catch (err) {
+      console.warn('[lifecycle-dispatcher] partner_comms_log dual-write failed:', (err as Error).message);
+    }
+  }
 
   if (result.ok) {
     await supabase.from('lifecycle_events').insert({

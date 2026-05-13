@@ -1,0 +1,33 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- LIFECYCLE — Phase J.WA: 5 new WhatsApp templates + sequence steps
+-- ════════════════════════════════════════════════════════════════════════════
+-- Applied via Supabase MCP `apply_migration` on 2026-05-11.
+--
+-- Layers WhatsApp on top of email sequences at high-intent / time-critical
+-- moments only (not 1:1 mirror of email). Each ships is_active=FALSE pending
+-- AiSensy/Meta approval. Sequence-step rows wire them into their host
+-- sequences at the right timing. Dispatcher will log template_pending skips
+-- until Meta approval lands.
+--
+-- New WA templates (5) + sequence-step rows (5):
+--   wa_e3_results_followup_v1   (E3 Quiz follow-up @ T+24h, step idx 4)
+--   wa_e6_still_useful_v1       (E6 Cold re-warm @ T+1h, step idx 3)
+--   wa_x1_last_chance_v1        (X1 Cold re-engagement @ T+336h Day 14, step idx 3)
+--   wa_s2_complete_payment_v1   (S2 Paid-MC drop-off @ T+24h, step idx 4) — Phase K dep
+--   wa_s3_we_missed_you_v1      (S3 Paid-MC no-show @ wd+24h, step idx 3) — Phase K dep
+--
+-- Source bodies: /Users/Arijit_WS/Comms Lifecycle/wa_templates_phase_j.md (v2)
+--
+-- ⚠️ TWO PHASE K DEPENDENCIES before S2/S3 WA can actually send (post-Meta):
+--    1. wa_s2 needs dispatcher to resolve {{masterclass_payment_url}} with
+--       partner attribution (currently the only S2 email URLs are hardcoded,
+--       which has the same attribution-leak issue Phase H.3 fixed).
+--    2. wa_s3 needs the same Phase K work as S3/S7 emails:
+--       {{next_webinar_date_display}}, {{next_webinar_time_display}},
+--       {{join_link}} on session_no_show events.
+--
+-- Full canonical SQL stored in supabase_migrations.schema_migrations.statements
+-- WHERE version = '20260511073500'.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- (Full SQL not duplicated here — see header note above for canonical source.)

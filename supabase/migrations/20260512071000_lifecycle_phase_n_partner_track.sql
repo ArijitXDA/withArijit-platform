@@ -1,0 +1,85 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- LIFECYCLE — Phase N: Partner-track comms lifecycle (v1)
+-- ════════════════════════════════════════════════════════════════════════════
+-- Applied via Supabase MCP `apply_migration` in 7 sub-migrations on 2026-05-12.
+-- This stub documents the canonical Phase N timeline; the actual SQL of each
+-- statement lives in supabase_migrations.schema_migrations.statements WHERE
+-- version IN ('20260512071001'..'20260512071007').
+--
+-- SHIPPED IN THIS PHASE
+--
+-- N.1 — Enum additions:
+--   • lifecycle_track adds 'partner'
+--   • lifecycle_event_type adds:
+--       partner_application_submitted, partner_approved,
+--       partner_first_student_referral, partner_first_commission,
+--       subpartner_added,
+--       partner_dormant_30d, partner_dormant_60d, partner_dormant_90d,
+--       partner_weekly_pulse_due
+--
+-- N.2 — Triggers (4):
+--   • trg_partner_auto_approve (BEFORE INSERT on partners) — flips status
+--     pending → active + sets approved_at = NOW(). Auto-approval is now ON.
+--   • trg_partner_lifecycle_signup (AFTER INSERT on partners) — emits
+--     partner_approved event on new partner's email; if parent_partner_id
+--     IS NOT NULL also emits subpartner_added on PARENT's email.
+--   • trg_partner_first_referral (AFTER INSERT on qr_landing_registrations) —
+--     when a row's utm_source matches an active partner code AND this is
+--     the partner's first such referral, emits partner_first_student_referral.
+--   • trg_partner_first_commission (AFTER INSERT on student_enrolments) —
+--     when partner_id IS NOT NULL AND commission_amount > 0 AND it's the
+--     partner's first commission row, emits partner_first_commission.
+--   All triggers are SECURITY DEFINER + EXCEPTION WHEN OTHERS — lifecycle
+--   bugs can never block source INSERTs.
+--
+-- N.3 — Crons (2):
+--   • partner-weekly-pulse-tick (Mon 03:30 UTC = 09:00 IST) — emits
+--     partner_weekly_pulse_due for every active partner with week metrics
+--     + cohort rank + rotating top-partner tactic in metadata.
+--   • partner-dormancy-tick (daily 22:30 UTC) — emits partner_dormant_30d
+--     for active partners with no new referrals in 30d (and no prior
+--     dormancy event in 90d).
+--
+-- N.4 — Sequences (6) + templates (10 email + 5 WA) + step rows (15):
+--   • p1_partner_welcome_onboarding   (4 steps, 7d) — auto-fires on signup
+--   • p2_partner_first_student_referral (2 steps)
+--   • p3_partner_first_commission     (2 steps)
+--   • p4_partner_weekly_pulse         (1 step)
+--   • p5_subpartner_added             (2 steps)
+--   • p6_partner_dormancy_recovery    (4 steps, 90d)
+--   All sequences ship is_active=FALSE pending activation.
+--   All 5 WA templates ship is_active=FALSE pending Meta approval.
+--   All 10 email templates are active immediately on sequence activation.
+--
+-- N.5 — Dispatcher v7 deployed (Supabase edge function lifecycle-dispatcher
+--   version 6 → 7, ACTIVE):
+--   • ctx → vars fallback (any primitive in enrolment.context auto-populates
+--     the vars map). Crons/triggers can bake metrics directly into event
+--     metadata and have them render without dispatcher code changes.
+--   • resolvePartnerProfileVars() for partner-track sequences — looks up
+--     partners table by email and fills partner_code, partner_share_url,
+--     qr_code_url, dashboard_url, commission_rate, cascade_rate, network_size.
+--   • resolveNextPartnerWebinar() for em_p1_week1_checkin_v1 — queries
+--     awa_webinar_sessions WHERE session_type='partner' AND status='scheduled'.
+--   • Partner-track unsubscribe URL uses partner.ostaran.com base.
+--   • Dual-write to partner_comms_log on every partner-track send (back-compat
+--     with existing admin views that read this table).
+--
+-- N.6 — Dashboard (lifecycle.html) updated:
+--   • Two-tab UI: "🎓 Students Comms" (15 sequences) + "🤝 Partners Comms" (6).
+--   • New Partner journey Mermaid flowchart + 4 partner sequence card sections.
+--   • Per-step tooltips show email body, WhatsApp body, URL resolution panel,
+--     and display-field resolution panel for all partner templates.
+--
+-- COEXISTENCE with existing partner comms:
+--   send-partner-monthly-scorecard cron + manual /admin/partner-reminders UI
+--   stay active. New lifecycle adds event-driven sequences on top.
+--
+-- WHAT'S NEXT
+--   • Submit 5 new partner WA templates to AiSensy alongside 12 existing
+--     student WA templates → Meta approval batch of 17 templates.
+--   • User activation: flip p*_partner_*.is_active=TRUE via
+--     /admin/lifecycle-status when ready.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- (Canonical SQL stored in supabase_migrations.schema_migrations.statements)

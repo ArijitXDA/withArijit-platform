@@ -1,0 +1,45 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- LIFECYCLE — Phase J: S7 Free Webinar No-Show Recovery
+-- ════════════════════════════════════════════════════════════════════════════
+-- Applied via Supabase MCP `apply_migration` on 2026-05-11.
+--
+-- Closes the funnel gap between S1 (pre-webinar reminders) and S6 (post-
+-- webinar upsell, attendees only). Registrants who didn't attend the free
+-- webinar previously had NO follow-up — this sequence catches them.
+--
+-- Adds:
+--   • FUNCTION  lifecycle_emit_free_webinar_noshow_tick (SECURITY DEFINER,
+--               with EXCEPTION WHEN OTHERS so a lifecycle bug can never break
+--               the cron run).
+--   • CRON      lifecycle-free-webinar-noshow-tick (daily 23:00 UTC, after
+--               most Sunday-evening IST webinars have concluded).
+--               Scans qr_landing_registrations for registration_type='webinar'
+--               where webinar_date is 24-72h in the past, no attendance
+--               recorded, no prior session_no_show event for that row.
+--               Emits 'session_no_show' lifecycle events with
+--               registration_type metadata for sequence-filter matching.
+--   • SEQUENCE  s7_free_webinar_noshow_recovery (paused initially)
+--               4 steps anchored to webinar_date:
+--                 0: Email em_s7_we_missed_you_v1   @ wd + 24h
+--                 1: WA    wa_s7_we_missed_you_v1   @ wd + 24h (parallel)
+--                 2: Email em_s7_recap_v1            @ wd + 72h
+--                 3: Email em_s7_next_session_v1     @ wd + 168h
+--               Exit on webinar_registered, masterclass_registered,
+--               masterclass_paid, course_enrolled, unsubscribed,
+--               do_not_contact_set.
+--   • TEMPLATES 3 email (active) + 1 WhatsApp (Meta-pending, is_active=FALSE
+--               until AiSensy/Meta approval flips it).
+--
+-- Notes:
+--   • Trigger event 'session_no_show' was already in the lifecycle_event_type
+--     enum — no enum migration needed. Discriminator vs any future
+--     masterclass no-show use of the same enum lives on the sequence:
+--     trigger_filter = {"registration_type": "webinar"}.
+--   • Existing dispatcher's webinar_date anchor resolver works as-is because
+--     metadata.webinar_date is emitted by the cron at event-creation time.
+--
+-- Full canonical SQL stored in supabase_migrations.schema_migrations.statements
+-- WHERE version = '20260511060500'.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- (Full SQL not duplicated here — see header note above for canonical source.)

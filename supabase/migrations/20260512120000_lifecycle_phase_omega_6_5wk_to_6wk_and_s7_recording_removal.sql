@@ -1,0 +1,43 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- LIFECYCLE — Phase Ω.6: Copy fixes after first Meta-submission review
+-- ════════════════════════════════════════════════════════════════════════════
+-- Applied via Supabase MCP `apply_migration` on 2026-05-12.
+--
+-- THREE FIXES SHIPPED
+--
+-- 1. Global "5-week" → "6-week" rename across 8 templates so programme-
+--    duration copy aligns with the upcoming 6-week programme variant.
+--    Templates touched:
+--      em_e2_from_reading_v1, em_e3_quiz_to_programme_v1,
+--      em_e4_meanwhile_v1, em_p1_sales_playbook_v1,
+--      em_s4_complete_v1, em_s4_welcome_v1,
+--      em_s6_attendees_pitch_v1, wa_s6_save_seat_v1
+--
+--    Variants caught:
+--      5-week → 6-week    (with hyphen)
+--      5 week → 6 week
+--      5 weeks → 6 weeks
+--      five-week → six-week, five weeks → six weeks
+--
+-- 2. wa_s6_save_seat_v1 — converted named placeholders to numeric
+--    ({{first_name}} → {{1}}, {{enrol_url}} → {{2}},
+--    {{s6_wa_partner_line}} → {{3}}) for AiSensy/Meta compatibility.
+--    aisensy_param_order already in correct positional order — no change
+--    needed there.
+--
+-- 3. wa_s7_we_missed_you_v1 — removed "Or reply RECORDING and we will
+--    send yesterday's playback" line to match the AiSensy-submitted body.
+--
+-- DEPENDENCIES / OPEN
+--
+-- The 6-week programme itself does NOT yet exist in awa_courses. This
+-- migration only updates COPY. To actually offer 6-week courses:
+--   • Add 6-week variants alongside existing 6-month courses in awa_courses
+--   • Adjust S4 sequence pacing if 6-week courses should be S4-eligible
+--     (current S4 step delays: 0h, 24h, 168h, 336h, 504h, 672h, 840h —
+--     which spans 35 days, perfect for a 6-week course, terrible for a
+--     6-month course; may need course_duration-aware sequence variants)
+--
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- (Canonical SQL stored in supabase_migrations.schema_migrations.statements)

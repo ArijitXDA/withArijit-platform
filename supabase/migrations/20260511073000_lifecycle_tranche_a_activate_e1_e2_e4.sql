@@ -1,0 +1,24 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- LIFECYCLE — Tranche A: activate E1, E2, E4
+-- ════════════════════════════════════════════════════════════════════════════
+-- Applied via Supabase MCP `apply_migration` on 2026-05-11.
+--
+-- Low-risk activation tranche. Email-only nurture, no anchor logic, no cron
+-- dependencies, no merge fields beyond what the dispatcher already resolves.
+--
+-- Sequences activated:
+--   • E1 Community Welcome     (community_joined → 3 emails / 3d)
+--   • E2 Library Nurture       (library_view    → 3 emails / 7d)
+--   • E4 Resume Follow-up      (resume_submitted → 3 emails / 7d)
+--
+-- Backfilled events skip auto_enrol so this only fires on NEW events going
+-- forward. No spam risk to historical contacts.
+--
+-- E3, S1, S6, S8 stay active. E5, S2, S3, S4, S9, E6, X1, S7 stay paused
+-- pending review / Phase K.
+--
+-- Full canonical SQL stored in supabase_migrations.schema_migrations.statements
+-- WHERE version = '20260511073000'.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- (Full SQL not duplicated here — see header note above for canonical source.)

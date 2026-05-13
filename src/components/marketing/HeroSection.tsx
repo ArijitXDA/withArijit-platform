@@ -152,10 +152,40 @@ export function HeroSection() {
             </Link>
           </div>
 
+          {/* Become an AI Partner — distinctive gold CTA for the earning-side audience */}
+          <div className="mt-8 flex justify-center">
+            <Link
+              href="https://partner.ostaran.com"
+              className="group inline-flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-bold text-base transition-all hover:scale-105 hover:shadow-2xl border-2"
+              style={{
+                background: 'linear-gradient(135deg, #f59e0b 0%, #f97316 50%, #ef4444 100%)',
+                color: '#fff',
+                borderColor: 'rgba(251,191,36,0.6)',
+                boxShadow: '0 0 40px rgba(245,158,11,0.4)',
+                animation: 'pulse-gold 2.5s ease-in-out infinite',
+              }}
+            >
+              <span style={{ fontSize: '1.25rem' }}>🤝</span>
+              <span>Become an AI Partner</span>
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,0,0,0.18)' }}>
+                Earn ₹X / referral
+              </span>
+              <span className="transition-transform group-hover:translate-x-1">→</span>
+            </Link>
+          </div>
+
           {/* Mini trust line */}
           <p className="mt-8 text-xs" style={{ color: '#475569' }}>
             🔒 Secured by Razorpay · GST Invoice Issued · Certificate within 24 hours
           </p>
+
+          {/* Gold-pulse keyframe for the partner CTA */}
+          <style>{`
+            @keyframes pulse-gold {
+              0%, 100% { box-shadow: 0 0 40px rgba(245,158,11,0.4), 0 0 0 0 rgba(245,158,11,0.25); }
+              50%      { box-shadow: 0 0 60px rgba(245,158,11,0.6), 0 0 0 12px rgba(245,158,11,0); }
+            }
+          `}</style>
         </div>
       </div>
     </section>

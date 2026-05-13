@@ -1,0 +1,18 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- LIFECYCLE — Phase Ω.8: Extended health view with channel + track filters
+-- ════════════════════════════════════════════════════════════════════════════
+-- Applied via Supabase MCP `apply_migration` on 2026-05-12.
+--
+-- Adds a new aggregation view that lets /admin/lifecycle-status filter the
+-- "Sends by sequence × day" matrix by channel (email/whatsapp) and track
+-- (student/partner). 90-day window so the date-range picker has real data
+-- to render.
+--
+-- The original view (lifecycle_health_by_sequence_day) stays in place for
+-- backward compatibility with any external dashboards.
+--
+-- Full canonical SQL stored in supabase_migrations.schema_migrations.statements
+-- WHERE version = '20260512130000'.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- (Canonical SQL stored in supabase_migrations.schema_migrations.statements)

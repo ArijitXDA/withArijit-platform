@@ -17,13 +17,20 @@ export async function POST(req: NextRequest) {
   // Verify batch exists and has seats
   const { data: batch } = await service
     .from('awa_batches')
-    .select('id, is_open, seats_filled, max_seats')
+    .select('id, is_open, seats_filled, max_seats, start_date, end_date')
     .eq('id', batch_id)
     .single()
 
   if (!batch) return NextResponse.json({ error: 'Batch not found' }, { status: 404 })
   if (!batch.is_open || batch.seats_filled >= batch.max_seats) {
     return NextResponse.json({ error: 'This batch is full. Please choose another.' }, { status: 400 })
+  }
+
+  // The chosen batch defines the student's access window — stamp it onto the
+  // enrolment so the dashboard, certificate timing, and comms all agree.
+  const accessDates = {
+    access_start_date: batch.start_date ?? null,
+    access_end_date:   batch.end_date ?? null,
   }
 
   // Resolve enrolment_id — find the specific enrolment that doesn't have a batch yet
@@ -57,7 +64,7 @@ export async function POST(req: NextRequest) {
       // Already selected for this enrolment — just ensure enrolment.batch_id is set
       await service
         .from('student_enrolments')
-        .update({ batch_id, updated_at: new Date().toISOString() })
+        .update({ batch_id, ...accessDates, updated_at: new Date().toISOString() })
         .eq('id', resolvedEnrolmentId)
         .is('batch_id', null)
       return NextResponse.json({ success: true, already_selected: true })
@@ -76,13 +83,13 @@ export async function POST(req: NextRequest) {
   if (resolvedEnrolmentId) {
     await service
       .from('student_enrolments')
-      .update({ batch_id, updated_at: new Date().toISOString() })
+      .update({ batch_id, ...accessDates, updated_at: new Date().toISOString() })
       .eq('id', resolvedEnrolmentId)
   } else {
     // Fallback: update the most recent enrolment for this course without a batch
     await service
       .from('student_enrolments')
-      .update({ batch_id, updated_at: new Date().toISOString() })
+      .update({ batch_id, ...accessDates, updated_at: new Date().toISOString() })
       .eq('student_email', user.email!)
       .eq('course_id', course_id)
       .is('batch_id', null)

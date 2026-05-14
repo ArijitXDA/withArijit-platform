@@ -107,10 +107,11 @@ export default async function SelectBatchPage({
     }
   }
 
-  // Fetch batches for the resolved course ID set
+  // Fetch batches for the resolved course ID set.
+  // variant + total_sessions + duration_mins + end_date drive the variant-grouped picker.
   const { data: batches } = await service
     .from('awa_batches')
-    .select('id, batch_code, label, day_of_week, start_time, start_date, max_seats, seats_filled, notes, is_open, course_id')
+    .select('id, batch_code, label, day_of_week, start_time, start_date, end_date, duration_mins, max_seats, seats_filled, notes, is_open, course_id, variant, total_sessions')
     .in('course_id', batchCourseIds)
     .eq('is_active', true)
     .order('sort_order')

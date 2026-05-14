@@ -46,7 +46,7 @@ export default async function CoursesPage() {
       id, created_at, enrolment_type, amount_paid, is_active,
       payment_date, enrolment_seq,
       course:course_id(id, name, short_name, description, total_sessions, session_duration_mins, slug, subjects),
-      batch:batch_id(id, label, day_of_week, start_time, start_date, meeting_link, instructor_name, duration_mins)
+      batch:batch_id(id, label, day_of_week, start_time, start_date, end_date, meeting_link, instructor_name, duration_mins, variant, total_sessions)
     `)
     .eq('student_email', email)
     .order('created_at', { ascending: false })
@@ -76,7 +76,9 @@ export default async function CoursesPage() {
   // Build enrolments with computed + overlaid session schedule
   const enrolments = (rawEnrolments ?? []).map((e: any) => {
     const batch         = e.batch
-    const totalSessions = e.course?.total_sessions ?? 26
+    // Per-batch session count is authoritative — 9 for a weekend9 batch, 26 for
+    // long26 — falling back to the course-level long-format reference.
+    const totalSessions = batch?.total_sessions ?? e.course?.total_sessions ?? 26
     const batchLinks    = batch ? (savedLinksMap[batch.id] ?? {}) : {}
 
     const sessions = batch

@@ -1,0 +1,22 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- SCHEDULE VARIANTS — Phase 3: populate course_curriculum
+-- ════════════════════════════════════════════════════════════════════════════
+-- Applied via Supabase MCP `apply_migration` on 2026-05-14, in 3 chunks:
+--   20260514085729  schedule_variant_seed_course_curriculum_chunk_1
+--   20260514085916  schedule_variant_seed_course_curriculum_chunk_2
+--   20260514090104  schedule_variant_seed_course_curriculum_chunk_3
+--
+-- course_curriculum was empty. This seeds the 26-session syllabus for all 9
+-- active courses (234 rows). The 6 Track-1 (SHARED_CONTENT_SLUGS) courses all
+-- share the General v2 curriculum; AGENTIC-AI → TechDevs, AI-SCHOOL → School,
+-- QUANTUM-AI → Quantum. Titles + short descriptions are real, extracted from the
+-- curriculum Excel files on disk.
+--
+-- The 9-week variant's weekend bundling (W1 = S1-S3, W2 = S4-S6, … W9 = S25-S26)
+-- is derived in code from this 26-session curriculum — it is NOT stored.
+--
+-- Full canonical SQL stored in supabase_migrations.schema_migrations.statements
+-- WHERE version IN ('20260514085729','20260514085916','20260514090104').
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- (Canonical SQL stored in supabase_migrations.schema_migrations.statements)

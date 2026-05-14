@@ -45,6 +45,8 @@ interface Course {
 interface Batch {
   label: string; day_of_week: string; start_time: string
   start_date: string | null; meeting_link: string | null; instructor_name: string | null
+  end_date?: string | null; duration_mins?: number | null
+  variant?: string | null; total_sessions?: number | null
 }
 interface Enrolment {
   id: string; created_at: string; enrolment_type: string
@@ -72,7 +74,7 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
           <Calendar size={16} style={{ color: T.bluePale }} />
         </div>
         <p className="text-sm" style={{ color: T.textSec }}>Sessions will appear here once scheduled</p>
-        <p className="text-xs mt-1" style={{ color: T.textMuted }}>{total26} sessions · 60 min each · 26 weeks</p>
+        <p className="text-xs mt-1" style={{ color: T.textMuted }}>{total26} live sessions · weekend schedule</p>
       </div>
     )
   }

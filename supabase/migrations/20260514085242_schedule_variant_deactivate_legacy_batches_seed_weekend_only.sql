@@ -1,0 +1,22 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- SCHEDULE VARIANTS — Phase 2: deactivate legacy batches, seed weekend-only set
+-- ════════════════════════════════════════════════════════════════════════════
+-- Applied via Supabase MCP `apply_migration` on 2026-05-14.
+--
+-- All 47 pre-existing batches (the old weekday+weekend mix) are retired via
+-- is_active = false / is_open = false. Their rows stay in place — the FKs from
+-- the 12 live enrolments (student_enrolments.batch_id) remain intact.
+--
+-- 12 fresh batches are seeded: 4 delivery tracks × [2 weekend9 cohorts + 1
+-- long26 cohort]. Track-1 batches attach to the canonical ai-mastery-programme
+-- course so the SHARED_CONTENT_SLUGS pooling auto-distributes them to all 6
+-- marketed Track-1 courses. Tracks 2/3/4 attach to their own course.
+--
+-- weekend9 cohorts: Sat (Cohort A) + Sun (Cohort B), 9 × 120 min, 04-Jul→29/30-Aug-2026.
+-- long26 cohorts: one weekly weekend session, 26 × 60 min, 04/05-Jul→26/27-Dec-2026.
+--
+-- Full canonical SQL stored in supabase_migrations.schema_migrations.statements
+-- WHERE version = '20260514085242'.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- (Canonical SQL stored in supabase_migrations.schema_migrations.statements)

@@ -1,0 +1,17 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- SCHEDULE VARIANTS — Phase 4: migrate the 12 legacy enrolments to new batches
+-- ════════════════════════════════════════════════════════════════════════════
+-- Applied via Supabase MCP `apply_migration` on 2026-05-14
+-- (version: schedule_variant_migrate_12_legacy_enrolments_to_new_batches).
+--
+-- The 12 pre-existing enrolments were pointing at now-inactive legacy batches.
+-- Moved to the new weekend-only batches with a deterministic 50/50 split:
+-- alternating weekend9 / long26, each enrolment kept on its own delivery track,
+-- weekend9 cohorts alternating Saturday (A) / Sunday (B). Result: 6 weekend9 +
+-- 6 long26. access_start/end dates, student_batch_selections (rebuilt — Santosh
+-- had no row), and per-batch seats_filled are all corrected to match.
+--
+-- Full canonical SQL stored in supabase_migrations.schema_migrations.statements.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- (Canonical SQL stored in supabase_migrations.schema_migrations.statements)

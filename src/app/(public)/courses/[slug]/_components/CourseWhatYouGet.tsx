@@ -1,5 +1,5 @@
 const ITEMS = [
-  { emoji: '📅', title: '26 Live Weekend Sessions',     sub: '60 minutes each · Saturday &/or Sunday · No weekday disruption' },
+  { emoji: '🔥', title: '9-Week Weekend Intensive',     sub: '9 × 2-hour weekend sessions — or pick the 26-week long track (26 × 60 min). Same curriculum, same certificate.' },
   { emoji: '🎁', title: 'AI Kit — Couriered to You',   sub: 'Physical AI learning kit delivered to your home (Indian addresses)' },
   { emoji: '📜', title: 'Interim Certificate',          sub: 'Issued after Session 13 — start adding credentials before completing' },
   { emoji: '🏆', title: 'Completion Certificate',       sub: 'Globally recognised AI certificate · Add to LinkedIn immediately' },

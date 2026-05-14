@@ -120,12 +120,12 @@ export function CourseHero({
                 enrolProps={enrolProps} partner={partner} />
             </div>
 
-            {/* Quick stats row */}
+            {/* Quick stats row — lead with the 9-week weekend intensive */}
             <div className="flex flex-wrap gap-6 text-sm">
               {[
-                ['📅', `${course.total_sessions ?? 26} live sessions`],
-                ['⏱',  `${course.session_duration_mins ?? 60} min each`],
-                ['🌍', 'Weekends · multi-timezone'],
+                ['🔥', '9-Week Weekend Intensive'],
+                ['📅', 'or 26-Week Long Track'],
+                ['🌍', 'Weekends only · multi-timezone'],
                 ['♾️', 'Lifetime recordings'],
                 ['🎁', 'AI Kit couriered'],
               ].map(([icon, text]) => (

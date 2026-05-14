@@ -24,7 +24,7 @@ export function CourseBottomCTA({
         </div>
 
         <h2 className="text-3xl md:text-4xl font-extrabold mb-4 text-white">
-          Transform Your Career in 26 Live Sessions
+          Transform Your Career — 9 Weekends or 26 Weeks, Your Choice
         </h2>
         <p className="text-indigo-200 text-lg mb-3 max-w-xl mx-auto leading-relaxed">
           AI Kit couriered. Two certificates. Real projects you own.

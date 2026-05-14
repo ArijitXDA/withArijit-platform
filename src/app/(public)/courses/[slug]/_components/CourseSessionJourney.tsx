@@ -72,10 +72,13 @@ export function CourseSessionJourney({ category = 'default' }: { category?: stri
         <div className="text-center mb-10">
           <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-4"
             style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)' }}>
-            The 26-Session Journey
+            Full Curriculum · Two Formats
           </span>
           <h2 className="text-3xl font-extrabold text-white mb-3">Session by Session</h2>
-          <p className="text-slate-500 text-sm">Every session is live, hands-on, and builds directly on the one before it</p>
+          <p className="text-slate-500 text-sm">
+            Choose the <strong className="text-indigo-300">9-week weekend intensive</strong> (9 × 2-hour sessions) or the{' '}
+            <strong className="text-slate-300">26-week long track</strong> (26 × 1-hour) — same curriculum below, every session live and hands-on.
+          </p>
         </div>
 
         {/* Table */}
@@ -156,15 +159,15 @@ export function CourseSessionJourney({ category = 'default' }: { category?: stri
         {/* Key callouts */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-8">
           {(isQuantum ? [
-            { label: '13 Sessions', sub: 'Live, weekend only' },
-            { label: '60 min each', sub: 'No weekday disruption' },
+            { label: '9-Week Intensive', sub: '9 × 2-hour weekend sessions' },
+            { label: 'or Long Track',    sub: 'gentler weekly pace' },
             { label: '1 Project', sub: 'Built live, yours to keep' },
             { label: '1 Certificate', sub: 'On completion' },
           ] : [
-            { label: '26 Sessions', sub: 'Live, weekend only' },
-            { label: '60 min each', sub: 'No weekday disruption' },
+            { label: '9-Week Intensive', sub: '9 × 2-hour weekend sessions' },
+            { label: 'or 26-Week Long',  sub: '26 × 1-hour, gentler pace' },
             { label: '4 Projects', sub: 'Built live, yours to keep' },
-            { label: '2 Certificates', sub: 'Session 13 + completion' },
+            { label: '2 Certificates', sub: 'Interim + completion' },
           ]).map(({ label, sub }) => (
             <div key={label} className="text-center py-4 rounded-xl border"
               style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.06)' }}>

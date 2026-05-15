@@ -3,6 +3,9 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { redirect }            from 'next/navigation'
 import AssistantProfessorClient from './_components/AssistantProfessorClient'
 import AssistantProfessorUpgrade from './_components/AssistantProfessorUpgrade'
+import {
+  generateSchedule, nextSessionOf, daysUntil, variantLabel, type BatchLike,
+} from '@/lib/sessionSchedule'
 
 export default async function AssistantProfessorPage() {
   const supabase = await createClient()
@@ -11,7 +14,6 @@ export default async function AssistantProfessorPage() {
 
   const service = createServiceClient()
   const email   = user.email!
-  const today   = new Date().toISOString().split('T')[0]
 
   // ── Paywall: require at least one active paid enrolment ────────────────
   // Non-paying users see a tailored upgrade screen inside the student layout
@@ -49,7 +51,8 @@ export default async function AssistantProfessorPage() {
       .select(`
         id, course_name, is_active,
         course:course_id(id, name, total_sessions, slug),
-        batch:batch_id(label, day_of_week, start_time, meeting_link, session_batch_id)
+        batch:batch_id(id, label, day_of_week, start_time, start_date, end_date,
+                       duration_mins, meeting_link, variant, total_sessions)
       `)
       .eq('student_email', email)
       .eq('is_active', true)
@@ -66,50 +69,46 @@ export default async function AssistantProfessorPage() {
   const enrolmentCount = enrolments?.length ?? 0
   const firstEnrolment = enrolments?.[0] ?? null
   const activeCourse   = (firstEnrolment?.course as any) ?? null
-  const activeBatch    = (firstEnrolment?.batch  as any) ?? null
-  const batchId        = activeBatch?.session_batch_id ?? null
+  const activeBatch    = (firstEnrolment?.batch  as any) as BatchLike | null
+  const batchUuid      = activeBatch?.id ?? null
   const courseId       = activeCourse?.id ?? null
   const courseName     = activeCourse?.name ?? firstEnrolment?.course_name ?? 'AI Mastery Programme'
+  const variant        = activeBatch?.variant ?? null
 
-  // ── Upcoming session ───────────────────────────────────────────────────────
-  let nextSession: { title: string; date: string; time: string; link: string | null; daysAway: number } | null = null
-
-  if (batchId) {
-    const { data: upcoming } = await service
-      .from('session_master_table')
-      .select('session_title, session_date, session_start_time, session_link')
-      .eq('batch_id', batchId)
-      .gte('session_date', today)
-      .order('session_date')
-      .limit(1)
-      .maybeSingle()
-
-    if (upcoming) {
-      const sessionDate = new Date(upcoming.session_date)
-      const daysAway    = Math.ceil((sessionDate.getTime() - Date.now()) / 86400000)
-      nextSession = {
-        title:    upcoming.session_title ?? 'Next Session',
-        date:     sessionDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }),
-        time:     upcoming.session_start_time ? upcoming.session_start_time.slice(0, 5) + ' IST' : '11:00 AM IST',
-        link:     upcoming.session_link ?? null,
-        daysAway,
-      }
-    }
+  // ── Computed schedule — start_date + n×7, overlaid with awa_session_links
+  //    (recordings / materials) and course_curriculum (topics). New batches do
+  //    NOT use the legacy session_master_table. ───────────────────────────────
+  let links: any[] = []
+  let curriculum: any[] = []
+  if (batchUuid) {
+    const [{ data: l }, { data: c }] = await Promise.all([
+      service.from('awa_session_links')
+        .select('session_number, session_title, recording_link, study_material_link, meeting_link, notes')
+        .eq('batch_id', batchUuid),
+      service.from('course_curriculum')
+        .select('session_num, title, topics, description, project_hint')
+        .eq('course_id', courseId ?? '')
+        .eq('is_published', true)
+        .order('session_num'),
+    ])
+    links = l ?? []
+    curriculum = c ?? []
   }
+  const schedule      = generateSchedule(activeBatch, links, curriculum)
+  const nextSched     = nextSessionOf(schedule)
+  const sessionsPast  = schedule.filter(s => s.isPast).length
+  const totalSessions = activeBatch?.total_sessions ?? activeCourse?.total_sessions ?? 26
+  const progressPct   = totalSessions > 0 ? Math.round((sessionsPast / totalSessions) * 100) : 0
 
-  // ── Past session count ─────────────────────────────────────────────────────
-  let sessionsPast = 0
-  if (batchId) {
-    const { count } = await service
-      .from('session_master_table')
-      .select('*', { count: 'exact', head: true })
-      .eq('batch_id', batchId)
-      .lt('session_date', today)
-    sessionsPast = count ?? 0
-  }
-
-  const totalSessions  = activeCourse?.total_sessions ?? 26
-  const progressPct    = totalSessions > 0 ? Math.round((sessionsPast / totalSessions) * 100) : 0
+  // Map the next computed session into the shape the welcome + client expect.
+  const nextSession: { title: string; date: string; time: string; link: string | null; daysAway: number } | null =
+    nextSched ? {
+      title:    `Session ${nextSched.n}: ${nextSched.title}`,
+      date:     nextSched.dateLabel,
+      time:     nextSched.time,
+      link:     nextSched.meetingLink,
+      daysAway: daysUntil(nextSched.dateISO),
+    } : null
 
   // ── Days since last Assistant Professor visit ─────────────────────────────
   const { data: convHistory } = await service
@@ -163,11 +162,12 @@ export default async function AssistantProfessorPage() {
         ? `⏰ **Your next class is TOMORROW** — ${nextSession.date} at ${nextSession.time}.`
         : `Your next class is **${nextSession.title}** — ${nextSession.date} at ${nextSession.time} *(${nextSession.daysAway} days away).*`
 
-      return `${greeting}, **${firstName}!** 🎓\n\n${countdownLine}\n\nYou've completed **${sessionsPast} of ${totalSessions} sessions** (${progressPct}% of your journey).\n\nAsk me anything — your schedule, what's coming in the next session, a concept you want explained, or anything from past classes.`
+      const fmtLine = variant ? `You're on the **${variantLabel(variant)}**. ` : ''
+      return `${greeting}, **${firstName}!** 🎓\n\n${countdownLine}\n\n${fmtLine}You've completed **${sessionsPast} of ${totalSessions} sessions** (${progressPct}% of your journey).\n\nAsk me anything — your schedule, what's coming in the next session, a concept you want explained, or anything from past classes.`
     }
 
     // No batch / new student
-    return `${greeting}, **${firstName}!** 🌟\n\nWelcome to your **Assistant Professor (AI)** — your personal 24/7 AI professor for the **${courseName}** programme.\n\nI'm here to help you with your schedule, explain any concept from the curriculum, answer questions about your sessions and certificates, and guide you through your AI learning journey — in 100+ languages, whenever you need me.\n\n${!batchId ? '⚠️ **Tip:** Select a batch from your dashboard to see your session schedule here.\n\n' : ''}What would you like to explore first?`
+    return `${greeting}, **${firstName}!** 🌟\n\nWelcome to your **Assistant Professor (AI)** — your personal 24/7 AI professor for the **${courseName}** programme.\n\nI'm here to help you with your schedule, explain any concept from the curriculum, answer questions about your sessions and certificates, and guide you through your AI learning journey — in 100+ languages, whenever you need me.\n\n${!batchUuid ? '⚠️ **Tip:** Select a batch from your dashboard to see your session schedule here.\n\n' : ''}What would you like to explore first?`
   }
 
   const welcomeMessage = buildWelcome()
@@ -196,6 +196,8 @@ export default async function AssistantProfessorPage() {
     batchLabel:   activeBatch?.label ?? null,
     batchTime:    activeBatch?.start_time ?? null,
     meetingLink:  activeBatch?.meeting_link ?? null,
+    variant,
+    variantLabel: variant ? variantLabel(variant) : null,
   }
 
   return (

@@ -1,16 +1,23 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { GuestModal }        from './GuestModal'
-import { ChannelList }       from './ChannelList'
-import { ThreadList }        from './ThreadList'
-import { ThreadView }        from './ThreadView'
-import { LeaderboardPanel }  from './LeaderboardPanel'
-import Image                 from 'next/image'
+import { BookOpen } from 'lucide-react'
+import { GuestModal }           from './GuestModal'
+import { ChannelList }          from './ChannelList'
+import { ThreadList }           from './ThreadList'
+import { ThreadView }           from './ThreadView'
+import { TierBanner }           from './TierBanner'
+import { CommunitySidePanel }   from './CommunitySidePanel'
+import type { NextWebinar }     from './WebinarCard'
+import type { CohortRow }       from './CohortCard'
 
 interface Channel { id: string; slug: string; name: string; description: string; icon: string; sort_order?: number }
 interface Member  { id: string; tier: string; expires_at: string | null; display_name: string; points?: number; rank?: string; badges?: string[] }
 
-interface Props { channels: Channel[] }
+interface Props {
+  channels: Channel[]
+  webinar:  NextWebinar | null
+  cohorts:  CohortRow[]
+}
 
 const RANK_COLORS: Record<string, string> = {
   Explorer:        '#94a3b8',
@@ -24,7 +31,7 @@ const TIER_LABEL: Record<string, string> = {
   guest: 'Guest', webinar: 'Webinar', enrolled: 'Student', admin: 'Admin',
 }
 
-export function CommunityShell({ channels }: Props) {
+export function CommunityShell({ channels, webinar, cohorts }: Props) {
   const [member,        setMember]        = useState<Member | null>(null)
   const [showGuest,     setShowGuest]     = useState(false)
   const [activeChannel, setActiveChannel] = useState<Channel>(channels[0])
@@ -41,7 +48,6 @@ export function CommunityShell({ channels }: Props) {
           localStorage.removeItem('community_member'); setExpired(true); return
         }
         setMember(m)
-        // Refresh points/rank/badges from server (localStorage may be stale)
         fetch(`/api/community/me?member_id=${m.id}`)
           .then(r => r.json())
           .then(data => {
@@ -52,7 +58,7 @@ export function CommunityShell({ channels }: Props) {
               localStorage.setItem('community_member', JSON.stringify(fresh))
             }
           })
-          .catch(() => {}) // silently fail — stale data is fine
+          .catch(() => {})
       } catch { localStorage.removeItem('community_member') }
     }
   }, [])
@@ -60,63 +66,69 @@ export function CommunityShell({ channels }: Props) {
   const handleJoin = useCallback((m: Member) => {
     setMember(m); localStorage.setItem('community_member', JSON.stringify(m)); setShowGuest(false)
   }, [])
-
   const handleExpired = useCallback(() => {
     setMember(null); localStorage.removeItem('community_member'); setExpired(true)
   }, [])
-
   const handleLeave = useCallback(() => {
     setMember(null); localStorage.removeItem('community_member')
   }, [])
 
   const rankColor = RANK_COLORS[member?.rank ?? 'Explorer'] ?? '#94a3b8'
+  const tier      = member?.tier
 
   return (
     <div className="flex flex-col overflow-hidden"
       style={{ height: '100dvh', background: '#f6f7f9' }}>
-      {/* Top nav — oStaran dark theme */}
+
+      {/* ─────────────── Top nav ─────────────── */}
       <header className="shrink-0 border-b bg-white"
         style={{ borderBottomColor: '#e5e7eb' }}>
-        {/* Violet accent line */}
         <div className="h-0.5" style={{ background: 'linear-gradient(90deg,#7c3aed,#a78bfa,transparent)' }} />
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* oStaran logo */}
-            <a href="/" className="flex items-center gap-2.5">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <a href="/" className="flex items-center gap-2.5 shrink-0">
               <img src="/ostaran-logo.png" alt="oStaran" className="h-7 object-contain" />
             </a>
-            <span style={{ color: '#d1d5db' }} className="text-xl font-thin">|</span>
-            <span className="text-sm font-semibold" style={{ color: '#6b7280' }}>AI Community</span>
-            <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-bold"
+            <span style={{ color: '#d1d5db' }} className="text-xl font-thin hidden sm:inline">|</span>
+            <span className="text-sm font-semibold hidden sm:inline" style={{ color: '#6b7280' }}>AI Community</span>
+            <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1"
               style={{ background: '#d1fae5', color: '#065f46', border: '1px solid #6ee7b7' }}>
-              🟢 Live
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: '#10b981' }} />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: '#10b981' }} />
+              </span>
+              Live
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Library quick-link */}
+            <a href="/library"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:bg-gray-50"
+              style={{ color: '#059669' }}>
+              <BookOpen size={14} />
+              Library
+            </a>
             {member ? (
               <div className="flex items-center gap-2 min-w-0">
-                {/* Points pill — compact on mobile (just points), full "Rank · N pts" on sm+ */}
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
                   style={{ background: rankColor + '18', color: rankColor, border: `1px solid ${rankColor}33` }}>
                   <span className="hidden sm:inline">{member.rank ?? 'Explorer'} · </span>{member.points ?? 0} pts
                 </span>
-                {/* Tier badge */}
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap hidden sm:inline-block"
                   style={{ background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe' }}>
                   {TIER_LABEL[member.tier] ?? member.tier}
                 </span>
-                {/* Display name — hidden on xs to save header space */}
-                <span className="text-sm font-medium hidden sm:inline truncate max-w-[140px]" style={{ color: '#111827' }}>
+                <span className="text-sm font-medium hidden md:inline truncate max-w-[140px]" style={{ color: '#111827' }}>
                   {member.display_name}
                 </span>
-                <button onClick={handleLeave} className="text-xs transition-colors ml-1 shrink-0" style={{ color: '#9ca3af' }}>
+                <button onClick={handleLeave} className="text-xs transition-colors ml-1 shrink-0 hover:text-gray-600" style={{ color: '#9ca3af' }}>
                   Leave
                 </button>
               </div>
             ) : (
               <button onClick={() => setShowGuest(true)}
-                className="px-4 py-1.5 text-sm font-bold rounded-lg transition-all hover:opacity-90"
-                style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', color: '#fff' }}>
+                className="px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-all hover:opacity-90 hover:translate-y-[-1px]"
+                style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', color: '#fff', boxShadow: '0 4px 12px rgba(124,58,237,0.3)' }}>
                 Join Chat
               </button>
             )}
@@ -124,27 +136,37 @@ export function CommunityShell({ channels }: Props) {
         </div>
       </header>
 
-      {/* Expired banner */}
+      {/* ─────────────── Tier-aware action banner ─────────────── */}
+      <TierBanner tier={tier} displayName={member?.display_name} webinar={webinar} />
+
+      {/* ─────────────── Expired notice ─────────────── */}
       {expired && (
-        <div className="shrink-0 px-4 py-3 text-sm text-center"
+        <div className="shrink-0 px-4 py-2.5 text-xs text-center"
           style={{ background: '#fffbeb', borderBottom: '1px solid #fcd34d', color: '#92400e' }}>
           Your community access has expired.{' '}
-          <a href="https://www.ostaran.com/masterclass" className="font-bold underline hover:opacity-80">
+          <a href="/masterclass" className="font-bold underline hover:opacity-80">
             Register for the AI Masterclass
           </a>{' '}
           to continue participating.
         </div>
       )}
 
-      {/* Main layout ─ flex-1 takes remaining height after header + any
-          expired banner. No inline `height: calc(100dvh - 57px)` anymore;
-          body itself is 100dvh and flex-1 handles the rest. The previous
-          approach fought with `min-h-screen` (= 100vh > 100dvh on iOS)
-          and produced a container taller than the visible viewport,
-          pushing the bottom composer off-screen on mobile. */}
+      {/* ─────────────── Main layout: channels | threads/thread | side panel ─────────────── */}
       <div className="flex-1 max-w-7xl w-full mx-auto flex flex-col overflow-hidden min-h-0">
 
-        {/* Mobile-only channel strip ─ horizontal scrolling pills above main */}
+        {/* Mobile-only horizontal cards strip (webinar / cohort / library). Lives
+            above the channel pills so the most action-driving CTAs see the
+            highest first impression on small screens. Hidden on lg+ where the
+            right-rail side panel takes over. */}
+        <CommunitySidePanel
+          variant="mobile"
+          webinar={webinar}
+          cohorts={cohorts}
+          tier={tier}
+          member={null}
+        />
+
+        {/* Mobile channel pills (horizontal scroll) */}
         <nav className="sm:hidden flex overflow-x-auto shrink-0 bg-white border-b px-2 py-2 gap-1.5"
           style={{ borderColor: '#e5e7eb', scrollbarWidth: 'none' }}
           aria-label="Channels">
@@ -158,6 +180,7 @@ export function CommunityShell({ channels }: Props) {
                   background: 'linear-gradient(135deg,#7c3aed,#6d28d9)',
                   color: '#fff',
                   borderColor: '#7c3aed',
+                  boxShadow: '0 2px 6px rgba(124,58,237,0.25)',
                 } : {
                   background: '#fff',
                   color: '#6b7280',
@@ -170,17 +193,16 @@ export function CommunityShell({ channels }: Props) {
           })}
         </nav>
 
-        {/* Row: sidebar (sm+) | main | leaderboard (lg+) */}
         <div className="flex-1 flex overflow-hidden min-h-0">
           <ChannelList channels={channels} active={activeChannel}
             onSelect={ch => { setActiveChannel(ch); setActiveThread(null) }} />
 
-          {/* Centre */}
           <main className="flex-1 flex flex-col overflow-hidden min-w-0 sm:border-x"
             style={{ borderColor: '#e5e7eb' }}>
             {activeThread ? (
               <ThreadView
                 thread={activeThread}
+                channel={activeChannel}
                 member={member}
                 onBack={() => setActiveThread(null)}
                 onNeedJoin={() => setShowGuest(true)}
@@ -197,12 +219,18 @@ export function CommunityShell({ channels }: Props) {
             )}
           </main>
 
-          {/* Right: leaderboard + points */}
-          <LeaderboardPanel member={member ? {
-            points: member.points ?? 0,
-            rank:   member.rank ?? 'Explorer',
-            badges: member.badges ?? [],
-          } : null} />
+          {/* Right rail — desktop only */}
+          <CommunitySidePanel
+            variant="desktop"
+            webinar={webinar}
+            cohorts={cohorts}
+            tier={tier}
+            member={member ? {
+              points: member.points ?? 0,
+              rank:   member.rank ?? 'Explorer',
+              badges: member.badges ?? [],
+            } : null}
+          />
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ArrowLeft, Send, Loader2, ThumbsUp, Award, MessageSquare, ArrowDown } from 'lucide-react'
+import { ArrowLeft, Send, Loader2, ThumbsUp, Award, MessageSquare, ArrowDown, ChevronRight } from 'lucide-react'
 import { createClient } from '@supabase/supabase-js'
 import { renderContent } from './renderContent'
 
@@ -43,13 +43,14 @@ interface Origin {
 interface Member { id: string; tier: string; display_name: string }
 interface Props {
   thread:     { id: string; title: string; created_by?: string; is_question?: boolean }
+  channel:    { id: string; slug: string; name: string; icon: string }
   member:     Member | null
   onBack:     () => void
   onNeedJoin: () => void
   onExpired:  () => void
 }
 
-export function ThreadView({ thread, member, onBack, onNeedJoin, onExpired }: Props) {
+export function ThreadView({ thread, channel, member, onBack, onNeedJoin, onExpired }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [origin,   setOrigin]   = useState<Origin | null>(null)
   const [loading,  setLoading]  = useState(true)
@@ -182,15 +183,38 @@ export function ThreadView({ thread, member, onBack, onNeedJoin, onExpired }: Pr
 
   return (
     <div className="flex flex-col h-full bg-white relative">
-      {/* Header — compact nav bar. Title, body, and share actions live in
-          the OpeningPost card below. Mobile users get the full share bar
-          inline with the opening post content instead of a cramped header. */}
-      <div className="px-4 py-3 border-b flex items-center gap-3 shrink-0 bg-white" style={{ borderColor: '#e5e7eb' }}>
-        <button onClick={onBack} className="p-1.5 rounded-lg transition-colors hover:bg-gray-100 shrink-0" style={{ color: '#6b7280' }}>
-          <ArrowLeft size={16} />
-        </button>
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] truncate" style={{ color: '#a78bfa' }}>@AskAri is active · Tag @AskAri for instant AI reply</p>
+      {/* Sticky breadcrumb header — clear back-out path. The icon-only arrow
+          before was too easy to miss; this row makes the way home obvious and
+          gives mobile users a thumb target for "back to channel". */}
+      <div className="sticky top-0 z-10 shrink-0 border-b backdrop-blur-md"
+        style={{ background: 'rgba(255,255,255,0.92)', borderColor: '#e5e7eb' }}>
+        <div className="px-3 sm:px-4 py-2 flex items-center gap-1.5 text-xs min-w-0">
+          {/* Back chip — text + icon for unmistakable affordance */}
+          <button onClick={onBack}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg font-semibold transition-all hover:bg-gray-100 shrink-0"
+            style={{ color: '#7c3aed' }}>
+            <ArrowLeft size={13} />
+            <span className="hidden sm:inline">Back to channel</span>
+            <span className="sm:hidden">Back</span>
+          </button>
+          <ChevronRight size={12} className="shrink-0" style={{ color: '#d1d5db' }} />
+          {/* Channel — also clickable, returns to threadlist via same onBack */}
+          <button onClick={onBack}
+            className="flex items-center gap-1 px-1.5 py-1 rounded-lg font-medium transition-colors hover:bg-gray-100 shrink-0 max-w-[40vw] sm:max-w-none truncate"
+            style={{ color: '#6b7280' }}
+            title={`#${channel.slug}`}>
+            <span>{channel.icon}</span>
+            <span className="truncate">#{channel.slug}</span>
+          </button>
+          <ChevronRight size={12} className="shrink-0 hidden sm:inline" style={{ color: '#d1d5db' }} />
+          {/* Current thread title (truncated) */}
+          <span className="hidden sm:inline truncate font-medium" style={{ color: '#111827' }}>
+            {thread.title}
+          </span>
+          {/* Ask-Ari hint pushed to the right when space allows */}
+          <span className="ml-auto hidden lg:inline text-[10px] shrink-0" style={{ color: '#a78bfa' }}>
+            Tag @AskAri for instant AI reply
+          </span>
         </div>
       </div>
 

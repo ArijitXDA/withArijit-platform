@@ -32,9 +32,9 @@ export function LeaderboardPanel({ member }: Props) {
     ? Math.min(100, (((member?.points ?? 0) - currentRank.min) / (nextRank.min - currentRank.min)) * 100)
     : 100
 
+  // Wrapped by CommunitySidePanel — this component renders just the content stack.
   return (
-    <aside className="hidden lg:flex w-64 flex-col overflow-y-auto py-5 px-4 gap-5 shrink-0 border-l"
-      style={{ background: '#ffffff', borderColor: '#e5e7eb' }}>
+    <div className="flex flex-col gap-5">
 
       {/* My rank card */}
       {member && (
@@ -122,12 +122,6 @@ export function LeaderboardPanel({ member }: Props) {
         </div>
       </div>
 
-      {/* CTA */}
-      <a href="https://www.ostaran.com/masterclass"
-        className="block w-full text-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all hover:opacity-90"
-        style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', color: '#fff' }}>
-        Get AI Certified →
-      </a>
-    </aside>
+    </div>
   )
 }

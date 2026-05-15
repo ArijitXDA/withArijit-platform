@@ -1,0 +1,22 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- ANAANT UPGRADE — Phase 2: heuristic prediction/scoring views
+-- ════════════════════════════════════════════════════════════════════════════
+-- Applied via Supabase MCP `apply_migration` on 2026-05-15
+-- (version: anaant_upgrade_phase2_prediction_scoring_views).
+--
+-- Four read-only views the Anaant agent (and Ask-Ana, next pass) can query
+-- to surface "what to act on now". All scores 0-100; each row also carries a
+-- `top_driver` string explaining why — so agents can show their work.
+--
+-- These are SQL HEURISTICS, not trained ML — explainable, auditable, fast.
+-- Real ML scoring comes later when there's more enrolment volume.
+--
+--   v_anaant_lead_conversion_scores   — webinar regs not yet enrolled
+--   v_anaant_student_churn_risk       — active paid students, drop-off risk
+--   v_anaant_partner_activation_risk  — partners, inactivity risk
+--   v_anaant_cohort_fill_forecast     — every active batch, fill % + status
+--
+-- Full canonical SQL stored in supabase_migrations.schema_migrations.statements.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- (Canonical SQL stored in supabase_migrations.schema_migrations.statements)

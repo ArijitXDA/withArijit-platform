@@ -48,6 +48,24 @@ const nextConfig: NextConfig = {
       },
     ]
   },
+  async rewrites() {
+    // ── Recruiter module proxy — 2026-05-22 ─────────────────────────────────
+    // The recruiter product lives in the partner.ostaran.com codebase
+    // (with-arijit-mar26): pages, APIs, DB access, recruiter auth. We surface
+    // it under www.ostaran.com/recruit via a server-side rewrite so the public
+    // URL stays clean. ONLY the recruiter-scoped paths are proxied — the
+    // student platform's own /auth/callback and /api/* are untouched.
+    //
+    // Recruiter auth is self-contained: /recruit/auth/callback verifies the
+    // OTP and /api/recruit/send-otp sends it, both under the proxied prefixes.
+    // Both apps share the same Supabase project, so the session cookie set on
+    // www.ostaran.com is forwarded to partner on each proxied request.
+    return [
+      { source: '/recruit',          destination: 'https://partner.ostaran.com/recruit' },
+      { source: '/recruit/:path*',    destination: 'https://partner.ostaran.com/recruit/:path*' },
+      { source: '/api/recruit/:path*', destination: 'https://partner.ostaran.com/api/recruit/:path*' },
+    ]
+  },
 };
 
 export default nextConfig;

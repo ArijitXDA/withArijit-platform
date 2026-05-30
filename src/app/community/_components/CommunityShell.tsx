@@ -37,6 +37,7 @@ export function CommunityShell({ channels, webinar, cohorts }: Props) {
   const [activeChannel, setActiveChannel] = useState<Channel>(channels[0])
   const [activeThread,  setActiveThread]  = useState<{ id: string; title: string; created_by?: string; is_question?: boolean } | null>(null)
   const [expired,       setExpired]       = useState(false)
+  const [focusMsgId,    setFocusMsgId]    = useState<string | null>(null)
 
   // Restore session from localStorage, then refresh points from server
   useEffect(() => {
@@ -62,6 +63,29 @@ export function CommunityShell({ channels, webinar, cohorts }: Props) {
       } catch { localStorage.removeItem('community_member') }
     }
   }, [])
+
+  // Deep-link: ?thread=<id> opens that thread directly (optionally ?msg=<id>
+  // focuses a specific reply). Without this, LinkedIn/FB share links landed on
+  // the default channel's thread list instead of the shared post.
+  useEffect(() => {
+    const params   = new URLSearchParams(window.location.search)
+    const threadId = params.get('thread')
+    const msgId    = params.get('msg')
+    if (!threadId) return
+    let cancelled = false
+    fetch(`/api/community/thread?id=${encodeURIComponent(threadId)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled || !data?.thread) return
+        const t  = data.thread
+        const ch = channels.find(c => c.id === t.channel_id)
+        if (ch) setActiveChannel(ch)
+        setActiveThread({ id: t.id, title: t.title, created_by: t.created_by, is_question: t.is_question })
+        if (msgId) setFocusMsgId(msgId)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [channels])
 
   const handleJoin = useCallback((m: Member) => {
     setMember(m); localStorage.setItem('community_member', JSON.stringify(m)); setShowGuest(false)
@@ -137,7 +161,11 @@ export function CommunityShell({ channels, webinar, cohorts }: Props) {
       </header>
 
       {/* ─────────────── Tier-aware action banner ─────────────── */}
-      <TierBanner tier={tier} displayName={member?.display_name} webinar={webinar} />
+      {/* Hidden on mobile while a thread is open so the conversation + composer
+          get the full screen (the banner returns on the thread-list view). */}
+      <div className={activeThread ? 'hidden sm:block' : 'block'}>
+        <TierBanner tier={tier} displayName={member?.display_name} webinar={webinar} />
+      </div>
 
       {/* ─────────────── Expired notice ─────────────── */}
       {expired && (
@@ -154,10 +182,11 @@ export function CommunityShell({ channels, webinar, cohorts }: Props) {
       {/* ─────────────── Main layout: channels | threads/thread | side panel ─────────────── */}
       <div className="flex-1 max-w-7xl w-full mx-auto flex flex-col overflow-hidden min-h-0">
 
-        {/* Mobile-only horizontal cards strip (webinar / cohort / library). Lives
-            above the channel pills so the most action-driving CTAs see the
-            highest first impression on small screens. Hidden on lg+ where the
-            right-rail side panel takes over. */}
+        {/* Mobile chrome (cards strip + channel pills) shows only on the
+            thread-LIST view. Once a thread is open it collapses so the
+            conversation + composer get the full mobile screen. */}
+        {!activeThread && (<>
+        {/* Mobile-only horizontal cards strip (webinar / cohort / library). */}
         <CommunitySidePanel
           variant="mobile"
           webinar={webinar}
@@ -174,7 +203,7 @@ export function CommunityShell({ channels, webinar, cohorts }: Props) {
             const isActive = activeChannel.id === ch.id
             return (
               <button key={ch.id}
-                onClick={() => { setActiveChannel(ch); setActiveThread(null) }}
+                onClick={() => { setActiveChannel(ch); setActiveThread(null); setFocusMsgId(null) }}
                 className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex items-center gap-1 transition-all border"
                 style={isActive ? {
                   background: 'linear-gradient(135deg,#7c3aed,#6d28d9)',
@@ -192,10 +221,11 @@ export function CommunityShell({ channels, webinar, cohorts }: Props) {
             )
           })}
         </nav>
+        </>)}
 
         <div className="flex-1 flex overflow-hidden min-h-0">
           <ChannelList channels={channels} active={activeChannel}
-            onSelect={ch => { setActiveChannel(ch); setActiveThread(null) }} />
+            onSelect={ch => { setActiveChannel(ch); setActiveThread(null); setFocusMsgId(null) }} />
 
           <main className="flex-1 flex flex-col overflow-hidden min-w-0 sm:border-x"
             style={{ borderColor: '#e5e7eb' }}>
@@ -204,7 +234,8 @@ export function CommunityShell({ channels, webinar, cohorts }: Props) {
                 thread={activeThread}
                 channel={activeChannel}
                 member={member}
-                onBack={() => setActiveThread(null)}
+                focusMessageId={focusMsgId}
+                onBack={() => { setActiveThread(null); setFocusMsgId(null) }}
                 onNeedJoin={() => setShowGuest(true)}
                 onExpired={handleExpired}
               />

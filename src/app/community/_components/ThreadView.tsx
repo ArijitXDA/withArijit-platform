@@ -45,12 +45,13 @@ interface Props {
   thread:     { id: string; title: string; created_by?: string; is_question?: boolean }
   channel:    { id: string; slug: string; name: string; icon: string }
   member:     Member | null
+  focusMessageId?: string | null
   onBack:     () => void
   onNeedJoin: () => void
   onExpired:  () => void
 }
 
-export function ThreadView({ thread, channel, member, onBack, onNeedJoin, onExpired }: Props) {
+export function ThreadView({ thread, channel, member, focusMessageId, onBack, onNeedJoin, onExpired }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [origin,   setOrigin]   = useState<Origin | null>(null)
   const [loading,  setLoading]  = useState(true)
@@ -62,6 +63,8 @@ export function ThreadView({ thread, channel, member, onBack, onNeedJoin, onExpi
   const bottomRef    = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const prevCountRef = useRef(0)
+  const focusRef     = useRef<HTMLDivElement>(null)
+  const [highlightId, setHighlightId] = useState<string | null>(null)
 
   // Smooth-scroll to the latest message. 'instant' for initial load to
   // avoid a visible jump; 'smooth' for live updates.
@@ -96,6 +99,19 @@ export function ThreadView({ thread, channel, member, onBack, onNeedJoin, onExpi
   }, [thread.id, member, scrollToBottom])
 
   useEffect(() => { loadMessages() }, [loadMessages])
+
+  // Deep-link focus: once messages load, scroll to + briefly highlight the
+  // message named in ?msg=<id> (the specific post/reply that was shared).
+  useEffect(() => {
+    if (loading || !focusMessageId) return
+    if (!messages.some(m => m.id === focusMessageId)) return
+    const t = setTimeout(() => {
+      focusRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setHighlightId(focusMessageId)
+      setTimeout(() => setHighlightId(null), 2600)
+    }, 150)
+    return () => clearTimeout(t)
+  }, [loading, focusMessageId, messages])
 
   // On new messages: if user is at bottom, auto-scroll. If they're reading
   // older messages (scrolled up), increment the unread counter so they see
@@ -239,11 +255,18 @@ export function ThreadView({ thread, channel, member, onBack, onNeedJoin, onExpi
             </div>
           ) : (
             messages.map(msg => (
-              <MessageBubble key={msg.id} msg={msg}
-                isOwn={msg.member?.id === member?.id}
-                isThreadOwner={isThreadOwner}
-                onUpvote={handleUpvote}
-                onBestAnswer={handleBestAnswer} />
+              <div key={msg.id} id={`msg-${msg.id}`}
+                ref={focusMessageId === msg.id ? focusRef : undefined}
+                className="rounded-xl transition-all duration-500"
+                style={highlightId === msg.id
+                  ? { boxShadow: '0 0 0 2px #a78bfa', background: '#faf5ff' }
+                  : undefined}>
+                <MessageBubble msg={msg}
+                  isOwn={msg.member?.id === member?.id}
+                  isThreadOwner={isThreadOwner}
+                  onUpvote={handleUpvote}
+                  onBestAnswer={handleBestAnswer} />
+              </div>
             ))
           )}
         </div>

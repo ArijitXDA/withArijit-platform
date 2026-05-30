@@ -150,12 +150,19 @@ export function Navbar() {
           </div>
 
           {/* Desktop CTAs */}
-          <div className="hidden lg:flex items-center gap-3 shrink-0">
-            <Link href="/signin" className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-50 transition-colors">
+          <div className="hidden lg:flex items-center gap-2.5 shrink-0">
+            <Link href="/signin" className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-50 transition-colors">
               Sign In
             </Link>
+            {/* Become AI Partner — prominent gold CTA → partner programme */}
+            <a href="https://partner.ostaran.com"
+              title="Join the largest AI Partnership network"
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all hover:opacity-90 hover:shadow-lg whitespace-nowrap"
+              style={{ background: 'linear-gradient(135deg, #C49A10, #F0BE3C)', color: '#0E1632' }}>
+              <Briefcase size={15} /> Become AI Partner
+            </a>
             <Link href="/masterclass"
-              className="px-4 py-2 text-sm font-semibold text-white rounded-xl transition-all hover:opacity-90 hover:shadow-lg"
+              className="px-4 py-2 text-sm font-semibold text-white rounded-xl transition-all hover:opacity-90 hover:shadow-lg whitespace-nowrap"
               style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
               Get Certified This Sunday
             </Link>
@@ -241,6 +248,13 @@ export function Navbar() {
           <Link href="/contact" className="block py-3 text-base font-semibold text-gray-900 border-b border-gray-100">Contact</Link>
 
           <div className="pt-6 space-y-3">
+            {/* Become AI Partner — prominent gold CTA */}
+            <a href="https://partner.ostaran.com"
+              className="flex items-center justify-center gap-2 text-center py-3.5 text-sm font-bold rounded-xl"
+              style={{ background: 'linear-gradient(135deg, #C49A10, #F0BE3C)', color: '#0E1632' }}>
+              <Briefcase size={16} /> Become AI Partner
+            </a>
+            <p className="text-center text-xs text-gray-500 -mt-1">Join the largest AI Partnership network</p>
             <Link href="/masterclass"
               className="block text-center py-3.5 text-sm font-bold text-white rounded-xl"
               style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>

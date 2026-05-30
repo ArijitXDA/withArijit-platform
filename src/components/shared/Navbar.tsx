@@ -18,9 +18,12 @@ const COURSES_BY_AUDIENCE = [
 ]
 
 const RESOURCES_LINKS = [
-  { href: '/library',           label: 'AI Resource Library', desc: '300+ guides, templates and tools'  },
-  { href: '/ai-readiness-quiz', label: 'AI Readiness Quiz',   desc: 'Find your AI skill level in 5 min' },
-  { href: '/find-ai-job',       label: 'Find AI Jobs',        desc: 'Curated AI career opportunities'    },
+  { href: '/library',                  label: 'AI Resource Library',               desc: '300+ guides, templates and tools'     },
+  { href: '/ai-readiness-quiz',        label: 'AI Readiness Quiz',                 desc: 'Find your AI skill level in 5 min'    },
+  { href: '/find-ai-job',              label: 'Find AI Jobs',                      desc: 'Curated AI career opportunities'       },
+  { href: '/community',                label: 'AI Community',                      desc: 'Events, peers and updates'             },
+  { href: '/certificate-verification', label: 'Download Your Webinar Certificate', desc: 'Find & download yours by email / mobile' },
+  { href: '/certificate-verification', label: 'Verify Your Certificate',           desc: "Check any certificate's authenticity"  },
 ]
 
 const CORPORATE_LINKS = [
@@ -110,10 +113,10 @@ export function Navbar() {
                 Resources <ChevronDown size={14} className={`transition-transform ${dropdown === 'resources' ? 'rotate-180' : ''}`} />
               </button>
               {dropdown === 'resources' && (
-                <div className="absolute top-full left-0 mt-1 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50"
+                <div className="absolute top-full left-0 mt-1 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50"
                   onMouseEnter={() => openDropdown('resources')} onMouseLeave={scheduleClose}>
                   {RESOURCES_LINKS.map(({ href, label, desc }) => (
-                    <Link key={href} href={href} className="block px-4 py-2.5 hover:bg-indigo-50 transition-colors group">
+                    <Link key={label} href={href} className="block px-4 py-2.5 hover:bg-indigo-50 transition-colors group">
                       <p className="text-sm font-medium text-gray-800 group-hover:text-indigo-700">{label}</p>
                       <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
                     </Link>
@@ -223,7 +226,7 @@ export function Navbar() {
           {mobileExpanded === 'resources' && (
             <div className="pl-3 py-2 space-y-1">
               {RESOURCES_LINKS.map(({ href, label }) => (
-                <Link key={href} href={href} className="block py-2.5 text-sm text-gray-700 hover:text-indigo-600 transition-colors">{label}</Link>
+                <Link key={label} href={href} className="block py-2.5 text-sm text-gray-700 hover:text-indigo-600 transition-colors">{label}</Link>
               ))}
             </div>
           )}

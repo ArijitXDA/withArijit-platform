@@ -92,7 +92,7 @@ export default function CertificateVerificationPage() {
             <circle cx="24" cy="23" r="2" fill="white" opacity="0.9"/>
           </svg>
           <span style={{ color: '#f5f1e8', fontWeight: 700, fontSize: 15 }}>oStaran</span>
-          <span style={{ color: '#9cb89c', fontSize: 12, marginLeft: 4 }}>Certificate Verification</span>
+          <span style={{ color: '#9cb89c', fontSize: 12, marginLeft: 4 }}>Get / Verify Certificate</span>
         </div>
         <a href="https://www.ostaran.com" style={{ color: '#9cb89c', fontSize: 12, textDecoration: 'none' }}>
           ostaran.com
@@ -106,11 +106,11 @@ export default function CertificateVerificationPage() {
           color: '#f5f1e8', fontSize: 26, fontWeight: 700,
           fontFamily: 'Georgia, serif', marginBottom: 8,
         }}>
-          Verify Certificate
+          Get / Verify Your Certificate
         </h1>
         <p style={{ color: '#9cb89c', fontSize: 14, lineHeight: 1.6, marginBottom: 32 }}>
-          Enter the student's email address or mobile number to verify the authenticity
-          of their oStaran webinar participation certificate.
+          Enter your email or mobile number to find and download your oStaran webinar
+          participation certificate — or to verify the authenticity of someone else's.
         </p>
 
         {/* Form */}

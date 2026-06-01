@@ -9,9 +9,31 @@
 // touched. Data (price, cohort times) is read live so admin edits flow through.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import { createServiceClient } from '@/lib/supabase/service'
 import { PaymentModalTrigger } from '@/components/shared/PaymentModalTrigger'
+
+// PaymentModalTrigger uses useSearchParams(); on this fully-static page it must
+// sit inside a Suspense boundary. Small helper keeps the two CTAs tidy.
+function EnrolCTA(props: { courseId: string; courseName: string; price: number; label: string; className: string }) {
+  return (
+    <Suspense fallback={
+      <span className="inline-flex items-center justify-center rounded-2xl bg-white/10 text-white/70 font-bold opacity-70 px-8 py-4 text-base">
+        {props.label}
+      </span>
+    }>
+      <PaymentModalTrigger
+        courseId={props.courseId}
+        courseName={props.courseName}
+        price={props.price}
+        membership
+        label={props.label}
+        className={props.className}
+      />
+    </Suspense>
+  )
+}
 
 export const revalidate = 600
 const SLUG = 'quantum-ai-continued'
@@ -113,11 +135,10 @@ export default async function QuantumAIContinuedPage() {
           </div>
 
           <div className="flex flex-col items-center gap-3">
-            <PaymentModalTrigger
+            <EnrolCTA
               courseId={course.id}
               courseName={course.name}
               price={price}
-              membership
               label={`Join the membership — ${priceStr}/mo →`}
               className="px-8 py-4 text-base font-bold shadow-2xl shadow-fuchsia-500/20"
             />
@@ -213,11 +234,10 @@ export default async function QuantumAIContinuedPage() {
                 </li>
               ))}
             </ul>
-            <PaymentModalTrigger
+            <EnrolCTA
               courseId={course.id}
               courseName={course.name}
               price={price}
-              membership
               label={`Join now — ${priceStr}/mo →`}
               className="w-full px-6 py-4 text-base font-bold"
             />

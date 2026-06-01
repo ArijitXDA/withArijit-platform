@@ -23,6 +23,7 @@ function getCourseTheme(name: string, slug: string) {
   const n = name.toLowerCase()
   const s = slug.toLowerCase()
 
+  if (s.includes('continued'))     return { Icon: Atom,           accent: '#a855f7', bg: '#faf5ff', badge: 'Membership',         audience: 'Everyone — all levels'       }
   if (s.includes('quantum'))       return { Icon: Atom,           accent: '#7c3aed', bg: '#f5f3ff', badge: 'Advanced',          audience: 'Engineers & Researchers'     }
   if (s.includes('agentic'))       return { Icon: Code2,          accent: '#0f172a', bg: '#f8fafc', badge: 'Technical',          audience: 'Tech Developers'             }
   if (n.includes('leader') || n.includes('executive') || n.includes('cxo'))
@@ -46,6 +47,7 @@ function formatPrice(price: number) {
 export function CourseCard({ course }: CourseCardProps) {
   const theme = getCourseTheme(course.name, course.slug)
   const { Icon, accent, bg, badge, audience } = theme
+  const isMembership = course.slug.includes('continued')   // monthly rolling membership
   const sessions = course.total_sessions ?? 26
   const duration = course.session_duration_mins ?? 60
 
@@ -87,7 +89,7 @@ export function CourseCard({ course }: CourseCardProps) {
         {/* ── Session info pills ─────────────────────────────────── */}
         <div className="flex items-center gap-2 flex-wrap mb-4 mt-auto">
           <span className="flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
-            <Layers size={11} className="text-gray-400" /> {sessions} Live Sessions
+            <Layers size={11} className="text-gray-400" /> {isMembership ? 'Weekly · ongoing' : `${sessions} Live Sessions`}
           </span>
           <span className="flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
             <Clock size={11} className="text-gray-400" /> {duration} min each
@@ -100,9 +102,9 @@ export function CourseCard({ course }: CourseCardProps) {
         {/* ── Footer: Price + CTA ────────────────────────────────── */}
         <div className="flex items-center justify-between pt-3 border-t border-gray-100">
           <div>
-            <p className="text-xs text-gray-400 leading-none mb-0.5">Starting from</p>
+            <p className="text-xs text-gray-400 leading-none mb-0.5">{isMembership ? 'Monthly membership' : 'Starting from'}</p>
             <p className="text-xl font-extrabold" style={{ color: accent }}>
-              {course.mrp ? formatPrice(course.mrp) : 'Free'}
+              {course.mrp ? formatPrice(course.mrp) : 'Free'}{isMembership && <span className="text-xs font-medium text-gray-400">/mo</span>}
             </p>
           </div>
           <div className="flex items-center gap-1 text-sm font-semibold transition-all duration-200 group-hover:gap-2"

@@ -44,7 +44,7 @@ export default async function CoursesPage() {
     .from('student_enrolments')
     .select(`
       id, created_at, enrolment_type, amount_paid, is_active,
-      payment_date, enrolment_seq,
+      payment_date, enrolment_seq, access_end_date, enrolment_status,
       course:course_id(id, name, short_name, description, total_sessions, session_duration_mins, slug, subjects),
       batch:batch_id(id, label, day_of_week, start_time, start_date, end_date, meeting_link, instructor_name, duration_mins, variant, total_sessions)
     `)
@@ -103,6 +103,19 @@ export default async function CoursesPage() {
     return { ...e, sessions }
   })
 
+  // Monthly memberships create one enrolment row per paid month. Collapse a
+  // rolling course down to its single latest row (enrolments are ordered
+  // created_at DESC) so the dashboard shows one membership card, not one per month.
+  const seenRollingCourse = new Set<string>()
+  const dedupedEnrolments = enrolments.filter((e: any) => {
+    if (e.batch?.variant !== 'rolling') return true
+    const cid = e.course?.id
+    if (!cid) return true
+    if (seenRollingCourse.has(cid)) return false
+    seenRollingCourse.add(cid)
+    return true
+  })
+
   // Legacy fallback
   const { data: legacyUser } = await service
     .from('users')
@@ -125,7 +138,7 @@ export default async function CoursesPage() {
 
   return (
     <CoursesClient
-      enrolments={enrolments as any}
+      enrolments={dedupedEnrolments as any}
       legacyUser={legacyUser as any}
       unenrolledCourses={unenrolledCourses as any}
     />

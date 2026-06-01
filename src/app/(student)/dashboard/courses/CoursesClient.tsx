@@ -52,6 +52,7 @@ interface Enrolment {
   id: string; created_at: string; enrolment_type: string
   amount_paid: string; is_active: boolean; payment_date: string | null
   enrolment_seq: number; course: Course | null; batch: Batch | null
+  access_end_date?: string | null; enrolment_status?: string | null
   sessions: Session[]
 }
 
@@ -261,6 +262,14 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
   const upcomingCount  = sessions.filter(s => s.session_date >= today).length
   const pastCount      = sessions.filter(s => s.session_date < today).length
 
+  // Monthly membership (rolling cohort): status is derived from the 30-day access
+  // window. Active while access_end_date >= today; otherwise paused → renew.
+  const isMembership     = batch?.variant === 'rolling'
+  const accessEnd        = enrolment.access_end_date ?? null
+  const membershipActive = isMembership && !!accessEnd && accessEnd >= today
+  const fmtShortDate = (d: string | null) =>
+    d ? new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+
   // Detect if there's a session happening today (for the pulsing CTA)
   const hasClassToday  = sessions.some(s => s.session_date === today)
   const meetingLink    = batch?.meeting_link ?? null
@@ -273,9 +282,11 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <span className="text-xs font-bold uppercase tracking-wide" style={{ color: T.blue }}>
-              {enrolment.enrolment_type === 'full_course' ? 'Full Course' : 'Monthly Plan'}
+              {isMembership ? 'Monthly Membership' : enrolment.enrolment_type === 'full_course' ? 'Full Course' : 'Monthly Plan'}
               {enrolment.enrolment_seq > 1 && (
-                <span className="ml-2" style={{ color: T.amber }}>· Enrolment #{enrolment.enrolment_seq}</span>
+                <span className="ml-2" style={{ color: T.amber }}>
+                  · {isMembership ? `Month ${enrolment.enrolment_seq}` : `Enrolment #${enrolment.enrolment_seq}`}
+                </span>
               )}
             </span>
             <h2 className="font-extrabold text-lg mt-1" style={{ color: T.navy }}>
@@ -285,14 +296,38 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
               <p className="text-sm mt-1 line-clamp-2" style={{ color: T.textSec }}>{course.description}</p>
             )}
           </div>
-          <span className="shrink-0 text-xs px-2.5 py-1 rounded-full font-semibold"
-            style={enrolment.is_active
-              ? { background: T.greenBg, color: T.green, border: `1px solid ${T.greenBorder}` }
-              : { background: '#f1f5f9', color: T.textMuted, border: '1px solid #e2e8f0' }}>
-            {enrolment.is_active ? 'Active' : 'Inactive'}
-          </span>
+          {isMembership ? (
+            <span className="shrink-0 text-xs px-2.5 py-1 rounded-full font-semibold"
+              style={membershipActive
+                ? { background: T.greenBg, color: T.green, border: `1px solid ${T.greenBorder}` }
+                : { background: '#fff7ed', color: T.amber, border: '1px solid #fed7aa' }}>
+              {membershipActive ? `Active till ${fmtShortDate(accessEnd)}` : 'Paused'}
+            </span>
+          ) : (
+            <span className="shrink-0 text-xs px-2.5 py-1 rounded-full font-semibold"
+              style={enrolment.is_active
+                ? { background: T.greenBg, color: T.green, border: `1px solid ${T.greenBorder}` }
+                : { background: '#f1f5f9', color: T.textMuted, border: '1px solid #e2e8f0' }}>
+              {enrolment.is_active ? 'Active' : 'Inactive'}
+            </span>
+          )}
         </div>
       </div>
+
+      {/* Membership renew/manage bar */}
+      {isMembership && (
+        <div className="px-5 py-2.5 flex items-center justify-between gap-3 border-b text-xs"
+          style={{ borderColor: T.borderLight, background: membershipActive ? '#f0fdf4' : '#fff7ed' }}>
+          <span style={{ color: membershipActive ? T.green : T.amber }}>
+            {membershipActive
+              ? `Membership active — renews monthly. Active through ${fmtShortDate(accessEnd)}.`
+              : 'Membership paused. Renew to resume the weekly live sessions & recordings.'}
+          </span>
+          <a href="/courses/quantum-ai-continued" className="font-bold shrink-0" style={{ color: T.blue }}>
+            {membershipActive ? 'Manage →' : 'Renew →'}
+          </a>
+        </div>
+      )}
 
       {/* Details grid */}
       <div className="px-5 py-4 grid grid-cols-2 md:grid-cols-4 gap-4"

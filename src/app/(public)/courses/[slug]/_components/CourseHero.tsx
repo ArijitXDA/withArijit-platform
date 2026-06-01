@@ -7,7 +7,20 @@ const AUDIENCE_TAG: Record<string, { label: string; color: string; emoji: string
   college:              { label: 'College & Job Seekers',   color: '#059669', emoji: '🎓' },
   tech:                 { label: 'Tech Developers',         color: '#7c3aed', emoji: '💻' },
   cxo:                  { label: 'Business Leaders',        color: '#d97706', emoji: '🏆' },
+  entrepreneurs:        { label: 'Entrepreneurs & Owners',  color: '#db2777', emoji: '🚀' },
+  homemakers:           { label: 'Homemakers & Returners',  color: '#0d9488', emoji: '🏡' },
+  quantum:              { label: 'Engineers & Researchers', color: '#a855f7', emoji: '🔬' },
   general:              { label: 'All Learners',            color: '#4f46e5', emoji: '🌟' },
+}
+
+// Some courses share an audience_category in the DB (entrepreneurs & homemakers
+// are both stored as 'default', which drives curriculum/FAQ content) but still
+// need their own audience badge here. Resolve the badge by slug first — this is
+// presentation-only and does not touch the curriculum/FAQ/testimonial logic.
+const SLUG_AUDIENCE: Record<string, string> = {
+  'ai-mastery-for-entrepreneurs': 'entrepreneurs',
+  'ai-mastery-for-homemakers':    'homemakers',
+  'quantum-computing-and-ai':     'quantum',
 }
 
 export function CourseHero({
@@ -16,7 +29,8 @@ export function CourseHero({
   course: any; mrp: number; gstAmount: number; netBeforeGst: number
   discountPct: number; partner?: string; enrolProps: any
 }) {
-  const tag     = AUDIENCE_TAG[course.audience_category ?? 'general'] ?? AUDIENCE_TAG.general
+  const tagKey  = SLUG_AUDIENCE[course.slug] ?? course.audience_category ?? 'general'
+  const tag     = AUDIENCE_TAG[tagKey] ?? AUDIENCE_TAG.general
   const fmtINR  = (n: number) => `₹${n.toLocaleString('en-IN')}`
 
   const discountAmt   = Math.round(mrp * discountPct / 100)
@@ -105,7 +119,7 @@ export function CourseHero({
             {/* Batch start */}
             <div className="flex items-center gap-2 text-sm text-emerald-400 font-semibold mb-4">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Enrol now to join the batch starting this week
+              Enrol in the upcoming batch now
             </div>
 
             {/* Urgency */}

@@ -35,7 +35,7 @@ export function CourseStickyBar({
         {/* Course name + price */}
         <div className="min-w-0 hidden sm:block">
           <p className="text-white font-bold text-sm truncate">{course.name}</p>
-          <p className="text-slate-400 text-xs">Batch starting this week · AI Kit couriered</p>
+          <p className="text-slate-400 text-xs">Enrol in the upcoming batch · AI Kit couriered</p>
         </div>
 
         <div className="flex items-center gap-4 shrink-0 ml-auto">

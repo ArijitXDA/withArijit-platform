@@ -110,10 +110,13 @@ export function HeroSection() {
           <div className="flex flex-wrap justify-center gap-2 mb-10">
             {[
               ['💼', 'Working Professionals'],
-              ['📚', 'School Students'],
               ['🎓', 'College & Job Seekers'],
-              ['💻', 'Tech Developers'],
+              ['🚀', 'Entrepreneurs & Owners'],
               ['🏆', 'Business Leaders'],
+              ['🏡', 'Homemakers & Returners'],
+              ['💻', 'Tech Developers'],
+              ['🔬', 'Engineers & Researchers'],
+              ['📚', 'School Students'],
             ].map(([emoji, label]) => (
               <span key={label as string}
                 className="px-3 py-1.5 rounded-full text-xs font-semibold border"
@@ -168,7 +171,7 @@ export function HeroSection() {
               <span style={{ fontSize: '1.25rem' }}>🤝</span>
               <span>Become an AI Partner</span>
               <span style={{ fontSize: '0.8rem', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', background: 'rgba(0,0,0,0.18)' }}>
-                Earn ₹X / referral
+                Earn up to 30% / referral
               </span>
               <span className="transition-transform group-hover:translate-x-1">→</span>
             </Link>

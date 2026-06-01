@@ -5,6 +5,7 @@ import { TrustBar }               from '@/components/marketing/TrustBar'
 import { QuickActionsSection }    from '@/components/marketing/QuickActionsSection'
 import { AudienceTabsSection }    from '@/components/marketing/AudienceTabsSection'
 import { CoursesSection }         from '@/components/marketing/CoursesSection'
+import { GetHiredSection }        from '@/components/marketing/GetHiredSection'
 import { HowItWorksSection }      from '@/components/marketing/HowItWorksSection'
 import { MasterclassCTASection }  from '@/components/marketing/MasterclassCTASection'
 import { TestimonialsMarquee }    from '@/components/marketing/TestimonialsMarquee'
@@ -66,6 +67,9 @@ export default async function HomePage() {
 
       {/* 5. Full AI Master Programmes */}
       <CoursesSection courses={courses ?? []} />
+
+      {/* 5b. Get discovered & get hired — placement / recruiter marketplace */}
+      <GetHiredSection />
 
       {/* 6. How it works */}
       <HowItWorksSection />

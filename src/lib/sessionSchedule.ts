@@ -73,6 +73,7 @@ export function fmtTime(t: string | null | undefined): string {
 export function variantLabel(variant: string | null | undefined): string {
   if (variant === 'weekend9') return '9-Week Weekend Intensive'
   if (variant === 'long26')   return '26-Week Long Track'
+  if (variant === 'rolling')  return 'Continued Up-skilling — Monthly Membership'
   return 'Course'
 }
 
@@ -81,6 +82,8 @@ export function variantBlurb(variant: string | null | undefined): string {
     return '9 weekend sessions × 120 min — the full curriculum, intensive pace'
   if (variant === 'long26')
     return '26 weekly weekend sessions × 60 min — the full curriculum, steady pace'
+  if (variant === 'rolling')
+    return 'One live 60-min session every week — ongoing, no end date'
   return ''
 }
 
@@ -104,11 +107,23 @@ export function generateSchedule(
 ): ScheduleSession[] {
   if (!batch?.start_date) return []
 
-  const total      = batch.total_sessions ?? 26
   const isWeekend9 = batch.variant === 'weekend9'
+  const isRolling  = batch.variant === 'rolling'
   const linkMap    = new Map(links.map(l => [l.session_number, l]))
   const curMap     = new Map(curriculum.map(c => [c.session_num, c]))
   const todayISO   = ymd(new Date())
+
+  // Rolling (endless monthly membership): there is no fixed curriculum or session
+  // count. Show every weekly session up to the next upcoming one, plus any session
+  // a link already exists for — i.e. the growing archive + the next live session.
+  let total = batch.total_sessions ?? 26
+  if (isRolling) {
+    const startMs      = new Date(batch.start_date + 'T00:00:00').getTime()
+    const todayMs      = new Date(todayISO + 'T00:00:00').getTime()
+    const weeksElapsed = Math.max(0, Math.floor((todayMs - startMs) / (7 * 86400000)))
+    const highestLink  = links.reduce((m, l) => Math.max(m, l.session_number), 0)
+    total = Math.max(weeksElapsed + 1, highestLink, 1)
+  }
   const out: ScheduleSession[] = []
 
   for (let i = 0; i < total; i++) {

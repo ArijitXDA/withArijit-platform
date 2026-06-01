@@ -75,11 +75,22 @@ export default async function CoursesPage() {
 
   // Build enrolments with computed + overlaid session schedule
   const enrolments = (rawEnrolments ?? []).map((e: any) => {
-    const batch         = e.batch
+    const batch      = e.batch
+    const batchLinks = batch ? (savedLinksMap[batch.id] ?? {}) : {}
+
     // Per-batch session count is authoritative — 9 for a weekend9 batch, 26 for
     // long26 — falling back to the course-level long-format reference.
-    const totalSessions = batch?.total_sessions ?? e.course?.total_sessions ?? 26
-    const batchLinks    = batch ? (savedLinksMap[batch.id] ?? {}) : {}
+    // Rolling (monthly membership) has no fixed count: show past sessions + the
+    // next upcoming one (plus any session a link already exists for).
+    let totalSessions = batch?.total_sessions ?? e.course?.total_sessions ?? 26
+    if (batch?.variant === 'rolling' && batch.start_date) {
+      const startMs      = new Date(batch.start_date + 'T00:00:00').getTime()
+      const todayMs      = new Date(new Date().toISOString().split('T')[0] + 'T00:00:00').getTime()
+      const weeksElapsed = Math.max(0, Math.floor((todayMs - startMs) / (7 * 86400000)))
+      const linkNums     = Object.keys(batchLinks).map(Number)
+      const highestLink  = linkNums.length ? Math.max(...linkNums) : 0
+      totalSessions      = Math.max(weeksElapsed + 1, highestLink, 1)
+    }
 
     const sessions = batch
       ? generateSessionSchedule(

@@ -314,9 +314,23 @@ export async function POST(request: NextRequest) {
     // ── 1. Fetch course pricing ───────────────────────────────────────────────
     const { data: course } = await supabase
       .from('awa_courses')
-      .select('id, name, mrp, gst_percent, discount_percent, partner_pool_percent, enroller_share, upstream_share')
+      .select('id, name, mrp, gst_percent, discount_percent, partner_pool_percent, enroller_share, upstream_share, tenure_type')
       .eq('id', course_id)
       .single()
+
+    // Monthly-membership courses (e.g. Quantum & AI — Continued Up-skilling) grant
+    // a rolling 30-day access window per payment, stamped here at enrol time.
+    // One-time / 50-50 courses leave these null — select-batch stamps them from the
+    // chosen batch, exactly as before.
+    const isMonthlyMembership = course?.tenure_type === 'monthly'
+    let monthlyAccessStart: string | null = null
+    let monthlyAccessEnd:   string | null = null
+    if (isMonthlyMembership) {
+      const end = new Date(now)
+      end.setDate(end.getDate() + 30)
+      monthlyAccessStart = today
+      monthlyAccessEnd   = end.toISOString().split('T')[0]
+    }
 
     const mrp            = Number(course?.mrp ?? amount)
     const gstPct         = Number(course?.gst_percent ?? 18) / 100
@@ -410,6 +424,8 @@ export async function POST(request: NextRequest) {
         is_active:          true,
         enrolment_seq:      enrolmentSeq,
         enrolment_status:   'active',
+        access_start_date:  monthlyAccessStart,   // null for one-time courses (unchanged)
+        access_end_date:    monthlyAccessEnd,     // null for one-time courses (unchanged)
       })
       .select('id')
       .single()

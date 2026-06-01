@@ -20,7 +20,7 @@ export function CoursesSection({ courses }: CoursesSectionProps) {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-12">
           <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest bg-indigo-50 text-indigo-700 border border-indigo-100 mb-4">
-            9 Programmes Available
+            {courses.length} Programmes Available
           </span>
           <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-4">
             AI Programmes & Certifications

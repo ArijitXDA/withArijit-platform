@@ -20,6 +20,7 @@ interface PaymentModalProps {
   defaultEmail?: string
   defaultMobile?: string
   defaultPartnerCode?: string
+  membership?: boolean    // monthly-membership course: full-pay only, no 50-50 / gift
 }
 
 // ── oStaran Logo SVG (inline, no external dependency) ────────────────────────
@@ -48,6 +49,7 @@ export function PaymentModal({
   defaultEmail = '',
   defaultMobile = '',
   defaultPartnerCode = '',
+  membership = false,
 }: PaymentModalProps) {
   const [mode, setMode]                   = useState<'self' | 'gift'>('self')
   const [name, setName]                   = useState(defaultName)
@@ -332,27 +334,29 @@ export function PaymentModal({
           ) : (
             <div className="space-y-3">
 
-              {/* Self / Gift */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setMode('self')}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    mode === 'self'
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                  }`}>
-                  For Myself
-                </button>
-                <button
-                  onClick={() => setMode('gift')}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    mode === 'gift'
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                  }`}>
-                  Gift to Someone
-                </button>
-              </div>
+              {/* Self / Gift — hidden for monthly membership (full-pay self only) */}
+              {!membership && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setMode('self')}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      mode === 'self'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-800 text-slate-400 hover:text-white'
+                    }`}>
+                    For Myself
+                  </button>
+                  <button
+                    onClick={() => setMode('gift')}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      mode === 'gift'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-800 text-slate-400 hover:text-white'
+                    }`}>
+                    Gift to Someone
+                  </button>
+                </div>
+              )}
 
               {/* Fields */}
               <div className="space-y-2">
@@ -381,29 +385,39 @@ export function PaymentModal({
                 </div>
               )}
 
-              {/* Payment plan */}
-              <div>
-                <Label className="text-slate-300 text-[11px] mb-0.5 block">Payment Plan</Label>
-                <Select value={frequency} onValueChange={v => { if (v === 'full' || v === 'half') setFrequency(v) }}>
-                  <SelectTrigger className={inputCls + ' h-8 text-sm'}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700 text-white">
-                    <SelectItem value="full">
-                      Full Payment — {price ? formatCurrency(priceAfterAuto) : '—'}
-                      {discountPct > 0 && price && (
-                        <span className="text-slate-400 line-through ml-2 text-xs">{formatCurrency(mrp)}</span>
-                      )}
-                    </SelectItem>
-                    <SelectItem value="half">
-                      50-50 Plan — {price ? formatCurrency(priceAfterAuto / 2) : '—'} now
-                      {discountPct > 0 && price && (
-                        <span className="text-slate-400 line-through ml-2 text-xs">{formatCurrency(mrp / 2)}</span>
-                      )}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Payment plan — membership is a single monthly charge (no 50-50) */}
+              {membership ? (
+                <div className="rounded-xl px-3 py-2 flex items-center justify-between"
+                  style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                  <span className="text-slate-300 text-xs font-semibold">Monthly Membership</span>
+                  <span className="text-indigo-300 text-sm font-bold">
+                    {price ? formatCurrency(priceAfterAuto) : '—'}<span className="text-slate-400 text-xs font-normal"> / month</span>
+                  </span>
+                </div>
+              ) : (
+                <div>
+                  <Label className="text-slate-300 text-[11px] mb-0.5 block">Payment Plan</Label>
+                  <Select value={frequency} onValueChange={v => { if (v === 'full' || v === 'half') setFrequency(v) }}>
+                    <SelectTrigger className={inputCls + ' h-8 text-sm'}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-slate-700 text-white">
+                      <SelectItem value="full">
+                        Full Payment — {price ? formatCurrency(priceAfterAuto) : '—'}
+                        {discountPct > 0 && price && (
+                          <span className="text-slate-400 line-through ml-2 text-xs">{formatCurrency(mrp)}</span>
+                        )}
+                      </SelectItem>
+                      <SelectItem value="half">
+                        50-50 Plan — {price ? formatCurrency(priceAfterAuto / 2) : '—'} now
+                        {discountPct > 0 && price && (
+                          <span className="text-slate-400 line-through ml-2 text-xs">{formatCurrency(mrp / 2)}</span>
+                        )}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Discount code */}
               <div>

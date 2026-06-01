@@ -18,6 +18,7 @@ interface PaymentModalTriggerProps {
   defaultEmail?: string
   defaultMobile?: string
   defaultPartnerCode?: string
+  membership?: boolean
 }
 
 export function PaymentModalTrigger({
@@ -32,6 +33,7 @@ export function PaymentModalTrigger({
   defaultEmail,
   defaultMobile,
   defaultPartnerCode,
+  membership = false,
 }: PaymentModalTriggerProps) {
   const [open, setOpen] = useState(false)
   const searchParams    = useSearchParams()
@@ -83,6 +85,7 @@ export function PaymentModalTrigger({
         defaultEmail={resolvedEmail}
         defaultMobile={resolvedMobile}
         defaultPartnerCode={resolvedPartnerCode}
+        membership={membership}
       />
     </>
   )

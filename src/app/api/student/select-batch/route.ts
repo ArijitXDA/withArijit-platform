@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   // Verify batch exists and has seats
   const { data: batch } = await service
     .from('awa_batches')
-    .select('id, is_open, seats_filled, max_seats, start_date, end_date')
+    .select('id, is_open, seats_filled, max_seats, start_date, end_date, variant')
     .eq('id', batch_id)
     .single()
 
@@ -28,9 +28,22 @@ export async function POST(req: NextRequest) {
 
   // The chosen batch defines the student's access window — stamp it onto the
   // enrolment so the dashboard, certificate timing, and comms all agree.
-  const accessDates = {
-    access_start_date: batch.start_date ?? null,
-    access_end_date:   batch.end_date ?? null,
+  // Rolling (monthly-membership) cohorts have no fixed end_date: access runs for a
+  // rolling 30 days from today (enrol stamped it; we keep it consistent here and
+  // never clobber it with the batch's null end_date).
+  let accessDates: { access_start_date: string | null; access_end_date: string | null }
+  if (batch.variant === 'rolling') {
+    const today = new Date()
+    const end   = new Date(today); end.setDate(end.getDate() + 30)
+    accessDates = {
+      access_start_date: today.toISOString().split('T')[0],
+      access_end_date:   end.toISOString().split('T')[0],
+    }
+  } else {
+    accessDates = {
+      access_start_date: batch.start_date ?? null,
+      access_end_date:   batch.end_date ?? null,
+    }
   }
 
   // Resolve enrolment_id — find the specific enrolment that doesn't have a batch yet

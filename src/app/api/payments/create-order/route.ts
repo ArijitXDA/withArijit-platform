@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       const now = new Date()
       const { data: discount } = await supabase
         .from('discount_codes')
-        .select('code, label, type, discount_value, valid_from, valid_to, max_uses, uses_count, is_stackable')
+        .select('code, label, type, discount_value, valid_from, valid_to, max_uses, uses_count, is_stackable, course_id')
         .eq('code', discount_code.trim().toUpperCase())
         .eq('status', 'active')
         .single()
@@ -92,8 +92,11 @@ export async function POST(request: NextRequest) {
           (!discount.valid_to   || now <= new Date(discount.valid_to))
         const withinUsage =
           !discount.max_uses || (discount.uses_count ?? 0) < discount.max_uses
+        // Course-scoped codes (course_id set) apply ONLY to that course.
+        // Codes with course_id null apply to every course (unchanged behaviour).
+        const courseMatches = !discount.course_id || discount.course_id === course_id
 
-        if (withinWindow && withinUsage) {
+        if (withinWindow && withinUsage && courseMatches) {
           if (discount.type === 'percentage') {
             manualDiscountApplied = finalAmount * (Number(discount.discount_value) / 100)
           } else if (discount.type === 'fixed') {

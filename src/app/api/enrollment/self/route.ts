@@ -232,9 +232,20 @@ async function runBackgroundWork(params: {
   }
 
   // ── 3. Discount code usage counter ───────────────────────────────────────
+  // Only count the use if the code actually applies to this course: a
+  // course-scoped code (course_id set) must match; null-scoped codes apply
+  // everywhere. Prevents a scoped code from burning uses on the wrong course.
   if (discountCode) {
     try {
-      await supabase.rpc('increment_discount_uses', { p_code: discountCode.trim().toUpperCase() })
+      const { data: dc } = await supabase
+        .from('discount_codes')
+        .select('course_id')
+        .eq('code', discountCode.trim().toUpperCase())
+        .maybeSingle()
+      const appliesToCourse = !dc?.course_id || dc.course_id === courseId
+      if (appliesToCourse) {
+        await supabase.rpc('increment_discount_uses', { p_code: discountCode.trim().toUpperCase() })
+      }
     } catch (e: any) {
       console.warn('[bg] discount increment failed (non-fatal):', e.message)
     }

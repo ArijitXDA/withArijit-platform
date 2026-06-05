@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
         method: 'POST',
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: 'oStaran Team <ai@ostaran.com>',
+          from: 'oStaran AI Education <ai@ostaran.com>',
           to: [email.trim()],
           subject: `We've received your message — oStaran`,
           html: confirmHtml,
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         method: 'POST',
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: 'oStaran Contact Form <ai@ostaran.com>',
+          from: 'oStaran Ops <ai@ostaran.com>',
           to: ['ai@ostaran.com'],
           subject: `New Contact: ${ENQUIRY_LABELS[enquiry_type] || enquiry_type} — ${name}`,
           html: `<p><strong>Name:</strong> ${name}</p>

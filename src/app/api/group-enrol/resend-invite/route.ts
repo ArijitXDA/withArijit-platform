@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
         method:  'POST',
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from:    'oStaran Team <ai@ostaran.com>',
+          from:    'oStaran AI Education <ai@ostaran.com>',
           to:      [seat.invitee_email],
           subject: `🔔 Reminder: Activate your seat in ${ge.course_name}`,
           html,

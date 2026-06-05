@@ -259,7 +259,7 @@ async function sendInviteEmail(params: {
       method:  'POST',
       headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from:    'oStaran Team <ai@ostaran.com>',
+        from:    'oStaran AI Education <ai@ostaran.com>',
         to:      [seat.invitee_email],
         subject: `🎁 ${gifterFirst} has enrolled you in ${ge.course_name} — Activate your seat`,
         html,

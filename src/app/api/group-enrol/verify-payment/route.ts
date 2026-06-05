@@ -202,7 +202,7 @@ async function runBackgroundWork(params: {
       method:  'POST',
       headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from:    'oStaran Team <ai@ostaran.com>',
+        from:    'oStaran Accounts <ai@ostaran.com>',
         to:      [ge.purchaser_email],
         bcc:     ['ai@ostaran.com'],
         subject: `✅ Payment confirmed — ${ge.quantity} seats for ${ge.course_name}`,

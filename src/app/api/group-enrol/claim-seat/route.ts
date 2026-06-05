@@ -237,7 +237,7 @@ async function runBackground(params: {
       method:  'POST',
       headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from:    'oStaran Team <ai@ostaran.com>',
+        from:    'oStaran AI Education <ai@ostaran.com>',
         to:      [userEmail],
         subject: `✅ You're enrolled in ${ge.course_name} — Welcome to oStaran!`,
         html,

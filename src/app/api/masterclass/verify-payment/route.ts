@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
           method: 'POST',
           headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            from:    'oStaran Team <ai@ostaran.com>',
+            from:    'oStaran Certifications <ai@ostaran.com>',
             to:      [regData.email],
             bcc:     ['ai@ostaran.com'],
             subject: 'Welcome to the oStaran AI Masterclass!',

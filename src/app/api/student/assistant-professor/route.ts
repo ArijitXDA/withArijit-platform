@@ -62,7 +62,7 @@ const ASSISTANT_PROFESSOR_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'note_membership_interest',
-    description: "Record that this student is interested in the 'Quantum & AI Continued' membership (ongoing access to advanced AI, Agentic AI & Quantum learning with Arijit after their course). Use ONLY when the student asks what's next after the course, wants to keep learning / go deeper, or expresses interest in continuing. After calling it, share the enquiry route (ai@ostaran.com / WhatsApp).",
+    description: "Record that this student is interested in the 'Quantum & AI — Continued Up-skilling' membership (₹2,999/month rolling membership, page /courses/quantum-ai-continued, ongoing weekly live sessions in advanced AI, Agentic AI & Quantum with Arijit after their course). Use ONLY when the student asks what's next after the course, wants to keep learning / go deeper, or expresses interest in continuing. After calling it, point them to /courses/quantum-ai-continued to enrol.",
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -221,8 +221,8 @@ async function executeTool(
         kind:          'membership',
         body:          (note || 'Interested in Quantum & AI Continued membership').slice(0, 2000),
       })
-      if (error) return 'Could not record it just now — share the enquiry route anyway: ai@ostaran.com or WhatsApp https://wa.me/919930051053.'
-      return 'Interest recorded ✅. Now share the enquiry route so the team can follow up with current details and pricing: email ai@ostaran.com or WhatsApp https://wa.me/919930051053.'
+      if (error) return 'Could not record it just now — point the student to /courses/quantum-ai-continued (₹2,999/month) to enrol, or ai@ostaran.com / WhatsApp https://wa.me/919930051053 for questions.'
+      return 'Interest recorded ✅. Point the student to the membership page to enrol — **/courses/quantum-ai-continued** (₹2,999/month, weekly live sessions). For any questions they can reach the team at ai@ostaran.com or WhatsApp https://wa.me/919930051053.'
     }
 
     default:
@@ -303,7 +303,7 @@ Use your tools proactively — don't wait to be asked. If the conversation touch
 If the student has a question you can't fully resolve, or they want something raised directly with Arijit ("ask Arijit", "bring this up in class"), offer to log it: confirm the exact wording of the doubt, then call log_doubt (include the session number if it's about a specific session). Tell them it's saved for their next live session. Only log genuine doubts worth escalating — never log something you've already answered well.
 
 ## Quantum & AI Continued membership (gentle, well-timed upsell)
-oStaran offers an ongoing **Quantum & AI Continued** membership — a way for students to keep learning advanced AI, Agentic AI and Quantum Computing with Arijit after their course ends. Mention it ONLY when it's genuinely relevant: the student is near the end of their course, asks "what's next / how do I keep learning", or wants to go deeper into Agentic AI or Quantum. When that happens: briefly explain the benefit, call note_membership_interest to flag it, then route them to enquire — **ai@ostaran.com** or WhatsApp **https://wa.me/919930051053** — for current details and pricing. Do NOT invent a price or specific inclusions; the team shares those. Never be pushy — mention it at most once unless the student asks for more.
+oStaran offers **Quantum & AI — Continued Up-skilling**: an ongoing **₹2,999/month** rolling membership with weekly live sessions, so students keep learning advanced AI, Agentic AI and Quantum Computing with Arijit after their course ends. Mention it ONLY when it's genuinely relevant: the student is near the end of their course, asks "what's next / how do I keep learning", or wants to go deeper into Agentic AI or Quantum. When that happens: briefly explain the benefit and the **₹2,999/month** price, point them to **/courses/quantum-ai-continued** to enrol, and call note_membership_interest to flag it for follow-up. If they have questions, they can also reach the team at ai@ostaran.com or WhatsApp https://wa.me/919930051053. Never be pushy — mention it at most once unless the student asks for more.
 
 ## Guardrails (NON-NEGOTIABLE)
 1. Only discuss this student's data — never reveal any other student's information.

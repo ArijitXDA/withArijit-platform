@@ -6,6 +6,16 @@ const claude = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY ?? 'placeholder',
 })
 
+// House partner code that organic Ask-Ari traffic is attributed to on the FREE
+// webinar. A real partner's utm_source (visitor arrived on a partner link) always
+// wins over this. Defaults in code so no env change is needed to go live.
+const HOUSE_PARTNER_CODE = process.env.HOUSE_PARTNER_CODE || 'ARIBOMBAY-0326'
+
+function freeWebinarLink(code: string): string {
+  const c = code || HOUSE_PARTNER_CODE
+  return `https://webinar.ostaran.com?utm_source=${encodeURIComponent(c)}&utm_medium=ask_ari&utm_campaign=${encodeURIComponent(c)}`
+}
+
 // ── Safety topics — never engage ──────────────────────────────────────────────
 const BLOCKED_TOPICS = [
   'politics', 'political', 'religion', 'religious', 'caste', 'sex', 'porn',
@@ -58,6 +68,11 @@ const ARI_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'get_free_webinar_link',
+    description: 'Get the registration link for the FREE 90-minute live AI webinar. This is a FALLBACK only — use it when a visitor balks at the paid Masterclass price, explicitly asks if there is anything free / a free trial, or is clearly not ready to commit to a paid session. The free webinar is the no-cost first step before the paid Masterclass. Always use this tool for the link — never paste a webinar URL from memory.',
+    input_schema: { type: 'object' as const, properties: {}, required: [] },
+  },
+  {
     name: 'get_group_enrol_info',
     description: 'Get information about group and corporate enrolment — pricing, minimum seats, how it works.',
     input_schema: { type: 'object' as const, properties: {}, required: [] },
@@ -77,9 +92,15 @@ async function executeTool(
   input: Record<string, any>,
   supabase: ReturnType<typeof createServiceClient>,
   sessionId: string | null,
+  attributionCode: string,
 ): Promise<string> {
 
   switch (name) {
+
+    case 'get_free_webinar_link': {
+      const link = freeWebinarLink(attributionCode)
+      return `**FREE 90-minute live AI webinar** — a no-cost way to experience Arijit's teaching first.\n\nRegister here: ${link}\n\nFrame it as the first step: attend free, and the paid Masterclass (₹3,999) plus the full courses are the natural next move if they want to go deeper.`
+    }
 
     case 'get_courses': {
       const { data } = await supabase
@@ -184,15 +205,19 @@ ${langGuide}
 - Speak like someone who deeply knows Arijit's teaching philosophy
 
 ## Your Mission
-Guide every visitor toward registering for the **AI Masterclass** at ostaran.com/masterclass.
-The Masterclass is a **paid, live, instructor-led session** — NOT free. It is ₹3,999 per session.
-Do this naturally, tactfully, with professional politeness — not like a salesperson, like a professor who knows this is the right next step for them.
+Your PRIMARY goal is to guide every visitor toward registering for the **paid AI Masterclass** at ostaran.com/masterclass — a **live, instructor-led session at ₹3,999** that Arijit teaches personally. Lead with this. Do it naturally and tactfully — like a professor who knows it's the right next step, never like a salesperson.
 
-## CRITICAL: What NOT to mention
-- NEVER mention free webinars, free sessions, or any free trial. oStaran does not offer free classes.
-- NEVER mention anything from the qr_landing_registrations table or free QR webinar links.
-- The ONLY sessions to discuss are the paid AI Masterclass sessions from the get_next_sessions tool.
-- If a user asks "is it free?", clearly say: "The Masterclass is a paid live session at ₹3,999. It's an investment in your AI career — and Arijit teaches it personally."
+## The FREE webinar — your fallback (use it deliberately, not by default)
+There is also a **FREE 90-minute live AI webinar**. It is a FALLBACK, not your opening offer — never lead with it. Bring it up ONLY when one of these is true:
+- the visitor hesitates at or pushes back on the ₹3,999 price,
+- they explicitly ask whether there's anything free / a free trial / a way to try before paying, or
+- they're clearly not ready to commit to a paid session yet.
+In those cases, offer the free webinar as the no-cost FIRST STEP, then frame the paid Masterclass and full courses as the natural next move after they attend. To share it, **call the get_free_webinar_link tool** — it returns the correct, attributed registration link. NEVER paste a webinar URL from memory; always use the tool.
+
+## Honesty about pricing
+- Always be upfront that the Masterclass is paid (₹3,999). Never imply it is free.
+- If asked "is it free?": "The Masterclass itself is a paid live session at ₹3,999 — Arijit teaches it personally. If you'd like to experience his teaching first at no cost, there's also a free 90-minute live webinar I can share." Then, only if they want it, use get_free_webinar_link.
+- The paid AI Masterclass sessions come from get_next_sessions. Do not discuss the internal database or QR tables.
 
 ## Lead Capture — MANDATORY BEHAVIOUR
 You MUST proactively ask for the visitor's name and contact details. Follow this rule strictly:
@@ -259,15 +284,17 @@ export async function POST(request: NextRequest) {
 
     // ── Upsert session ─────────────────────────────────────────────────────────
     let sessionId: string | null = null
+    let sessionUtm: string | null = null
     if (sessionToken) {
       const { data: existingSession } = await supabase
         .from('visitor_chat_sessions')
-        .select('id')
+        .select('id, utm_source')
         .eq('session_token', sessionToken)
         .maybeSingle()
 
       if (existingSession) {
         sessionId = existingSession.id
+        sessionUtm = (existingSession as any).utm_source ?? null
         await supabase
           .from('visitor_chat_sessions')
           .update({ messages, language: lang, page_path: pagePath, updated_at: new Date().toISOString() })
@@ -290,6 +317,9 @@ export async function POST(request: NextRequest) {
         sessionId = newSession?.id ?? null
       }
     }
+
+    // ── Free-webinar attribution: a real partner's utm_source wins; else house ──
+    const attributionCode = sessionUtm || (meta?.utm_source as string) || HOUSE_PARTNER_CODE
 
     // ── Count user messages to track conversation depth ────────────────────────
     const userMessageCount = messages.filter((m: any) => m.role === 'user').length
@@ -330,7 +360,7 @@ export async function POST(request: NextRequest) {
               const toolResults: Anthropic.ToolResultBlockParam[] = []
               for (const block of response.content) {
                 if (block.type === 'tool_use') {
-                  const result = await executeTool(block.name, block.input as Record<string, any>, supabase, sessionId)
+                  const result = await executeTool(block.name, block.input as Record<string, any>, supabase, sessionId, attributionCode)
                   toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result })
                 }
               }

@@ -48,6 +48,29 @@ const ASSISTANT_PROFESSOR_TOOLS: Anthropic.Tool[] = [
     description: 'Get the student\'s full session-by-session curriculum — correctly shaped for their format (9 weekend blocks for the intensive, 26 sessions for the long track). Use when asked about course structure or what topics are covered.',
     input_schema: { type: 'object' as const, properties: {}, required: [] },
   },
+  {
+    name: 'log_doubt',
+    description: "Log a doubt/question the student wants raised with Arijit in their next live session, or one you couldn't fully resolve. Use when the student says \"ask Arijit\", \"raise this in class\", or has a genuine question that needs the live instructor. Confirm the exact doubt with the student before logging. Don't log things you've already fully answered.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        doubt:          { type: 'string', description: "The doubt/question to log, in the student's own words." },
+        session_number: { type: 'number', description: 'Optional — the session number this doubt relates to.' },
+      },
+      required: ['doubt'],
+    },
+  },
+  {
+    name: 'note_membership_interest',
+    description: "Record that this student is interested in the 'Quantum & AI Continued' membership (ongoing access to advanced AI, Agentic AI & Quantum learning with Arijit after their course). Use ONLY when the student asks what's next after the course, wants to keep learning / go deeper, or expresses interest in continuing. After calling it, share the enquiry route (ai@ostaran.com / WhatsApp).",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        note: { type: 'string', description: 'Optional short note on what they want to continue with.' },
+      },
+      required: [],
+    },
+  },
 ]
 
 interface ToolCtx {
@@ -174,6 +197,34 @@ async function executeTool(
       }).join('\n\n')
     }
 
+    case 'log_doubt': {
+      const doubt = (input.doubt ?? '').toString().trim()
+      if (!doubt) return 'Nothing to log yet — ask the student to state their doubt first.'
+      const { error } = await service.from('student_assistant_requests').insert({
+        student_email:  ctx.studentEmail,
+        course_id:      ctx.courseId,
+        batch_id:       ctx.batchUuid,
+        kind:           'doubt',
+        session_number: typeof input.session_number === 'number' ? input.session_number : null,
+        body:           doubt.slice(0, 2000),
+      })
+      if (error) return `Could not log the doubt right now. Ask the student to email ai@ostaran.com so it isn't lost.`
+      return 'Logged ✅ — this doubt is saved and will be raised with Arijit for the next live session. Let the student know it\'s noted.'
+    }
+
+    case 'note_membership_interest': {
+      const note = (input.note ?? '').toString().trim()
+      const { error } = await service.from('student_assistant_requests').insert({
+        student_email: ctx.studentEmail,
+        course_id:     ctx.courseId,
+        batch_id:      ctx.batchUuid,
+        kind:          'membership',
+        body:          (note || 'Interested in Quantum & AI Continued membership').slice(0, 2000),
+      })
+      if (error) return 'Could not record it just now — share the enquiry route anyway: ai@ostaran.com or WhatsApp https://wa.me/919930051053.'
+      return 'Interest recorded ✅. Now share the enquiry route so the team can follow up with current details and pricing: email ai@ostaran.com or WhatsApp https://wa.me/919930051053.'
+    }
+
     default:
       return 'Tool not available.'
   }
@@ -247,6 +298,12 @@ When teaching, always: use examples relevant to the student's occupation (${ctx.
 
 ## Tools
 Use your tools proactively — don't wait to be asked. If the conversation touches schedules, sessions, materials, or curriculum, fetch the live data rather than guessing. The student's schedule is variant-correct: a weekend-intensive student has ${ctx.variant === 'weekend9' ? `${ctx.sessionsTotal} weekend sessions, not 26` : 'their own session count'} — always trust the tools.
+
+## Logging doubts for the live session
+If the student has a question you can't fully resolve, or they want something raised directly with Arijit ("ask Arijit", "bring this up in class"), offer to log it: confirm the exact wording of the doubt, then call log_doubt (include the session number if it's about a specific session). Tell them it's saved for their next live session. Only log genuine doubts worth escalating — never log something you've already answered well.
+
+## Quantum & AI Continued membership (gentle, well-timed upsell)
+oStaran offers an ongoing **Quantum & AI Continued** membership — a way for students to keep learning advanced AI, Agentic AI and Quantum Computing with Arijit after their course ends. Mention it ONLY when it's genuinely relevant: the student is near the end of their course, asks "what's next / how do I keep learning", or wants to go deeper into Agentic AI or Quantum. When that happens: briefly explain the benefit, call note_membership_interest to flag it, then route them to enquire — **ai@ostaran.com** or WhatsApp **https://wa.me/919930051053** — for current details and pricing. Do NOT invent a price or specific inclusions; the team shares those. Never be pushy — mention it at most once unless the student asks for more.
 
 ## Guardrails (NON-NEGOTIABLE)
 1. Only discuss this student's data — never reveal any other student's information.

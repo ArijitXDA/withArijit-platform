@@ -6,6 +6,7 @@ import {
   generateSchedule, nextSessionOf, daysUntil, variantLabel, variantBlurb,
   type ScheduleSession, type BatchLike,
 } from '@/lib/sessionSchedule'
+import { getPlatformFacts, platformFactsBlock } from '@/lib/platformFacts'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
@@ -69,6 +70,15 @@ const ASSISTANT_PROFESSOR_TOOLS: Anthropic.Tool[] = [
         note: { type: 'string', description: 'Optional short note on what they want to continue with.' },
       },
       required: [],
+    },
+  },
+  {
+    name: 'remember',
+    description: "Save a short, durable note about THIS student to recall in future conversations (their goals, background, what they're struggling with, a preference, a commitment). Use sparingly — only for things genuinely worth remembering later, not transient chit-chat.",
+    input_schema: {
+      type: 'object' as const,
+      properties: { note: { type: 'string', description: 'A concise fact worth remembering.' } },
+      required: ['note'],
     },
   },
 ]
@@ -225,9 +235,37 @@ async function executeTool(
       return 'Interest recorded ✅. Point the student to the membership page to enrol — **/courses/quantum-ai-continued** (₹2,999/month, weekly live sessions). For any questions they can reach the team at ai@ostaran.com or WhatsApp https://wa.me/919930051053.'
     }
 
+    case 'remember': {
+      const note = (input.note ?? '').toString().trim()
+      if (!note) return 'Nothing to remember yet.'
+      const { data } = await service.from('agent_memory')
+        .select('notes').eq('agent', 'assistant_professor').eq('user_key', ctx.studentEmail).maybeSingle()
+      const existing = (data?.notes as any[]) ?? []
+      const updated = [...existing, { note: note.slice(0, 300), at: new Date().toISOString() }].slice(-20)
+      const { error } = await service.from('agent_memory')
+        .upsert({ agent: 'assistant_professor', user_key: ctx.studentEmail, notes: updated, updated_at: new Date().toISOString() }, { onConflict: 'agent,user_key' })
+      if (error) return 'Could not save that note just now.'
+      return 'Noted ✅ — I\'ll remember that for next time.'
+    }
+
     default:
       return 'Tool not available.'
   }
+}
+
+// Read this student's durable memory (notes the professor saved via remember()).
+async function readStudentMemory(
+  service: ReturnType<typeof createServiceClient>,
+  email: string,
+): Promise<string> {
+  try {
+    const { data } = await service.from('agent_memory')
+      .select('notes').eq('agent', 'assistant_professor').eq('user_key', email).maybeSingle()
+    const notes = (data?.notes as any[]) ?? []
+    if (!notes.length) return ''
+    const lines = notes.slice(-20).map((n: any) => `- ${typeof n === 'string' ? n : n.note}`).join('\n')
+    return `## WHAT YOU REMEMBER ABOUT THIS STUDENT (from earlier conversations — use it, don't recite it)\n${lines}`
+  } catch { return '' }
 }
 
 // ── Build system prompt ───────────────────────────────────────────────────────
@@ -469,7 +507,10 @@ export async function POST(req: NextRequest) {
     .map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
 
   // ── Agentic tool loop ──────────────────────────────────────────────────────
+  const memoryBlock = await readStudentMemory(service, email)
   const systemPrompt = buildSystemPrompt(promptCtx)
+    + '\n\n' + platformFactsBlock(await getPlatformFacts())
+    + (memoryBlock ? '\n\n' + memoryBlock : '')
   let   workingMsgs  = claudeMessages
   let   finalReply   = ''
   const MAX_LOOPS    = 4

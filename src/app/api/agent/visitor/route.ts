@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { getPlatformFacts, platformFactsBlock } from '@/lib/platformFacts'
 
 const claude = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY ?? 'placeholder',
@@ -325,7 +326,7 @@ export async function POST(request: NextRequest) {
     const userMessageCount = messages.filter((m: any) => m.role === 'user').length
 
     // ── Build Claude messages ──────────────────────────────────────────────────
-    const systemPrompt = buildSystemPrompt(lang)
+    const systemPrompt = buildSystemPrompt(lang) + '\n\n' + platformFactsBlock(await getPlatformFacts())
 
     // Inject conversation depth so Claude knows when to ask for contact details
     const depthHint = userMessageCount >= 2

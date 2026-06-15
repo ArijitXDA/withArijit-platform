@@ -154,8 +154,8 @@ export function Navbar() {
 
           {/* Desktop CTAs */}
           <div className="hidden lg:flex items-center gap-2.5 shrink-0">
-            <Link href="/signin" className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-50 transition-colors">
-              Sign In
+            <Link href="/signin" className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">
+              Student Sign In
             </Link>
             {/* Become AI Partner — prominent gold CTA → partner programme */}
             <a href="https://partner.ostaran.com"
@@ -265,7 +265,7 @@ export function Navbar() {
             </Link>
             <Link href="/signin"
               className="block text-center py-3 text-sm font-semibold text-gray-700 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
-              Sign In
+              Student Sign In
             </Link>
           </div>
         </div>

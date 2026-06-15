@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import CoursesClient from './CoursesClient'
+import { joinUrl } from '@/lib/joinToken'
 
 // ── Generate 26 weekly session dates from batch start ─────────────────────────
 // Each session is 1 week after the previous, starting from batch.start_date.
@@ -97,7 +98,7 @@ export default async function CoursesPage() {
           { start_date: batch.start_date, start_time: batch.start_time, duration_mins: batch.duration_mins ?? 60 },
           batchLinks,
           totalSessions,
-        )
+        ).map((s) => ({ ...s, join_url: joinUrl(email, batch.id, s.session_number) }))
       : []
 
     return { ...e, sessions }

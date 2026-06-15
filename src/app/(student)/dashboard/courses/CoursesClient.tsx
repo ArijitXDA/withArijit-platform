@@ -36,6 +36,7 @@ interface Session {
   session_link: string | null    // recording link — null until admin pastes it
   study_material_link: string | null
   meeting_link: string | null    // live join link — null until admin pastes it
+  join_url?: string | null       // tracked join URL (/api/session/join?t=…) — server-minted
 }
 interface Course {
   id: string; name: string; short_name: string | null; description: string | null
@@ -215,8 +216,8 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
                         📄 Notes
                       </a>
                     )}
-                    {isNext && (s.session_link || batchMeetingLink) ? (
-                      <a href={s.session_link ?? batchMeetingLink ?? '#'} target="_blank" rel="noopener noreferrer"
+                    {isNext && (s.meeting_link || batchMeetingLink) ? (
+                      <a href={s.join_url ?? batchMeetingLink ?? '#'} target="_blank" rel="noopener noreferrer"
                         className="text-xs px-2.5 py-1 rounded-lg font-semibold text-white"
                         style={{ background: T.green }}>
                         {isToday ? 'Join Now →' : 'Join →'}
@@ -273,6 +274,10 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
   // Detect if there's a session happening today (for the pulsing CTA)
   const hasClassToday  = sessions.some(s => s.session_date === today)
   const meetingLink    = batch?.meeting_link ?? null
+  // Route the live-class CTA through the next session's tracked join URL so every
+  // click is attributable (who/when); falls back to the raw batch link.
+  const nextSession    = sessions.find(s => s.session_date >= today)
+  const joinHref       = nextSession?.join_url ?? meetingLink
 
   return (
     <div className="rounded-2xl overflow-hidden bg-white" style={{ border: `1px solid ${T.border}` }}>
@@ -403,7 +408,7 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
       {meetingLink && (
         <div className="px-5 pb-4">
           <a
-            href={meetingLink}
+            href={joinHref ?? meetingLink ?? '#'}
             target="_blank"
             rel="noopener noreferrer"
             className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm text-white transition-all ${

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getStudentSessions } from '@/lib/studentSessions'
+import { joinUrl } from '@/lib/joinToken'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Calendar, BookOpen, Award, Clock, ChevronRight, Video } from 'lucide-react'
@@ -467,10 +468,10 @@ export default async function DashboardPage({
                   </p>
                 </div>
                 {s.session_link && (
-                  <a href={s.session_link} target="_blank" rel="noopener noreferrer"
+                  <a href={joinUrl(email, s.batch_id, s.session_number)} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1 text-xs font-semibold"
                     style={{ color: T.blue }}>
-                    Join <ChevronRight size={12} />
+                    Join Now <ChevronRight size={12} />
                   </a>
                 )}
               </div>

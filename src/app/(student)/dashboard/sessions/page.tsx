@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getStudentSessions } from '@/lib/studentSessions'
+import { joinUrl } from '@/lib/joinToken'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Calendar, Clock, CheckCircle2, ChevronLeft, Video } from 'lucide-react'
@@ -110,10 +111,10 @@ export default async function SessionsPage() {
                   </div>
                 </div>
                 {s.session_link && (
-                  <a href={s.session_link} target="_blank" rel="noopener noreferrer"
-                    className="shrink-0 flex items-center gap-1.5 text-xs font-bold text-white px-3 py-1.5 rounded-lg transition-all hover:opacity-90"
+                  <a href={joinUrl(email, s.batch_id, s.session_number)} target="_blank" rel="noopener noreferrer"
+                    className="shrink-0 flex items-center gap-1.5 text-xs font-bold text-white px-3 py-1.5 rounded-lg transition-all hover:opacity-90 hover:scale-105"
                     style={{ background: T.purple }}>
-                    <Video size={12} /> Join
+                    <Video size={12} /> Join Now
                   </a>
                 )}
               </div>
@@ -155,6 +156,13 @@ export default async function SessionsPage() {
                     {s.session_start_time ? ` · ${fmtTime(s.session_start_time)} IST` : ''}
                   </p>
                 </div>
+                {s.recording_link && (
+                  <a href={s.recording_link} target="_blank" rel="noopener noreferrer"
+                    className="shrink-0 flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all hover:opacity-90"
+                    style={{ background: T.greenBg, color: T.green, border: `1px solid ${T.greenBorder}` }}>
+                    <Video size={12} /> Recording
+                  </a>
+                )}
               </div>
             ))}
           </div>

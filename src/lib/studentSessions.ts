@@ -13,6 +13,7 @@ import { generateSchedule, type BatchLike } from '@/lib/sessionSchedule'
  */
 export interface StudentSessionRow {
   session_id:          string
+  batch_id:            string
   session_number:      number
   session_title:       string | null
   session_date:        string         // YYYY-MM-DD
@@ -73,6 +74,7 @@ export async function getStudentSessions(email: string): Promise<StudentSessions
       for (const s of sched) {
         all.push({
           session_id:          `${b.id}-${s.n}`,
+          batch_id:            b.id,
           session_number:      s.n,
           session_title:       s.title,
           session_date:        s.dateISO,
@@ -99,6 +101,7 @@ export async function getStudentSessions(email: string): Promise<StudentSessions
       .order('session_date')
     const all: StudentSessionRow[] = (rows ?? []).map((r: any, i: number) => ({
       session_id:          String(r.session_id),
+      batch_id:            legacyBatchId,
       session_number:      i + 1,
       session_title:       r.session_title ?? null,
       session_date:        r.session_date,

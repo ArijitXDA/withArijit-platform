@@ -14,6 +14,7 @@ import { generateSchedule, type BatchLike } from '@/lib/sessionSchedule'
 export interface StudentSessionRow {
   session_id:          string
   batch_id:            string
+  course_name:         string | null
   session_number:      number
   session_title:       string | null
   session_date:        string         // YYYY-MM-DD
@@ -75,6 +76,7 @@ export async function getStudentSessions(email: string): Promise<StudentSessions
         all.push({
           session_id:          `${b.id}-${s.n}`,
           batch_id:            b.id,
+          course_name:         e.course?.name ?? null,
           session_number:      s.n,
           session_title:       s.title,
           session_date:        s.dateISO,
@@ -91,7 +93,7 @@ export async function getStudentSessions(email: string): Promise<StudentSessions
   }
 
   // ── LEGACY fallback ────────────────────────────────────────────────────────
-  const { data: legacyUser } = await service.from('users').select('batch_id').eq('email', email).maybeSingle()
+  const { data: legacyUser } = await service.from('users').select('batch_id, course_name').eq('email', email).maybeSingle()
   const legacyBatchId = legacyUser?.batch_id ?? null
   if (legacyBatchId) {
     const { data: rows } = await service
@@ -102,6 +104,7 @@ export async function getStudentSessions(email: string): Promise<StudentSessions
     const all: StudentSessionRow[] = (rows ?? []).map((r: any, i: number) => ({
       session_id:          String(r.session_id),
       batch_id:            legacyBatchId,
+      course_name:         legacyUser?.course_name ?? null,
       session_number:      i + 1,
       session_title:       r.session_title ?? null,
       session_date:        r.session_date,

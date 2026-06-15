@@ -99,13 +99,19 @@ export default async function SessionsPage() {
                     style={{ background: T.purpleBg, color: T.purple, border: `1px solid ${T.purpleBorder}` }}>
                     {idx + 1}
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: T.textPrimary }}>
-                      {s.session_title ?? `Session ${idx + 1}`}
+                  <div className="min-w-0">
+                    {s.course_name && (
+                      <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-1"
+                        style={{ background: T.purpleBg, color: T.purple, border: `1px solid ${T.purpleBorder}` }}>
+                        {s.course_name}
+                      </span>
+                    )}
+                    <p className="text-sm font-semibold truncate" style={{ color: T.textPrimary }}>
+                      {s.session_title ?? `Session ${s.session_number}`}
                     </p>
                     <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: T.textMuted }}>
                       <Calendar size={10} />
-                      {fmt(s.session_date)}
+                      Session {s.session_number} · {fmt(s.session_date)}
                       {s.session_start_time ? ` · ${fmtTime(s.session_start_time)} IST` : ''}
                     </p>
                   </div>
@@ -148,11 +154,17 @@ export default async function SessionsPage() {
                 className="px-5 py-3.5 flex items-center gap-3 hover:bg-green-50/20 transition-colors">
                 <CheckCircle2 size={15} className="shrink-0" style={{ color: T.green }} />
                 <div className="flex-1 min-w-0">
+                  {s.course_name && (
+                    <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-1"
+                      style={{ background: T.greenBg, color: T.green, border: `1px solid ${T.greenBorder}` }}>
+                      {s.course_name}
+                    </span>
+                  )}
                   <p className="text-sm font-medium truncate" style={{ color: T.textPrimary }}>
-                    {s.session_title ?? `Session — ${fmt(s.session_date)}`}
+                    {s.session_title ?? `Session ${s.session_number}`}
                   </p>
                   <p className="text-xs mt-0.5" style={{ color: T.textMuted }}>
-                    {fmt(s.session_date)}
+                    Session {s.session_number} · {fmt(s.session_date)}
                     {s.session_start_time ? ` · ${fmtTime(s.session_start_time)} IST` : ''}
                   </p>
                 </div>

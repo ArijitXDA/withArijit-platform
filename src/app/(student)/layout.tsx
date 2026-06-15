@@ -72,6 +72,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
           initials={initials}
           photoUrl={photoUrl}
           fullName={fullName}
+          email={user?.email ?? null}
         />
         {/* pb-20 reserves space for mobile bottom nav */}
         <main className="flex-1 p-4 md:p-6 overflow-auto pb-24 md:pb-6">{children}</main>

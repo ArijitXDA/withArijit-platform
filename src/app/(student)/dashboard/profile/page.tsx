@@ -28,7 +28,7 @@ export default async function ProfilePage() {
       .select(`
         id, created_at, course_name, enrolment_type, amount_paid, payment_date,
         course:course_id(name, short_name, total_sessions, session_duration_mins, slug),
-        batch:batch_id(label, day_of_week, start_time, start_date, meeting_link, meeting_platform, instructor_name, batch_code),
+        batch:batch_id(label, day_of_week, start_time, start_date, meeting_link, meeting_platform, instructor_name, batch_code, total_sessions, duration_mins, variant),
         partner:partner_id(full_name, partner_code, mobile, email)
       `)
       .eq('student_email', email)

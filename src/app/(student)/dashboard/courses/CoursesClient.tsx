@@ -258,7 +258,11 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
 function CourseCard({ enrolment }: { enrolment: Enrolment }) {
   const [open, setOpen] = useState(false)
   const { course, batch, sessions } = enrolment
-  const totalSessions  = course?.total_sessions ?? null
+  // Count + duration come from the student's actual BATCH (9×120min for a 9-week
+  // cohort, 26×60 for long, weekly for a rolling subscription) — the course
+  // record always says 26, so reading it showed "26 sessions" for every variant.
+  const totalSessions  = batch?.total_sessions ?? course?.total_sessions ?? null
+  const sessionDuration = batch?.duration_mins ?? course?.session_duration_mins ?? 60
   const today          = new Date().toISOString().split('T')[0]
   const upcomingCount  = sessions.filter(s => s.session_date >= today).length
   const pastCount      = sessions.filter(s => s.session_date < today).length
@@ -371,10 +375,15 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
         )}
         {totalSessions && (
           <div>
-            <p className="text-xs font-medium mb-1" style={{ color: T.textMuted }}>Total Sessions</p>
+            <p className="text-xs font-medium mb-1" style={{ color: T.textMuted }}>
+              {isMembership ? 'Cadence' : 'Total Sessions'}
+            </p>
             <p className="text-sm font-semibold" style={{ color: T.textPrimary }}>
-              {totalSessions} sessions
-              <span className="font-normal" style={{ color: T.textMuted }}> · {course?.session_duration_mins ?? 90} min</span>
+              {isMembership ? (
+                <>Weekly<span className="font-normal" style={{ color: T.textMuted }}> · {sessionDuration} min · ongoing</span></>
+              ) : (
+                <>{totalSessions} sessions<span className="font-normal" style={{ color: T.textMuted }}> · {sessionDuration} min</span></>
+              )}
             </p>
           </div>
         )}

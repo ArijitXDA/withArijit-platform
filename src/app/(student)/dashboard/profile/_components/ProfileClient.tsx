@@ -80,9 +80,11 @@ function EnrolmentCard({ enrolment, webinarReg }: { enrolment: any; webinarReg: 
         {course?.name && infoRow('Course',
           <div>
             <p className="font-semibold text-sm" style={{ color: T.textPrimary }}>{course.name}</p>
-            {course.total_sessions && (
+            {(batch?.total_sessions ?? course.total_sessions) && (
               <p className="text-xs mt-0.5" style={{ color: T.textMuted }}>
-                {course.total_sessions} sessions · {course.session_duration_mins ?? 90} mins each
+                {batch?.variant === 'rolling'
+                  ? `Weekly · ${batch?.duration_mins ?? course.session_duration_mins ?? 60} mins each · ongoing`
+                  : `${batch?.total_sessions ?? course.total_sessions} sessions · ${batch?.duration_mins ?? course.session_duration_mins ?? 60} mins each`}
               </p>
             )}
           </div>

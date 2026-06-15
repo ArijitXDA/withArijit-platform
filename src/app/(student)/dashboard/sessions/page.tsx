@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { createServiceClient } from '@/lib/supabase/service'
+import { getStudentSessions } from '@/lib/studentSessions'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Calendar, Clock, CheckCircle2, ChevronLeft, Video } from 'lucide-react'
@@ -33,41 +33,13 @@ export default async function SessionsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/signin')
 
-  const service = createServiceClient()
-  const email   = user.email!
+  const email = user.email!
 
-  const { data: legacyUser } = await service
-    .from('users')
-    .select('name, course_name, batch_id')
-    .eq('email', email)
-    .maybeSingle()
-
-  const legacyBatchId = legacyUser?.batch_id ?? null
-  const today = new Date().toISOString().split('T')[0]
-
-  let upcomingSessions: any[] = []
-  let pastSessions:     any[] = []
-
-  if (legacyBatchId) {
-    const [{ data: upcoming }, { data: past }] = await Promise.all([
-      service
-        .from('session_master_table')
-        .select('session_id, session_title, session_date, session_start_time, session_link')
-        .eq('batch_id', legacyBatchId)
-        .gte('session_date', today)
-        .order('session_date')
-        .limit(30),
-      service
-        .from('session_master_table')
-        .select('session_id, session_title, session_date, session_start_time, session_link')
-        .eq('batch_id', legacyBatchId)
-        .lt('session_date', today)
-        .order('session_date', { ascending: false })
-        .limit(50),
-    ])
-    upcomingSessions = upcoming ?? []
-    pastSessions     = past     ?? []
-  }
+  // Unified schedule — new schema (student_enrolments + awa_session_links) with
+  // computed dates, falling back to legacy session_master_table.
+  const sched = await getStudentSessions(email)
+  const upcomingSessions = sched.upcoming
+  const pastSessions     = sched.past.slice().reverse() // most recent attended first
 
   const totalAttended = pastSessions.length
   const totalUpcoming = upcomingSessions.length

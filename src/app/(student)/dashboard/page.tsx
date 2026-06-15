@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { getStudentSessions } from '@/lib/studentSessions'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Calendar, BookOpen, Award, Clock, ChevronRight, Video } from 'lucide-react'
@@ -105,23 +106,11 @@ export default async function DashboardPage({
   const batchLabel  = (enrolment?.batch as any)?.label ?? legacyUser?.batch_day_time ?? null
   const batchTime   = (enrolment?.batch as any)?.start_time ?? null
   const meetingLink = (enrolment?.batch as any)?.meeting_link ?? null
-  const legacyBatchId = legacyUser?.batch_id ?? null
-
   const pendingBatch = enrolments?.filter((e: any) => !e.batch_id) ?? []
 
-  const today = new Date().toISOString().split('T')[0]
-  let upcomingSessions: any[] = []
-
-  if (legacyBatchId) {
-    const { data: sessions } = await service
-      .from('session_master_table')
-      .select('session_id, session_title, session_date, session_start_time, session_link')
-      .eq('batch_id', legacyBatchId)
-      .gte('session_date', today)
-      .order('session_date')
-      .limit(3)
-    upcomingSessions = sessions ?? []
-  }
+  // Unified session schedule (new schema + computed dates; legacy fallback)
+  const { upcoming, past } = await getStudentSessions(email)
+  const upcomingSessions = upcoming.slice(0, 3)
 
   const { data: certs, count: certCount } = await service
     .from('certificates')
@@ -130,14 +119,6 @@ export default async function DashboardPage({
     .eq('is_active', true)
     .order('date_of_issuing', { ascending: false })
     .limit(2)
-
-  const { count: pastCount } = legacyBatchId
-    ? await service
-        .from('session_master_table')
-        .select('*', { count: 'exact', head: true })
-        .eq('batch_id', legacyBatchId)
-        .lt('session_date', today)
-    : { count: 0 }
 
   // ── Stats card config — each card links to its detail page ────────────
   const STATS = [
@@ -152,7 +133,7 @@ export default async function DashboardPage({
     },
     {
       label:  'Sessions Attended',
-      value:  pastCount ?? 0,
+      value:  past.length,
       icon:   Calendar,
       accent: '#16a34a',
       bg:     '#f0fdf4',
@@ -161,7 +142,7 @@ export default async function DashboardPage({
     },
     {
       label:  'Upcoming Classes',
-      value:  upcomingSessions.length,
+      value:  upcoming.length,
       icon:   Clock,
       accent: '#7c3aed',
       bg:     '#f5f3ff',

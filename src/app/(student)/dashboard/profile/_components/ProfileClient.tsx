@@ -1,6 +1,5 @@
 'use client'
 import { useState, useRef } from 'react'
-import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import {
   User, Phone, Briefcase, GraduationCap, MapPin, Link2,
@@ -58,6 +57,33 @@ function fmtDate(d: string) {
 function fmtTime(t: string) {
   const [h, m] = t.split(':'); const hour = parseInt(h)
   return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`
+}
+
+// Downscale + compress an image entirely in the browser before upload, so we
+// store a small (~512px) JPEG instead of a multi-MB camera photo.
+async function resizeImage(file: File, maxDim = 512, quality = 0.85): Promise<Blob> {
+  const dataUrl: string = await new Promise((res, rej) => {
+    const r = new FileReader()
+    r.onload  = () => res(r.result as string)
+    r.onerror = () => rej(new Error('Could not read the image'))
+    r.readAsDataURL(file)
+  })
+  const img: HTMLImageElement = await new Promise((res, rej) => {
+    const i = new window.Image()
+    i.onload  = () => res(i)
+    i.onerror = () => rej(new Error('Could not load the image'))
+    i.src = dataUrl
+  })
+  let { width, height } = img
+  if (width >= height && width > maxDim)      { height = Math.round((height * maxDim) / width);  width  = maxDim }
+  else if (height > maxDim)                   { width  = Math.round((width  * maxDim) / height); height = maxDim }
+  const canvas = document.createElement('canvas')
+  canvas.width = width; canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas not supported on this device')
+  ctx.drawImage(img, 0, 0, width, height)
+  return new Promise<Blob>((res, rej) =>
+    canvas.toBlob(b => (b ? res(b) : rej(new Error('Could not compress the image'))), 'image/jpeg', quality))
 }
 
 // ── Enrolment card (read-only) ────────────────────────────────────────────────
@@ -273,13 +299,27 @@ export default function ProfileClient({ email, userId, profile, enrolment, webin
 
   async function uploadPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if (!file) return
-    setUploadingPhoto(true)
-    const path = `${userId}/avatar-${Date.now()}.${file.name.split('.').pop()}`
-    const { error: upErr } = await supabase.storage.from('student-profiles').upload(path, file, { upsert: true })
-    if (upErr) { setError('Photo upload failed'); setUploadingPhoto(false); return }
-    const { data: { publicUrl } } = supabase.storage.from('student-profiles').getPublicUrl(path)
-    set('profile_photo_url', publicUrl)
-    setUploadingPhoto(false)
+    if (!file.type.startsWith('image/')) { setError('Please choose an image file'); return }
+    setUploadingPhoto(true); setError('')
+    try {
+      const blob = await resizeImage(file)                       // ≤512px JPEG, ~0.85 quality
+      const path = `${userId}/avatar-${Date.now()}.jpg`
+      const { error: upErr } = await supabase.storage
+        .from('student-profiles')
+        .upload(path, blob, { upsert: true, contentType: 'image/jpeg', cacheControl: '3600' })
+      if (upErr) throw upErr
+      const { data: { publicUrl } } = supabase.storage.from('student-profiles').getPublicUrl(path)
+      const url = `${publicUrl}?v=${Date.now()}`                 // cache-bust so the new pic shows at once
+      set('profile_photo_url', url)
+      // Persist immediately so the photo sticks even before the full form is saved.
+      await (supabase as any).from('student_profiles')
+        .upsert({ email, profile_photo_url: url, updated_at: new Date().toISOString() }, { onConflict: 'email' })
+    } catch (err: any) {
+      setError(err?.message ? `Photo upload failed — ${err.message}` : 'Photo upload failed')
+    } finally {
+      setUploadingPhoto(false)
+      if (photoRef.current) photoRef.current.value = ''          // allow re-picking the same file
+    }
   }
 
   // ── CV upload is handled by the CvUploadCard + /api/student/cv/upload ──────
@@ -368,7 +408,7 @@ export default function ProfileClient({ email, userId, profile, enrolment, webin
             <div className="w-20 h-20 rounded-2xl overflow-hidden border-2"
               style={{ background: T.blueLight, borderColor: T.bluePale }}>
               {form.profile_photo_url
-                ? <Image src={form.profile_photo_url} alt="Profile" width={80} height={80} className="w-full h-full object-cover" />
+                ? <img src={form.profile_photo_url} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 : <div className="w-full h-full flex items-center justify-center text-3xl font-black" style={{ color: T.blue }}>
                     {(form.full_name || email)[0].toUpperCase()}
                   </div>

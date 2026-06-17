@@ -303,17 +303,14 @@ export default function ProfileClient({ email, userId, profile, enrolment, webin
     setUploadingPhoto(true); setError('')
     try {
       const blob = await resizeImage(file)                       // ≤512px JPEG, ~0.85 quality
-      const path = `${userId}/avatar-${Date.now()}.jpg`
-      const { error: upErr } = await supabase.storage
-        .from('student-profiles')
-        .upload(path, blob, { upsert: true, contentType: 'image/jpeg', cacheControl: '3600' })
-      if (upErr) throw upErr
-      const { data: { publicUrl } } = supabase.storage.from('student-profiles').getPublicUrl(path)
-      const url = `${publicUrl}?v=${Date.now()}`                 // cache-bust so the new pic shows at once
-      set('profile_photo_url', url)
-      // Persist immediately so the photo sticks even before the full form is saved.
-      await (supabase as any).from('student_profiles')
-        .upsert({ email, profile_photo_url: url, updated_at: new Date().toISOString() }, { onConflict: 'email' })
+      const fd = new FormData()
+      fd.append('file', new File([blob], 'avatar.jpg', { type: 'image/jpeg' }))
+      // Upload via the authenticated server route (service role) so it never
+      // depends on browser storage RLS. The route also persists profile_photo_url.
+      const res  = await fetch('/api/student/photo/upload', { method: 'POST', body: fd })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Upload failed')
+      set('profile_photo_url', data.url)
     } catch (err: any) {
       setError(err?.message ? `Photo upload failed — ${err.message}` : 'Photo upload failed')
     } finally {

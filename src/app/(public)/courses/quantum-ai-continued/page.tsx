@@ -256,7 +256,7 @@ export default async function QuantumAIContinuedPage() {
               ['Do I need a background in AI or Quantum?', 'No. It\'s open to every learner at every level — professionals, students, founders, leaders and the technically curious alike.'],
               ['What if I miss a session?', 'Every session is recorded. While your membership is active you can watch the full archive of past sessions any time.'],
               ['Can I cancel?', `Yes — just stop renewing. Your membership pauses and you keep nothing pending. Resume whenever you like by paying the next ${priceStr}.`],
-              ['Saturday or Sunday?', 'Both cohorts run weekly at 8:00 PM IST. You pick the day that suits you after joining, and can switch cohorts later.'],
+              ['Saturday or Sunday?', 'Both cohorts run weekly at 12:00 PM (noon) IST. You pick the day that suits you after joining, and can switch cohorts later.'],
               ['Do I get a certificate?', 'You can request a certificate of your continued learning at any time and we\'ll issue it.'],
             ].map(([q, a]) => (
               <details key={q} className="rounded-2xl border border-gray-100 p-5 bg-gray-50/60 group">

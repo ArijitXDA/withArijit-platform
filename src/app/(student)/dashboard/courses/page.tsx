@@ -31,6 +31,8 @@ function generateSessionSchedule(
       // True when a recording exists (private item or pasted link) — drives the
       // "Watch" button without exposing any URL to the client.
       has_recording:       !!(saved.recording_item_id || saved.recording_link),
+      // True when an LLM study guide has been generated → in-app study page.
+      has_study_material:  !!saved.study_material_md,
     }
   })
 }
@@ -69,7 +71,7 @@ export default async function CoursesPage() {
   if (batchIds.length > 0) {
     const { data: linkRows } = await service
       .from('awa_session_links')
-      .select('batch_id, session_number, session_title, recording_link, study_material_link, meeting_link, recording_item_id')
+      .select('batch_id, session_number, session_title, recording_link, study_material_link, meeting_link, recording_item_id, study_material_md')
       .in('batch_id', batchIds)
     for (const row of linkRows ?? []) {
       if (!savedLinksMap[row.batch_id]) savedLinksMap[row.batch_id] = {}

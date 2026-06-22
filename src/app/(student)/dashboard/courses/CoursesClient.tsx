@@ -39,6 +39,7 @@ interface Session {
   join_url?: string | null       // tracked join URL (/api/session/join?t=…) — server-minted
   batch_id?: string              // for the enrolment-gated recording endpoint
   has_recording?: boolean        // a recording exists (the URL is never sent to the client)
+  has_study_material?: boolean   // an LLM study guide exists → in-app study page
 }
 interface Course {
   id: string; name: string; short_name: string | null; description: string | null
@@ -165,11 +166,14 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {s.study_material_link && (
-                      <a href={s.study_material_link} target="_blank" rel="noopener noreferrer"
+                    {(s.has_study_material || s.study_material_link) && (
+                      <a href={s.has_study_material
+                            ? `/dashboard/courses/study/${s.batch_id}/${s.session_number}`
+                            : s.study_material_link!}
+                        target={s.has_study_material ? '_self' : '_blank'} rel="noopener noreferrer"
                         className="text-xs px-2.5 py-1 rounded-lg font-medium"
                         style={{ background: T.indigoBg, color: T.indigo, border: `1px solid ${T.indigoBorder}` }}>
-                        📄 Study PDF
+                        📄 Study Notes
                       </a>
                     )}
                     {s.has_recording ? (

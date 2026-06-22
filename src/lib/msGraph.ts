@@ -40,11 +40,17 @@ async function getToken(): Promise<string> {
  */
 export async function getRecordingDownloadUrl(driveId: string, itemId: string): Promise<string | null> {
   const token = await getToken()
+  // Fetch the FULL item (no $select): @microsoft.graph.downloadUrl is a default
+  // annotation that $select can suppress. Surface Graph errors (e.g. a 403 from
+  // a missing Files permission) instead of swallowing them into a vague 404.
   const res = await fetch(
-    `${GRAPH}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}?select=id,@microsoft.graph.downloadUrl`,
+    `${GRAPH}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}`,
     { headers: { Authorization: `Bearer ${token}` } },
   )
-  if (!res.ok) return null
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Graph item fetch failed [${res.status}]: ${body.slice(0, 200)}`)
+  }
   const json = await res.json()
   return json['@microsoft.graph.downloadUrl'] ?? null
 }

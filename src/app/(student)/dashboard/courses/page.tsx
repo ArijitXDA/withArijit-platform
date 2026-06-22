@@ -28,6 +28,9 @@ function generateSessionSchedule(
       session_link:        (saved.recording_link      || null) as string | null,
       study_material_link: (saved.study_material_link || null) as string | null,
       meeting_link:        (saved.meeting_link        || null) as string | null,
+      // True when a recording exists (private item or pasted link) — drives the
+      // "Watch" button without exposing any URL to the client.
+      has_recording:       !!(saved.recording_item_id || saved.recording_link),
     }
   })
 }
@@ -66,7 +69,7 @@ export default async function CoursesPage() {
   if (batchIds.length > 0) {
     const { data: linkRows } = await service
       .from('awa_session_links')
-      .select('batch_id, session_number, session_title, recording_link, study_material_link, meeting_link')
+      .select('batch_id, session_number, session_title, recording_link, study_material_link, meeting_link, recording_item_id')
       .in('batch_id', batchIds)
     for (const row of linkRows ?? []) {
       if (!savedLinksMap[row.batch_id]) savedLinksMap[row.batch_id] = {}
@@ -98,7 +101,7 @@ export default async function CoursesPage() {
           { start_date: batch.start_date, start_time: batch.start_time, duration_mins: batch.duration_mins ?? 60 },
           batchLinks,
           totalSessions,
-        ).map((s) => ({ ...s, join_url: joinUrl(email, batch.id, s.session_number) }))
+        ).map((s) => ({ ...s, join_url: joinUrl(email, batch.id, s.session_number), batch_id: batch.id as string }))
       : []
 
     return { ...e, sessions }

@@ -37,6 +37,8 @@ interface Session {
   study_material_link: string | null
   meeting_link: string | null    // live join link — null until admin pastes it
   join_url?: string | null       // tracked join URL (/api/session/join?t=…) — server-minted
+  batch_id?: string              // for the enrolment-gated recording endpoint
+  has_recording?: boolean        // a recording exists (the URL is never sent to the client)
 }
 interface Course {
   id: string; name: string; short_name: string | null; description: string | null
@@ -62,6 +64,27 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
   sessions: Session[]; totalSessions: number | null; batchMeetingLink: string | null
 }) {
   const [showAll, setShowAll] = useState(false)
+  // In-page recording player — fetches a short-lived, enrolment-gated URL so the
+  // real SharePoint URL never reaches the browser.
+  const [playN, setPlayN]           = useState<number | null>(null)
+  const [playTitle, setPlayTitle]   = useState('')
+  const [vidUrl, setVidUrl]         = useState<string | null>(null)
+  const [vidLoading, setVidLoading] = useState(false)
+  const [vidErr, setVidErr]         = useState('')
+
+  async function watch(s: Session) {
+    setPlayN(s.session_number); setPlayTitle(s.session_title ?? `Session ${s.session_number}`)
+    setVidUrl(null); setVidErr(''); setVidLoading(true)
+    try {
+      const res  = await fetch(`/api/student/recording/${s.batch_id}/${s.session_number}`)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Could not load the recording')
+      setVidUrl(data.url)
+    } catch (e: any) { setVidErr(e.message) }
+    finally { setVidLoading(false) }
+  }
+  function closePlayer() { setPlayN(null); setVidUrl(null); setVidErr('') }
+
   const today   = new Date().toISOString().split('T')[0]
   const past    = sessions.filter(s => s.session_date < today)
   const future  = sessions.filter(s => s.session_date >= today)
@@ -146,15 +169,15 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
                       <a href={s.study_material_link} target="_blank" rel="noopener noreferrer"
                         className="text-xs px-2.5 py-1 rounded-lg font-medium"
                         style={{ background: T.indigoBg, color: T.indigo, border: `1px solid ${T.indigoBorder}` }}>
-                        📄 Notes
+                        📄 Study PDF
                       </a>
                     )}
-                    {s.session_link ? (
-                      <a href={s.session_link} target="_blank" rel="noopener noreferrer"
+                    {s.has_recording ? (
+                      <button onClick={() => watch(s)}
                         className="text-xs px-2.5 py-1 rounded-lg font-medium"
                         style={{ background: T.purpleBg, color: T.purple, border: `1px solid ${T.purpleBorder}` }}>
                         ▶ Watch
-                      </a>
+                      </button>
                     ) : (
                       <span className="text-xs px-2.5 py-1 rounded-lg flex items-center gap-1"
                         style={{ background: '#f1f5f9', color: T.textMuted }}>
@@ -248,6 +271,30 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
               ? '↑ Show fewer sessions'
               : `↓ Show all ${sessions.length} sessions (${hiddenCount} more)`}
           </button>
+        </div>
+      )}
+
+      {/* In-page recording player — gated URL, download + right-click disabled */}
+      {playN !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(15,31,61,0.75)' }} onClick={closePlayer}>
+          <div className="w-full max-w-3xl rounded-2xl overflow-hidden bg-white"
+            onClick={e => e.stopPropagation()} style={{ border: `1px solid ${T.border}` }}>
+            <div className="px-4 py-3 flex items-center justify-between border-b" style={{ borderColor: T.borderLight }}>
+              <p className="text-sm font-bold truncate" style={{ color: T.textPrimary }}>{playTitle}</p>
+              <button onClick={closePlayer} className="text-base font-bold px-2 leading-none" style={{ color: T.textMuted }}>✕</button>
+            </div>
+            <div className="bg-black flex items-center justify-center" style={{ minHeight: 260 }}>
+              {vidLoading && <p className="text-white text-sm py-20">Loading recording…</p>}
+              {vidErr && <p className="text-white text-sm py-20 px-6 text-center">{vidErr}</p>}
+              {vidUrl && (
+                <video src={vidUrl} controls autoPlay
+                  controlsList="nodownload noplaybackrate" disablePictureInPicture
+                  onContextMenu={e => e.preventDefault()}
+                  className="w-full" style={{ maxHeight: '70vh' }} />
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

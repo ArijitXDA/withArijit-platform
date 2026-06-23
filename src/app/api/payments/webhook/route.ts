@@ -14,11 +14,12 @@
  * this webhook ensures the enrolment is still recorded.
  *
  * Register this URL in Razorpay Dashboard → Settings → Webhooks:
- *   https://www.witharijit.com/api/payments/webhook
- *   (or https://with-arijit-platform.vercel.app/api/payments/webhook)
+ *   https://www.ostaran.com/api/payments/webhook
  *
  * Events to subscribe: payment.captured
- * Secret: set RAZORPAY_WEBHOOK_SECRET in env
+ * Secret: set RAZORPAY_WEBHOOK_SECRET in env (must match the dashboard secret)
+ * Also ensure NEXT_PUBLIC_APP_URL=https://www.ostaran.com so the internal
+ * enrolment call below resolves to the live host.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
   // We call the existing /api/enrollment/self logic by importing the handler directly
   // rather than making an HTTP call, to avoid network overhead.
   try {
-    const appUrl     = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.witharijit.com'
+    const appUrl     = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ostaran.com'
     const enrolRes   = await fetch(`${appUrl}/api/enrollment/self`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', 'x-webhook-source': 'razorpay' },

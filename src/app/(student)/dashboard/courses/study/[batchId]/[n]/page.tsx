@@ -70,6 +70,8 @@ export default async function StudyPage({ params }: { params: Promise<{ batchId:
   const courseName = (enrolment as any).course?.name ?? 'Your course'
   const title = link?.session_title ?? `Session ${n}`
   const md    = link?.study_material_md ?? ''
+  const trainer = 'Arijit Chowdhury'
+  const year = new Date().getFullYear()
 
   return (
     <div className="max-w-3xl mx-auto pb-16">
@@ -80,12 +82,24 @@ export default async function StudyPage({ params }: { params: Promise<{ batchId:
         <PrintButton />
       </div>
 
-      <div className="rounded-2xl bg-white p-6 md:p-8" style={{ border: '1px solid #dce6f5' }}>
+      <div className="study-card rounded-2xl bg-white p-6 md:p-8" style={{ border: '1px solid #dce6f5' }}>
         <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#7c3aed' }}>{courseName} · Study Notes</p>
         <h1 className="text-2xl font-extrabold mt-1 mb-6" style={{ color: '#0f1f3d' }}>{title}</h1>
         {md
           ? <article className="study-prose" dangerouslySetInnerHTML={{ __html: mdToHtml(md) }} />
           : <p className="text-sm" style={{ color: '#64748b' }}>Study notes for this session are being prepared and will appear here shortly.</p>}
+
+        <footer className="study-footer" style={{ marginTop: 28, paddingTop: 14, borderTop: '1px solid #e2e8f0' }}>
+          <p style={{ fontSize: 12.5, fontWeight: 800, color: '#0f1f3d', letterSpacing: '.02em' }}>www.oStaran.com</p>
+          <p style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>
+            Trainer: {trainer} &middot; &copy; {year} oStaran &middot; Star Analytix Pvt. Ltd. All rights reserved.
+          </p>
+          <p style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 7, fontStyle: 'italic', lineHeight: 1.5 }}>
+            AI-generated study notes: produced automatically by AI from the class recording transcript and may contain
+            errors or omissions. Always refer to the session recording for the authoritative version. For personal use by
+            enrolled students only — not for redistribution.
+          </p>
+        </footer>
       </div>
 
       <style>{`
@@ -97,7 +111,14 @@ export default async function StudyPage({ params }: { params: Promise<{ batchId:
         .study-prose code{background:#f1f5f9;padding:.1em .35em;border-radius:4px;font-size:.9em}
         .study-prose pre.code{background:#0f1f3d;color:#e2e8f0;padding:1em;border-radius:10px;overflow:auto;margin:.8em 0}
         .study-prose pre.code code{background:none;color:inherit}
-        @media print { .no-print{display:none!important} aside, header { display:none!important } }
+        .study-card{position:relative;overflow:hidden}
+        .study-card::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;background-repeat:repeat;-webkit-print-color-adjust:exact;print-color-adjust:exact;background-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='250'%20height='168'%3E%3Ctext%20x='14'%20y='104'%20fill='%230f1f3d'%20fill-opacity='0.06'%20font-family='Arial,sans-serif'%20font-size='17'%20font-weight='700'%20transform='rotate(-28%20125%2084)'%3Ewww.oStaran.com%3C/text%3E%3C/svg%3E")}
+        .study-card>*{position:relative;z-index:1}
+        @media print {
+          .no-print{display:none!important} aside, header { display:none!important }
+          .study-card{border:none}
+          body, .study-card, .study-card::before{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+        }
       `}</style>
     </div>
   )

@@ -29,9 +29,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 }
 
-export default async function WebinarPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function WebinarPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ partner?: string }> }) {
   const { slug } = await params
+  const { partner } = await searchParams
   const d = await load(slug)
   if (!d) notFound()
-  return <WebinarRegisterClient slug={slug} webinar={d.w} course={d.course} mentor={d.mentor} />
+  return <WebinarRegisterClient slug={slug} webinar={d.w} course={d.course} mentor={d.mentor} partnerCode={partner ?? null} />
 }

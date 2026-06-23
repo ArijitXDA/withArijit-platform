@@ -9,7 +9,7 @@ function fmtWhen(iso: string) {
 
 const inp = 'w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 text-sm focus:outline-none focus:border-indigo-500'
 
-export default function WebinarRegisterClient({ slug, webinar, course, mentor }: { slug: string; webinar: any; course: any; mentor: any }) {
+export default function WebinarRegisterClient({ slug, webinar, course, mentor, partnerCode }: { slug: string; webinar: any; course: any; mentor: any; partnerCode: string | null }) {
   const [f, setF] = useState({ full_name: '', email: '', mobile: '' })
   const [busy, setBusy] = useState(false)
   const [err, setErr]   = useState('')
@@ -22,7 +22,7 @@ export default function WebinarRegisterClient({ slug, webinar, course, mentor }:
     setBusy(true)
     try {
       const res = await fetch('/api/webinar/register', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug, ...f }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug, ...f, partner_code: partnerCode }),
       })
       const j = await res.json(); if (!res.ok) throw new Error(j.error || 'Failed')
       setDone({ meeting_link: j.meeting_link ?? null })

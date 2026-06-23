@@ -25,6 +25,8 @@ import { CourseSchema }         from './_components/CourseSchema'
 import { CourseAIClassMonitor } from './_components/CourseAIClassMonitor'
 import { CourseAfterOutcomes }  from './_components/CourseAfterOutcomes'
 import { CourseSessionJourney } from './_components/CourseSessionJourney'
+import { MentorWhatYouGet, MentorCurriculum, MentorSessions, MentorProjects, MentorFAQ } from './_components/MentorSections'
+import { verifyPreviewToken } from '@/lib/previewToken'
 
 export const revalidate = 3600
 
@@ -85,7 +87,7 @@ export default async function CoursePage({
   searchParams: Promise<{ partner?: string; email?: string; name?: string; mobile?: string; enrol?: string }>
 }) {
   const { slug }                                                      = await params
-  const { partner, email: sqEmail, name: sqName, mobile: sqMobile }  = await searchParams
+  const { partner, email: sqEmail, name: sqName, mobile: sqMobile, preview } = await searchParams
   const supabase                                                      = createServiceClient()
 
   // ── Fetch course ─────────────────────────────────────────────────────────────
@@ -97,10 +99,16 @@ export default async function CoursePage({
 
   if (!course) notFound()
 
-  // Paused/archived → redirect gracefully (preserves SEO equity)
-  if (!course.is_active) {
+  // Not public yet: allow ONLY with a valid signed preview token for this course
+  // (mentor authoring / dev-admin review); otherwise redirect gracefully.
+  const isPreview = !course.is_active && verifyPreviewToken(preview ?? null) === course.id
+  if (!course.is_active && !isPreview) {
     redirect(course.redirect_slug ? `/courses/${course.redirect_slug}` : '/courses')
   }
+
+  // Mentor course → render mentor-authored sections + hide AI-Kit/testimonials.
+  const isMentor = !!course.owner_mentor_id
+  const lc = (course.landing_content ?? {}) as any
 
   // ── Fetch all supporting data in parallel ─────────────────────────────────
   const category = course.audience_category ?? 'general'
@@ -186,33 +194,33 @@ export default async function CoursePage({
         {/* 2. Transformation outcomes */}
         <CourseOutcomes category={category} />
 
-        {/* 3. What you get — 8 cards */}
-        <CourseWhatYouGet course={course} />
+        {/* 3. What you get (mentor: from landing_content, AI-Kit card omitted) */}
+        {isMentor ? <MentorWhatYouGet items={lc.whatYouGet} /> : <CourseWhatYouGet course={course} />}
 
-        {/* 4. AI Kit section */}
-        <CourseAIKit />
+        {/* 4. AI Kit — oStaran courses only */}
+        {!isMentor && <CourseAIKit />}
 
-        {/* 5. Real projects (DB-driven) */}
-        {(projects ?? []).length > 0 && (
-          <CourseProjects projects={projects ?? []} />
-        )}
+        {/* 5. Real projects */}
+        {isMentor
+          ? <MentorProjects items={lc.projects} />
+          : ((projects ?? []).length > 0 && <CourseProjects projects={projects ?? []} />)}
 
-        {/* 6. What You Will Learn — module accordion */}
-        {course.subjects && Array.isArray(course.subjects) && course.subjects.length > 0 && (
-          <CourseCurriculum subjects={course.subjects as string[]} category={category} />
-        )}
+        {/* 6. What You Will Learn */}
+        {isMentor
+          ? <MentorCurriculum highlights={lc.curriculumHighlights} />
+          : (course.subjects && Array.isArray(course.subjects) && course.subjects.length > 0 && (
+              <CourseCurriculum subjects={course.subjects as string[]} category={category} />
+            ))}
 
-        {/* 7. 26-Session Journey */}
-        <CourseSessionJourney category={category} />
+        {/* 7. Session journey */}
+        {isMentor ? <MentorSessions sessions={lc.sessions} /> : <CourseSessionJourney category={category} />}
 
         {/* 8. What You Walk Away With */}
         <CourseAfterOutcomes category={category} />
 
-        {/* 9. Senior testimonials */}
-        <CourseSeniorTestimonials />
-
-        {/* 10. Learner reviews — marquee */}
-        <CourseLearnerReviews testimonials={testimonials} category={category} />
+        {/* 9 + 10. Testimonials / learner reviews — oStaran courses only */}
+        {!isMentor && <CourseSeniorTestimonials />}
+        {!isMentor && <CourseLearnerReviews testimonials={testimonials} category={category} />}
 
         {/* 11. Trainer profile (dynamic per course — mentor or oStaran default) */}
         <CourseTrainer course={course} />
@@ -224,7 +232,7 @@ export default async function CoursePage({
         <CourseComparison mrp={mrp} />
 
         {/* 14. FAQs */}
-        <CourseFAQ course={course} />
+        {isMentor ? <MentorFAQ faqs={lc.faqs} /> : <CourseFAQ course={course} />}
 
         {/* 15. Bottom CTA */}
         <CourseBottomCTA course={course} enrolProps={enrolProps} />

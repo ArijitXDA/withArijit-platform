@@ -14,11 +14,15 @@ export default async function CoursesPage() {
   const supabase = await createClient()
   const { data: courses, error } = await supabase
     .from('awa_courses')
-    .select('id, name, slug, description, mrp, target_audience, total_sessions, session_duration_mins')
+    .select('id, name, slug, description, mrp, target_audience, total_sessions, session_duration_mins, owner_mentor_id, trainer_name')
     .eq('is_active', true)
     .order('sort_order')
 
   if (error) console.error('Failed to fetch courses:', error.message)
+
+  const all = courses ?? []
+  const ostaranCourses = all.filter((c: any) => !c.owner_mentor_id)
+  const mentorCourses  = all.filter((c: any) => c.owner_mentor_id)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -44,22 +48,41 @@ export default async function CoursesPage() {
 
       {/* ── Course grid ─────────────────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 py-16">
-        {(courses ?? []).length === 0 ? (
+        {all.length === 0 ? (
           <p className="text-center text-gray-500 py-12">Programmes coming soon.</p>
         ) : (
           <>
+            {/* oStaran programmes */}
             <div className="flex items-center justify-between mb-10">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">All Programmes</h2>
-                <p className="text-gray-500 text-sm mt-1">Select the programme built for your profile</p>
+                <h2 className="text-2xl font-bold text-gray-900">oStaran Programmes</h2>
+                <p className="text-gray-500 text-sm mt-1">Live AI certifications taught by Arijit Chowdhury</p>
               </div>
-              <span className="text-sm text-gray-400">{(courses ?? []).length} programmes</span>
+              <span className="text-sm text-gray-400">{ostaranCourses.length} programmes</span>
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {(courses ?? []).map(course => (
+              {ostaranCourses.map((course: any) => (
                 <CourseCard key={course.id} course={course} />
               ))}
             </div>
+
+            {/* Mentor programmes */}
+            {mentorCourses.length > 0 && (
+              <div className="mt-20">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Mentor Programmes</h2>
+                    <p className="text-gray-500 text-sm mt-1">Courses by expert professors &amp; trainers on oStaran</p>
+                  </div>
+                  <span className="text-sm text-gray-400">{mentorCourses.length} programmes</span>
+                </div>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-7">
+                  {mentorCourses.map((course: any) => (
+                    <CourseCard key={course.id} course={course} />
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
 

@@ -93,6 +93,12 @@ export function CourseHero({
               {course.name}
             </h1>
 
+            {/* Taught by — trainer attribution (mentor course or oStaran default) */}
+            <p className="text-sm font-semibold mb-4 flex items-center gap-1.5" style={{ color: '#a5b4fc' }}>
+              <span>👨‍🏫 Taught by {course.trainer_name ?? 'Arijit Chowdhury'}</span>
+              {course.trainer_title && <span className="text-slate-500 font-medium">· {course.trainer_title}</span>}
+            </p>
+
             {/* Tagline */}
             {course.description && (
               <p className="text-lg text-slate-300 leading-relaxed mb-6 max-w-xl">

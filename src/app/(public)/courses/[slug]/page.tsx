@@ -43,15 +43,16 @@ export async function generateMetadata({
   const supabase = createServiceClient()
   const { data: course } = await supabase
     .from('awa_courses')
-    .select('name, description, seo_title, seo_description, mrp')
+    .select('name, description, seo_title, seo_description, mrp, trainer_name')
     .eq('slug', slug)
     .single()
 
   if (!course) return {}
 
-  const title       = course.seo_title ?? `${course.name} — Live AI Certification Online India | oStaran`
+  const trainer     = course.trainer_name ?? 'Arijit Chowdhury'
+  const title       = course.seo_title ?? `${course.name} by ${trainer} — Live AI Certification Online India | oStaran`
   const description = course.seo_description ??
-    `${course.description ?? ''} Live weekend sessions with Arijit Chowdhury. AI Kit couriered. Interim + completion certificate. 50,000+ trained across India, USA & Canada.`
+    `${course.description ?? ''} Live weekend sessions with ${trainer}. AI Kit couriered. Interim + completion certificate. 50,000+ trained across India, USA & Canada.`
 
   return {
     title,
@@ -213,8 +214,8 @@ export default async function CoursePage({
         {/* 10. Learner reviews — marquee */}
         <CourseLearnerReviews testimonials={testimonials} category={category} />
 
-        {/* 11. Trainer profile */}
-        <CourseTrainer />
+        {/* 11. Trainer profile (dynamic per course — mentor or oStaran default) */}
+        <CourseTrainer course={course} />
 
         {/* 12. Assistant Professor (AI) */}
         <CourseAIClassMonitor />

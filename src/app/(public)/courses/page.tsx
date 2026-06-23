@@ -14,7 +14,7 @@ export default async function CoursesPage() {
   const supabase = await createClient()
   const { data: courses, error } = await supabase
     .from('awa_courses')
-    .select('id, name, slug, description, mrp, target_audience, total_sessions, session_duration_mins, owner_mentor_id, trainer_name')
+    .select('id, name, slug, description, mrp, target_audience, total_sessions, session_duration_mins, course_format, owner_mentor_id, trainer_name')
     .eq('is_active', true)
     .order('sort_order')
 

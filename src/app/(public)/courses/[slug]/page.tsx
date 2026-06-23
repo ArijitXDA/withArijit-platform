@@ -118,6 +118,7 @@ export default async function CoursePage({
     { data: projects },
     { data: allTestimonials },
     { data: partnerRow },
+    { data: mentorRow },
   ] = await Promise.all([
     supabase
       .from('course_projects')
@@ -137,7 +138,18 @@ export default async function CoursePage({
     partner
       ? supabase.from('partners').select('full_name').eq('partner_code', partner).eq('status', 'active').single()
       : Promise.resolve({ data: null }),
+
+    // Mentor course: pull the mentor's profile photo as a live fallback (the course
+    // snapshots trainer_* at creation, but the mentor may have added a photo later).
+    isMentor
+      ? supabase.from('mentors').select('trainer_photo_url').eq('id', course.owner_mentor_id).single()
+      : Promise.resolve({ data: null }),
   ])
+
+  // Trainer section: use the course's photo, else fall back to the mentor's.
+  const courseForTrainer = isMentor && !course.trainer_photo_url && mentorRow?.trainer_photo_url
+    ? { ...course, trainer_photo_url: mentorRow.trainer_photo_url }
+    : course
 
   // Filter testimonials to this course's category
   const testimonials = (allTestimonials ?? []).filter(t => {
@@ -223,7 +235,7 @@ export default async function CoursePage({
         {!isMentor && <CourseLearnerReviews testimonials={testimonials} category={category} />}
 
         {/* 11. Trainer profile (dynamic per course — mentor or oStaran default) */}
-        <CourseTrainer course={course} />
+        <CourseTrainer course={courseForTrainer} />
 
         {/* 12. Assistant Professor (AI) */}
         <CourseAIClassMonitor />

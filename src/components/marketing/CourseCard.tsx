@@ -15,6 +15,7 @@ interface CourseCardProps {
     target_audience?: string | null
     total_sessions?: number | null
     session_duration_mins?: number | null
+    course_format?: string | null
   }
 }
 
@@ -47,9 +48,18 @@ function formatPrice(price: number) {
 export function CourseCard({ course }: CourseCardProps) {
   const theme = getCourseTheme(course.name, course.slug)
   const { Icon, accent, bg, badge, audience } = theme
-  const isMembership = course.slug.includes('continued')   // monthly rolling membership
-  const sessions = course.total_sessions ?? 26
-  const duration = course.session_duration_mins ?? 60
+  const fmt = course.course_format ?? null
+  const isMembership = course.slug.includes('continued') || fmt === 'rolling'   // weekly · ongoing
+  const sessions = course.total_sessions ?? null
+  const duration = course.session_duration_mins ?? null
+
+  // Tenure/structure label — reflects the booked cohort, never a hardcoded count.
+  const structureLabel =
+      isMembership          ? 'Weekly · ongoing'
+    : fmt === 'weekend9'    ? '9 weekend sessions'
+    : fmt === 'long26'      ? '26 weekly sessions'
+    : sessions              ? `${sessions} Live Sessions`
+    :                         'Live sessions'
 
   return (
     <Link
@@ -89,11 +99,13 @@ export function CourseCard({ course }: CourseCardProps) {
         {/* ── Session info pills ─────────────────────────────────── */}
         <div className="flex items-center gap-2 flex-wrap mb-4 mt-auto">
           <span className="flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
-            <Layers size={11} className="text-gray-400" /> {isMembership ? 'Weekly · ongoing' : `${sessions} Live Sessions`}
+            <Layers size={11} className="text-gray-400" /> {structureLabel}
           </span>
-          <span className="flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
-            <Clock size={11} className="text-gray-400" /> {duration} min each
-          </span>
+          {duration && (
+            <span className="flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
+              <Clock size={11} className="text-gray-400" /> {duration} min each
+            </span>
+          )}
           <span className="flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
             <Star size={11} className="text-amber-400 fill-amber-400" /> 4.9 rated
           </span>

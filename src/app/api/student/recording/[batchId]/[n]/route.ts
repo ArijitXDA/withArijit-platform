@@ -11,7 +11,7 @@ import { getRecordingDownloadUrl } from '@/lib/msGraph'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ batchId: string; n: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ batchId: string; n: string }> }) {
   const { batchId, n } = await params
 
   const supabase = await createClient()
@@ -38,6 +38,25 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ bat
     .eq('session_number', Number(n))
     .maybeSingle()
   if (!link) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+
+  // Log the watch (who + which recording + when) so admins can track who watched
+  // what — same click-log table the join tracking uses. Fire-and-forget; never
+  // blocks playback. Only logged when a playable recording actually exists.
+  if ((link.recording_item_id && link.recording_drive_id) || link.recording_link) {
+    const ua = req.headers.get('user-agent') || null
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || null
+    void service.from('student_link_click_log').insert({
+      link_type:     'recording_watch',
+      student_email: user.email,
+      click_subtype: `${batchId}#${n}`,
+      user_agent:    ua,
+      ip_address:    ip,
+      device_type:   ua ? (/mobile|android|iphone/i.test(ua) ? 'mobile' : /tablet|ipad/i.test(ua) ? 'tablet' : 'desktop') : null,
+      source_app:    'ostaran',
+      is_conversion: false,
+      clicked_at:    new Date().toISOString(),
+    })
+  }
 
   // Private item (URL hidden) → short-lived Graph download URL.
   if (link.recording_item_id && link.recording_drive_id) {

@@ -33,7 +33,7 @@ const CORPORATE_LINKS = [
   { href: '/contact?type=media',        label: 'Media Enquiries',    desc: 'Press kit and spokesperson access'     },
 ]
 
-type DropdownKey = 'courses' | 'resources' | 'corporate' | null
+type DropdownKey = 'courses' | 'resources' | 'corporate' | 'about' | null
 
 export function Navbar() {
   const pathname = usePathname()
@@ -152,11 +152,27 @@ export function Navbar() {
               )}
             </div>
 
-            <Link href="/about" className={`px-3 py-2 text-sm rounded-lg transition-colors font-medium ${
-              isActive('/about') ? 'text-indigo-700 bg-indigo-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-            }`}>
-              About
-            </Link>
+            {/* About */}
+            <div className="relative" onMouseEnter={() => openDropdown('about')} onMouseLeave={scheduleClose}>
+              <button className={`flex items-center gap-1 px-3 py-2 text-sm rounded-lg transition-colors font-medium ${
+                dropdown === 'about' || isActive('/about') || isActive('/contact') ? 'text-indigo-700 bg-indigo-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}>
+                About <ChevronDown size={14} className={`transition-transform ${dropdown === 'about' ? 'rotate-180' : ''}`} />
+              </button>
+              {dropdown === 'about' && (
+                <div className="absolute top-full left-0 mt-1 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50"
+                  onMouseEnter={() => openDropdown('about')} onMouseLeave={scheduleClose}>
+                  <Link href="/about" className="block px-4 py-2.5 hover:bg-indigo-50 transition-colors group">
+                    <p className="text-sm font-medium text-gray-800 group-hover:text-indigo-700">About oStaran</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Our story, mission and team</p>
+                  </Link>
+                  <Link href="/contact" className="block px-4 py-2.5 hover:bg-indigo-50 transition-colors group">
+                    <p className="text-sm font-medium text-gray-800 group-hover:text-indigo-700">Contact / Support</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Reach our team — we reply within a day</p>
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Desktop CTAs */}
@@ -290,8 +306,20 @@ export function Navbar() {
             </div>
           )}
 
-          <Link href="/about"   className="block py-3 text-base font-semibold text-gray-900 border-b border-gray-100">About</Link>
-          <Link href="/contact" className="block py-3 text-base font-semibold text-gray-900 border-b border-gray-100">Contact</Link>
+          {/* About */}
+          <button
+            onClick={() => setMobileExpanded(v => v === 'about' ? null : 'about')}
+            className="w-full flex items-center justify-between py-3 text-base font-semibold text-gray-900 border-b border-gray-100"
+          >
+            About
+            <ChevronDown size={18} className={`text-gray-400 transition-transform ${mobileExpanded === 'about' ? 'rotate-180' : ''}`} />
+          </button>
+          {mobileExpanded === 'about' && (
+            <div className="pl-3 py-2 space-y-1">
+              <Link href="/about"   className="block py-2.5 text-sm text-gray-700 hover:text-indigo-600 transition-colors">About oStaran</Link>
+              <Link href="/contact" className="block py-2.5 text-sm text-gray-700 hover:text-indigo-600 transition-colors">Contact / Support</Link>
+            </div>
+          )}
 
           <div className="pt-6 space-y-3">
             {/* Become AI Partner — gold */}

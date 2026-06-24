@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createTicket } from '@/lib/tickets'
+
+// Map a contact enquiry type to a ticket category.
+const ENQUIRY_TO_CATEGORY: Record<string, string> = {
+  support: 'platform', student: 'course', corporate: 'service_request',
+  partner: 'query', investor: 'query', media: 'query', career: 'query', other: 'other',
+}
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,6 +39,29 @@ export async function POST(req: NextRequest) {
       organisation: organisation || null, brief: brief || null,
     })
     if (dbErr) throw new Error(dbErr.message)
+
+    // Raise an admin ticket so the enquiry lands in the admin notification centre.
+    try {
+      const detail = [
+        `Email: ${email.trim()}`,
+        mobile ? `Mobile: ${mobile.trim()}` : '',
+        `Type: ${ENQUIRY_LABELS[enquiry_type] || enquiry_type}`,
+        message ? `\nMessage:\n${message.trim()}` : '',
+        (course_interest || company_name || training_topic || organisation || city)
+          ? `\nDetails: ${JSON.stringify({ course_interest, batch_preference, company_name, team_size, training_topic, org_type, city, organisation, brief })}`
+          : '',
+        `\n(Website contact form — reply to ${email.trim()} by email/phone.)`,
+      ].filter(Boolean).join('\n')
+      await createTicket({
+        by: { type: 'contact', id: email.trim().toLowerCase(), name: name.trim() },
+        category: ENQUIRY_TO_CATEGORY[enquiry_type] ?? 'query',
+        subject: `Contact: ${ENQUIRY_LABELS[enquiry_type] || enquiry_type} — ${name.trim()}`,
+        body: detail,
+        recipients: [{ type: 'admin', id: '*', name: 'oStaran Admin / Support' }],
+      })
+    } catch (e: any) {
+      console.warn('[contact API] ticket creation failed (non-fatal):', e?.message)
+    }
 
     // Send confirmation email to enquirer via Resend
     const resendKey = process.env.RESEND_API_KEY

@@ -161,21 +161,35 @@ export function Navbar() {
 
           {/* Desktop CTAs */}
           <div className="hidden lg:flex items-center gap-2.5 shrink-0">
-            <Link href="/signin" className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">
+            {/* Student Sign In — neon green */}
+            <Link href="/signin"
+              className="px-3.5 py-2 text-sm font-bold rounded-xl transition-all hover:opacity-90 whitespace-nowrap"
+              style={{ background: 'linear-gradient(135deg,#22c55e,#4ade80)', color: '#05290f', boxShadow: '0 0 14px rgba(74,222,128,0.6)' }}>
               Student Sign In
             </Link>
-            {/* Become AI Partner — prominent gold CTA → partner programme */}
+            {/* Become AI Partner — gold CTA → partner programme */}
             <a href="https://partner.ostaran.com"
               title="Join the largest AI Partnership network"
-              className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all hover:opacity-90 hover:shadow-lg whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold rounded-xl transition-all hover:opacity-90 hover:shadow-lg whitespace-nowrap"
               style={{ background: 'linear-gradient(135deg, #C49A10, #F0BE3C)', color: '#0E1632' }}>
               <Briefcase size={15} /> Become AI Partner
             </a>
-            <Link href="/masterclass"
-              className="px-4 py-2 text-sm font-semibold text-white rounded-xl transition-all hover:opacity-90 hover:shadow-lg whitespace-nowrap"
-              style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
-              Get Certified This Sunday
-            </Link>
+            {/* Launch Your Course — neon pink → become a mentor */}
+            <a href="https://partner.ostaran.com/dashboard/become-mentor"
+              title="Become a mentor & launch your own course"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold rounded-xl text-white transition-all hover:opacity-90 hover:shadow-lg whitespace-nowrap"
+              style={{ background: 'linear-gradient(135deg,#ec4899,#a855f7)', boxShadow: '0 0 14px rgba(236,72,153,0.6)' }}>
+              🚀 Launch Your Course
+            </a>
+            {/* Get Certified + subtext */}
+            <div className="flex flex-col items-center">
+              <Link href="/masterclass"
+                className="px-3.5 py-2 text-sm font-semibold text-white rounded-xl transition-all hover:opacity-90 hover:shadow-lg whitespace-nowrap"
+                style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
+                Get Certified This Sunday
+              </Link>
+              <span className="text-[10px] text-gray-500 mt-0.5 whitespace-nowrap">90 Minutes Virtual Agentic AI Session</span>
+            </div>
           </div>
 
           {/* Mobile hamburger — large tap target for reliability */}
@@ -280,20 +294,31 @@ export function Navbar() {
           <Link href="/contact" className="block py-3 text-base font-semibold text-gray-900 border-b border-gray-100">Contact</Link>
 
           <div className="pt-6 space-y-3">
-            {/* Become AI Partner — prominent gold CTA */}
+            {/* Become AI Partner — gold */}
             <a href="https://partner.ostaran.com"
               className="flex items-center justify-center gap-2 text-center py-3.5 text-sm font-bold rounded-xl"
               style={{ background: 'linear-gradient(135deg, #C49A10, #F0BE3C)', color: '#0E1632' }}>
               <Briefcase size={16} /> Become AI Partner
             </a>
             <p className="text-center text-xs text-gray-500 -mt-1">Join the largest AI Partnership network</p>
+            {/* Launch Your Course — neon pink */}
+            <a href="https://partner.ostaran.com/dashboard/become-mentor"
+              className="flex items-center justify-center gap-2 text-center py-3.5 text-sm font-bold rounded-xl text-white"
+              style={{ background: 'linear-gradient(135deg,#ec4899,#a855f7)', boxShadow: '0 0 16px rgba(236,72,153,0.5)' }}>
+              🚀 Launch Your Course
+            </a>
+            <p className="text-center text-xs text-gray-500 -mt-1">Become a mentor — teach on oStaran</p>
+            {/* Get Certified + subtext */}
             <Link href="/masterclass"
               className="block text-center py-3.5 text-sm font-bold text-white rounded-xl"
               style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
               Get Certified This Sunday
             </Link>
+            <p className="text-center text-xs text-gray-500 -mt-1">90 Minutes Virtual Agentic AI Session</p>
+            {/* Student Sign In — neon green */}
             <Link href="/signin"
-              className="block text-center py-3 text-sm font-semibold text-gray-700 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors">
+              className="block text-center py-3 text-sm font-bold rounded-xl"
+              style={{ background: 'linear-gradient(135deg,#22c55e,#4ade80)', color: '#05290f', boxShadow: '0 0 14px rgba(74,222,128,0.5)' }}>
               Student Sign In
             </Link>
           </div>

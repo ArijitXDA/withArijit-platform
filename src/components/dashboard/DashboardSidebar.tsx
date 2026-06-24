@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, BookOpen, Library,
-  Award, CreditCard, User, Briefcase, Users, LogOut, Sparkles,
+  Award, CreditCard, User, Briefcase, Users, LogOut, Sparkles, LifeBuoy,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: '/dashboard/library',        label: 'Library',          icon: Library },
   { href: '/dashboard/certificates',   label: 'Certificates',     icon: Award },
   { href: '/dashboard/payments',       label: 'Payments',         icon: CreditCard },
+  { href: '/dashboard/tickets',        label: 'Support / Tickets', icon: LifeBuoy },
   { href: '/dashboard/profile',        label: 'Profile',          icon: User },
   { href: '/dashboard/career',         label: 'Career',           icon: Briefcase },
   { href: '/dashboard/become-partner', label: 'Become Partner',   icon: Users },

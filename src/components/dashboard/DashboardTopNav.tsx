@@ -1,11 +1,12 @@
 'use client'
 
-import { Bell, Menu, LogOut, User as UserIcon, ChevronDown } from 'lucide-react'
+import { Menu, LogOut, User as UserIcon, ChevronDown } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { MobileDrawer } from './MobileDrawer'
+import { NotificationBell } from './NotificationBell'
 import { createClient } from '@/lib/supabase/client'
 
 interface DashboardTopNavProps {
@@ -86,14 +87,7 @@ export function DashboardTopNav({ initials, photoUrl, fullName, email }: Dashboa
         <div className="flex-1" />
 
         <div className="flex items-center gap-3">
-          {/* Bell */}
-          <button
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:bg-blue-50"
-            style={{ color: '#94a3b8' }}
-            aria-label="Notifications"
-          >
-            <Bell size={16} />
-          </button>
+          <NotificationBell />
 
           {/* Avatar — opens the account menu (Profile + Sign Out) */}
           <div className="relative" ref={menuRef}>

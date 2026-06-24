@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import {
   X, Library, Briefcase, Users, LogOut, Sparkles,
-  LayoutDashboard, BookOpen, Award, CreditCard, User,
+  LayoutDashboard, BookOpen, Award, CreditCard, User, LifeBuoy,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -16,6 +16,7 @@ const DRAWER_ITEMS = [
   { href: '/dashboard/courses',        label: 'My Courses',       icon: BookOpen },
   { href: '/dashboard/certificates',   label: 'Certificates',     icon: Award },
   { href: '/dashboard/payments',       label: 'Payments',         icon: CreditCard },
+  { href: '/dashboard/tickets',        label: 'Support / Tickets', icon: LifeBuoy },
   { href: '/dashboard/profile',        label: 'Profile',          icon: User },
   { href: '/dashboard/library',        label: 'Library',          icon: Library },
   { href: '/dashboard/career',         label: 'Career',           icon: Briefcase },

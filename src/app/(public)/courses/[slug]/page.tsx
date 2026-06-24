@@ -139,16 +139,22 @@ export default async function CoursePage({
       ? supabase.from('partners').select('full_name').eq('partner_code', partner).eq('status', 'active').single()
       : Promise.resolve({ data: null }),
 
-    // Mentor course: pull the mentor's profile photo as a live fallback (the course
-    // snapshots trainer_* at creation, but the mentor may have added a photo later).
+    // Mentor course: pull the mentor's trainer photo (and partner link) as a live
+    // fallback (the course snapshots trainer_* at creation).
     isMentor
-      ? supabase.from('mentors').select('trainer_photo_url').eq('id', course.owner_mentor_id).single()
+      ? supabase.from('mentors').select('trainer_photo_url, partner_id').eq('id', course.owner_mentor_id).single()
       : Promise.resolve({ data: null }),
   ])
 
-  // Trainer section: use the course's photo, else fall back to the mentor's.
-  const courseForTrainer = isMentor && !course.trainer_photo_url && mentorRow?.trainer_photo_url
-    ? { ...course, trainer_photo_url: mentorRow.trainer_photo_url }
+  // Trainer photo priority: course snapshot → mentor's chosen photo → the mentor's
+  // partner-dashboard profile pic.
+  let trainerPhoto: string | null = course.trainer_photo_url || (isMentor ? (mentorRow?.trainer_photo_url ?? null) : null)
+  if (isMentor && !trainerPhoto && mentorRow?.partner_id) {
+    const { data: prt } = await supabase.from('partners').select('profile_pic_url').eq('id', mentorRow.partner_id).maybeSingle()
+    trainerPhoto = prt?.profile_pic_url ?? null
+  }
+  const courseForTrainer = isMentor && trainerPhoto && trainerPhoto !== course.trainer_photo_url
+    ? { ...course, trainer_photo_url: trainerPhoto }
     : course
 
   // Filter testimonials to this course's category

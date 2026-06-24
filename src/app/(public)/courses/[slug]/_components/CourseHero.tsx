@@ -202,7 +202,7 @@ function PriceCard({ mrp, finalPrice, finalGst, finalNet, discountPct, discountA
         <PaymentModalTrigger
           {...enrolProps}
           label="🎓 Enrol Now — Lock Today's Price →"
-          className="w-full text-base py-4 font-bold shadow-lg shadow-indigo-500/20"
+          className="w-full text-base py-4 font-bold bg-pink-500 bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white border border-pink-300/50 shadow-[0_0_18px_rgba(236,72,153,0.65),0_0_40px_rgba(236,72,153,0.4)] hover:shadow-[0_0_28px_rgba(236,72,153,0.95),0_0_60px_rgba(236,72,153,0.55)] hover:brightness-110"
         />
 
         {/* Trust */}

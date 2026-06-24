@@ -46,7 +46,7 @@ export function CourseStickyBar({
           <PaymentModalTrigger
             {...enrolProps}
             label="🎓 Enrol Now →"
-            className="text-sm px-5 py-3 font-bold whitespace-nowrap"
+            className="text-sm px-5 py-3 font-bold whitespace-nowrap bg-pink-500 bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white border border-pink-300/50 shadow-[0_0_16px_rgba(236,72,153,0.7),0_0_34px_rgba(236,72,153,0.4)] hover:shadow-[0_0_26px_rgba(236,72,153,0.95),0_0_52px_rgba(236,72,153,0.55)] hover:brightness-110"
           />
         </div>
       </div>

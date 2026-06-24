@@ -172,7 +172,7 @@ export function Navbar() {
               title="Join the largest AI Partnership network"
               className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-bold rounded-xl transition-all hover:opacity-90 hover:shadow-lg whitespace-nowrap"
               style={{ background: 'linear-gradient(135deg, #C49A10, #F0BE3C)', color: '#0E1632' }}>
-              <Briefcase size={15} /> Become AI Partner
+              <Briefcase size={15} /> AI Partner - Sign Up / Sign In
             </a>
             {/* Launch Your Course — neon pink → become a mentor */}
             <a href="https://partner.ostaran.com/dashboard/become-mentor"
@@ -298,7 +298,7 @@ export function Navbar() {
             <a href="https://partner.ostaran.com"
               className="flex items-center justify-center gap-2 text-center py-3.5 text-sm font-bold rounded-xl"
               style={{ background: 'linear-gradient(135deg, #C49A10, #F0BE3C)', color: '#0E1632' }}>
-              <Briefcase size={16} /> Become AI Partner
+              <Briefcase size={16} /> AI Partner - Sign Up / Sign In
             </a>
             <p className="text-center text-xs text-gray-500 -mt-1">Join the largest AI Partnership network</p>
             {/* Launch Your Course — neon pink */}

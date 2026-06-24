@@ -52,6 +52,12 @@ export function Navbar() {
   // Close mobile menu on navigation
   useEffect(() => { setMobileOpen(false); setMobileExpanded(null) }, [pathname])
 
+  // Lock body scroll while the drawer is open
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [mobileOpen])
+
   function openDropdown(key: DropdownKey) {
     if (closeTimer.current) clearTimeout(closeTimer.current)
     setDropdown(key)
@@ -173,27 +179,48 @@ export function Navbar() {
 
           {/* Mobile hamburger — large tap target for reliability */}
           <button
-            onClick={() => setMobileOpen(v => !v)}
+            onClick={() => setMobileOpen(true)}
             className="lg:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
-            aria-label="Toggle menu"
+            aria-label="Open menu"
             aria-expanded={mobileOpen}
             style={{ touchAction: 'manipulation' }}
           >
-            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+            <Menu size={22} />
           </button>
         </div>
       </div>
 
-      {/* ── Mobile drawer ───────────────────────────────────────────────────────
-          Always in the DOM — toggled via CSS transform (not conditional render).
-          This eliminates the 200–400ms mount delay on mid-range Android devices.
-          GPU-accelerated translateX is near-instant. ─────────────────────────── */}
+      {/* ── Mobile: backdrop + LEFT slide-in drawer ─────────────────────────────
+          Both are always in the DOM — toggled via CSS opacity/transform (not
+          conditional render) so the menu opens instantly with a GPU-accelerated
+          slide, with no mount delay on mid-range Android. ───────────────────── */}
       <div
-        className={`lg:hidden fixed inset-0 top-16 bg-white z-40 overflow-y-auto transition-transform duration-200 ease-out ${
-          mobileOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
+        onClick={() => setMobileOpen(false)}
+        aria-hidden={!mobileOpen}
+        className="lg:hidden fixed inset-0 z-40 transition-opacity duration-200"
+        style={{ background: 'rgba(0,0,0,0.45)', opacity: mobileOpen ? 1 : 0, pointerEvents: mobileOpen ? 'auto' : 'none' }}
+      />
+      <aside
+        className={`lg:hidden fixed top-0 left-0 bottom-0 z-50 w-[300px] max-w-[86vw] bg-white flex flex-col shadow-2xl transition-transform duration-200 ease-out ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
         }`}
       >
-        <div className="px-5 py-6 space-y-1">
+        {/* Drawer header: logo + close */}
+        <div className="flex items-center justify-between px-4 h-16 border-b border-gray-100 shrink-0">
+          <Link href="/" onClick={() => setMobileOpen(false)} className="flex items-center gap-2">
+            <div className="rounded-lg overflow-hidden" style={{ background: '#000', padding: '3px 10px' }}>
+              <Image src="/ostaran-logo.png" alt="oStaran" width={92} height={30} className="h-6 w-auto object-contain" />
+            </div>
+          </Link>
+          <button onClick={() => setMobileOpen(false)} aria-label="Close menu"
+            className="p-2 -mr-1 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+            style={{ touchAction: 'manipulation' }}>
+            <X size={22} />
+          </button>
+        </div>
+
+        {/* Scrollable nav content */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-1">
 
           {/* Programmes */}
           <button
@@ -269,7 +296,7 @@ export function Navbar() {
             </Link>
           </div>
         </div>
-      </div>
+      </aside>
     </nav>
   )
 }

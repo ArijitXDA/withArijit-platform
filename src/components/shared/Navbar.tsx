@@ -69,6 +69,7 @@ export function Navbar() {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
   return (
+    <>
     <nav className={`sticky top-0 z-50 transition-all duration-200 ${
       scrolled ? 'bg-white shadow-md border-b border-gray-100' : 'bg-white/95 backdrop-blur-md border-b border-gray-100'
     }`}>
@@ -189,6 +190,7 @@ export function Navbar() {
           </button>
         </div>
       </div>
+    </nav>
 
       {/* ── Mobile: backdrop + LEFT slide-in drawer ─────────────────────────────
           Both are always in the DOM — toggled via CSS opacity/transform (not
@@ -297,6 +299,6 @@ export function Navbar() {
           </div>
         </div>
       </aside>
-    </nav>
+    </>
   )
 }

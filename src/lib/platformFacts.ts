@@ -24,6 +24,13 @@ const FALLBACK: any = {
   ai_kit: 'Physical AI Kit couriered free in India after enrolling in a full-time course.',
   course_formats: '9-Week Weekend Intensive (9×2hr) or 26-Week Long Track (26×1hr) — same curriculum, certificate, price.',
   funnel: 'capture lead → FREE 90-min webinar → attend → enrol → Quantum & AI Continued membership.',
+  mentor_programme: {
+    what: 'Expert professors can launch their own live courses on oStaran (shown under "Mentor Programmes" at ostaran.com/courses), using oStaran rails (live Teams classes, recordings, AI study notes, the AI Professor, certificates, payments) at zero cost.',
+    who_and_how: 'Invite-only, oStaran-approved. Partners apply at partner.ostaran.com via "Become a Mentor"; prospects start from "Launch Your Course" on ostaran.com.',
+    revenue_share: '50/50 net revenue split (net of taxes, gateway/refund costs and any partner commission); mentors paid monthly.',
+    mentor_marketing: 'Mentors get WhatsApp-shareable PDF posters (a fee-free webinar invite + a full course one-pager) from their course page.',
+    for_students: 'Taught by the named professor (not Arijit) with the same oStaran rails.',
+  },
 }
 
 let cache: { facts: any; at: number } | null = null
@@ -58,6 +65,7 @@ export function platformFactsBlock(f: any): string {
     f.certificates ? `- Certificates: ${f.certificates}` : '',
     f.ai_kit ? `- AI Kit: ${f.ai_kit}` : '',
     f.funnel ? `- Funnel: ${f.funnel}` : '',
+    f.mentor_programme ? `- Mentor Programme (professors launch their OWN courses on oStaran): ${[f.mentor_programme.what, f.mentor_programme.who_and_how, f.mentor_programme.revenue_share, f.mentor_programme.mentor_marketing, f.mentor_programme.for_students].filter(Boolean).join(' ')}` : '',
     f.house_partner_code ? `- House partner code (default free-webinar attribution): ${f.house_partner_code}` : '',
     (u.masterclass || u.courses || u.membership || u.partner_programme)
       ? `- Key URLs: masterclass ${u.masterclass ?? ''} · courses ${u.courses ?? ''} · membership ${u.membership ?? ''} · group ${u.group_enrol ?? ''} · partner ${u.partner_programme ?? ''} · cert ${u.certificate_verify ?? ''}`

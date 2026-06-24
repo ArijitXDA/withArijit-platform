@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { LaunchCourseCTA } from '@/components/marketing/LaunchCourseCTA'
 
 // Animated floating AI node for hero background
 function AINode({ x, y, delay, size = 4 }: { x: number; y: number; delay: number; size?: number }) {
@@ -176,6 +177,9 @@ export function HeroSection() {
               <span className="transition-transform group-hover:translate-x-1">→</span>
             </Link>
           </div>
+
+          {/* Launch your course — pink neon CTA for professors (opens a how-it-works modal) */}
+          <LaunchCourseCTA />
 
           {/* Mini trust line */}
           <p className="mt-8 text-xs" style={{ color: '#475569' }}>

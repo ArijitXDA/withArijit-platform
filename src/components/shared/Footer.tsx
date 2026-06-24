@@ -22,6 +22,8 @@ const FOOTER_LINKS = {
   Enterprise: [
     { href: '/contact?type=corporate',    label: 'Corporate Training' },
     { href: 'https://partner.ostaran.com', label: 'Partner Programme' },
+    { href: 'https://partner.ostaran.com/dashboard/become-mentor', label: 'Become a Mentor' },
+    { href: 'https://partner.ostaran.com', label: 'Launch your Course' },
     { href: '/contact?type=investor',  label: 'Investor Relations'    },
     { href: '/contact?type=media',     label: 'Media & Press'         },
     { href: '/about',                  label: 'About oStaran'         },

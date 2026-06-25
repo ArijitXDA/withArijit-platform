@@ -25,6 +25,20 @@ function SignInForm() {
     if (emailParam) setEmail(decodeURIComponent(emailParam))
   }, [searchParams])
 
+  // Surface OAuth callback errors (Supabase puts the detail in the URL hash).
+  useEffect(() => {
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const desc = (hash.get('error_description') || searchParams.get('error_description') || '').toLowerCase()
+    const hadError = !!(searchParams.get('error') || hash.get('error'))
+    if (desc.includes('multiple accounts')) {
+      setError('This GitHub email is linked to more than one oStaran account. Please sign in with Google, LinkedIn or your email code.')
+      window.history.replaceState({}, document.title, window.location.pathname)
+    } else if (hadError) {
+      setError("Sign-in didn't complete. Please try again, or use your email code below.")
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [searchParams])
+
   async function sendOtp() {
     if (!email.trim()) { setError('Please enter your email address.'); return }
     setLoading(true); setError('')

@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
     if (dbErr) throw new Error(dbErr.message)
 
     // Raise an admin ticket so the enquiry lands in the admin notification centre.
+    let ticketCode = ''
     try {
       const detail = [
         `Email: ${email.trim()}`,
@@ -52,13 +53,14 @@ export async function POST(req: NextRequest) {
           : '',
         `\n(Website contact form — reply to ${email.trim()} by email/phone.)`,
       ].filter(Boolean).join('\n')
-      await createTicket({
+      const tk = await createTicket({
         by: { type: 'contact', id: email.trim().toLowerCase(), name: name.trim() },
         category: ENQUIRY_TO_CATEGORY[enquiry_type] ?? 'query',
         subject: `Contact: ${ENQUIRY_LABELS[enquiry_type] || enquiry_type} — ${name.trim()}`,
         body: detail,
         recipients: [{ type: 'admin', id: '*', name: 'oStaran Admin / Support' }],
       })
+      if (tk && !('error' in tk)) ticketCode = tk.ticket_code
     } catch (e: any) {
       console.warn('[contact API] ticket creation failed (non-fatal):', e?.message)
     }
@@ -73,6 +75,7 @@ export async function POST(req: NextRequest) {
 <tr><td style="font-size:20px;font-weight:bold;color:#111827;padding-bottom:12px;">We've received your message, ${name}!</td></tr>
 <tr><td style="font-size:14px;color:#374151;line-height:1.6;padding-bottom:20px;">
   Thank you for reaching out to oStaran. Our team will get back to you within <strong>1 business day</strong>.<br/><br/>
+  ${ticketCode ? `<strong>Your ticket number:</strong> <span style="font-family:monospace;color:#4f46e5;font-weight:bold;">${ticketCode}</span> — please quote it in any reply.<br/><br/>` : ''}
   <strong>Your enquiry:</strong> ${ENQUIRY_LABELS[enquiry_type] || enquiry_type}
   ${message ? `<br/><br/><strong>Your message:</strong><br/>${message}` : ''}
 </td></tr>
@@ -91,7 +94,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           from: 'oStaran AI Education <ai@ostaran.com>',
           to: [email.trim()],
-          subject: `We've received your message — oStaran`,
+          subject: `We've received your message — oStaran${ticketCode ? ` [${ticketCode}]` : ''}`,
           html: confirmHtml,
         }),
       })

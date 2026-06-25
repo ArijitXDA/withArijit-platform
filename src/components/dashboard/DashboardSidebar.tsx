@@ -58,6 +58,28 @@ export function DashboardSidebar() {
         {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
           const isActive = exact ? pathname === href : pathname.startsWith(href)
           const isAI     = href === '/dashboard/assistant-professor'
+          const isTicket = href === '/dashboard/tickets'
+
+          if (isTicket) {
+            return (
+              <Link
+                key={href}
+                href={href}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                style={isActive ? {
+                  background: 'linear-gradient(90deg,#ffe4e9,#fff1f3)',
+                  color: '#e11d2e', borderLeft: '3px solid #ff073a', fontWeight: 700,
+                  boxShadow: '0 0 14px rgba(255,7,58,0.35)',
+                } : {
+                  color: '#ff073a', borderLeft: '3px solid transparent',
+                  textShadow: '0 0 8px rgba(255,7,58,0.45)', fontWeight: 700,
+                }}
+              >
+                <Icon size={16} className="shrink-0" style={{ color: '#ff073a', filter: 'drop-shadow(0 0 4px rgba(255,7,58,0.6))' }} />
+                {label}
+              </Link>
+            )
+          }
 
           return (
             <Link

@@ -68,7 +68,7 @@ async function fanNotifications(svc: any, recipients: Party[], n: { kind: string
 
 /** Create a ticket: row + recipients + first message + notifications to all recipients. */
 export async function createTicket(opts: {
-  by: Party; category: string; subject: string; body: string; recipients: Party[]
+  by: Party; category: string; subject: string; body: string; recipients: Party[]; attachments?: any[]
 }): Promise<{ id: string; ticket_code: string } | { error: string }> {
   if (!CAT_KEYS.has(opts.category)) return { error: 'Invalid category' }
   if (!opts.subject?.trim() || !opts.body?.trim()) return { error: 'Subject and message are required' }
@@ -89,6 +89,7 @@ export async function createTicket(opts: {
   await svc.from('ticket_messages').insert({
     ticket_id: ticket.id, author_type: opts.by.type, author_id: opts.by.id, author_name: opts.by.name ?? null,
     body: opts.body.trim().slice(0, 5000),
+    attachments: Array.isArray(opts.attachments) ? opts.attachments.slice(0, 10) : [],
   })
   await fanNotifications(svc, opts.recipients, {
     kind: 'ticket_new', title: `New ticket: ${opts.subject.trim().slice(0, 80)}`,
@@ -98,8 +99,9 @@ export async function createTicket(opts: {
 }
 
 /** Post a reply: message + bump ticket + notify every OTHER participant (creator + recipients). */
-export async function postReply(opts: { ticketId: string; by: Party; body: string }): Promise<{ ok: true } | { error: string }> {
-  if (!opts.body?.trim()) return { error: 'Message is empty' }
+export async function postReply(opts: { ticketId: string; by: Party; body: string; attachments?: any[] }): Promise<{ ok: true } | { error: string }> {
+  const atts = Array.isArray(opts.attachments) ? opts.attachments.slice(0, 10) : []
+  if (!opts.body?.trim() && !atts.length) return { error: 'Message is empty' }
   const svc = createServiceClient()
   const { data: ticket } = await svc.from('tickets')
     .select('id, subject, created_by_type, created_by_id, created_by_name, status').eq('id', opts.ticketId).maybeSingle()
@@ -107,7 +109,8 @@ export async function postReply(opts: { ticketId: string; by: Party; body: strin
 
   await svc.from('ticket_messages').insert({
     ticket_id: ticket.id, author_type: opts.by.type, author_id: opts.by.id, author_name: opts.by.name ?? null,
-    body: opts.body.trim().slice(0, 5000),
+    body: (opts.body ?? '').trim().slice(0, 5000),
+    attachments: atts,
   })
   const isCreator = opts.by.type === ticket.created_by_type && opts.by.id === ticket.created_by_id
   await svc.from('tickets').update({

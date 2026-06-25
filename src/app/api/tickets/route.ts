@@ -15,7 +15,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const me = await currentStudentParty()
   if (!me) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
-  const { category, subject, body, recipients } = await req.json().catch(() => ({}))
+  const { category, subject, body, recipients, attachments } = await req.json().catch(() => ({}))
 
   // Only allow recipients that are actually valid for this student.
   const allowed = await studentRecipientOptions(me.id)
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     .map((r: any) => ({ type: r.type, id: r.id, name: allowed.find(o => o.type === r.type && o.id === r.id)?.name }))
   if (!chosen.length) return NextResponse.json({ error: 'Pick at least one valid recipient.' }, { status: 400 })
 
-  const res = await createTicket({ by: me, category, subject, body, recipients: chosen })
+  const res = await createTicket({ by: me, category, subject, body, recipients: chosen, attachments })
   if ('error' in res) return NextResponse.json({ error: res.error }, { status: 400 })
   return NextResponse.json(res)
 }

@@ -1,11 +1,14 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
-import { Ticket, Plus, X, Loader2, Send, ChevronLeft, MessageSquare } from 'lucide-react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { Ticket, Plus, X, Loader2, Send, ChevronLeft, MessageSquare, Paperclip, Check } from 'lucide-react'
+import { uploadAttachments, ACCEPT } from '@/lib/ticketAttach'
 
 type Party = { type: string; id: string; name?: string }
 const inp = 'w-full bg-white border border-gray-300 rounded-xl px-3 py-2.5 text-gray-900 text-sm focus:outline-none focus:border-indigo-500'
 const lbl = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5'
 const cardBox = { background: '#fff', border: '1px solid #e5e7eb', boxShadow: '0 1px 4px rgba(15,31,61,0.05)' }
+const codePill = { background: '#eef2ff', color: '#4338ca' }
+const NEON_RED = { background: 'linear-gradient(135deg,#ff1a1a,#ff073a)', boxShadow: '0 0 16px rgba(255,7,58,0.5)' }
 
 const STATUS: Record<string, { label: string; bg: string; color: string }> = {
   open:        { label: 'Open',        bg: '#dbeafe', color: '#1d4ed8' },
@@ -16,14 +19,35 @@ const STATUS: Record<string, { label: string; bg: string; color: string }> = {
 }
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })
 
+function Attachments({ items }: { items: any[] }) {
+  if (!items?.length) return null
+  return (
+    <div className="flex flex-wrap gap-2 mt-2">
+      {items.map((a, i) => (a.type || '').startsWith('image/') ? (
+        <a key={i} href={a.url} target="_blank" rel="noopener noreferrer">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={a.url} alt={a.name} className="w-24 h-24 object-cover rounded-lg border border-gray-200" />
+        </a>
+      ) : (
+        <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-xs text-gray-700 hover:bg-gray-100 max-w-[200px]">
+          <Paperclip className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{a.name}</span>
+        </a>
+      ))}
+    </div>
+  )
+}
+
 export default function TicketsClient() {
   const [tickets, setTickets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [openId, setOpenId] = useState<string | null>(null)
   const [thread, setThread] = useState<any | null>(null)
   const [reply, setReply] = useState('')
+  const [replyFiles, setReplyFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [compose, setCompose] = useState(false)
+  const [toast, setToast] = useState('')
+  const replyFileRef = useRef<HTMLInputElement>(null)
 
   const loadTickets = useCallback(async () => {
     setLoading(true)
@@ -42,11 +66,14 @@ export default function TicketsClient() {
     setThread(await fetch(`/api/tickets/${id}`).then(r => r.json())); loadTickets()
   }
   async function sendReply() {
-    if (!reply.trim() || !openId) return
+    if ((!reply.trim() && !replyFiles.length) || !openId) return
     setBusy(true)
-    await fetch(`/api/tickets/${openId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: reply }) })
-    setReply('')
-    setThread(await fetch(`/api/tickets/${openId}`).then(r => r.json())); setBusy(false); loadTickets()
+    try {
+      const attachments = replyFiles.length ? await uploadAttachments('/api/tickets/upload', replyFiles) : []
+      await fetch(`/api/tickets/${openId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: reply, attachments }) })
+      setReply(''); setReplyFiles([])
+      setThread(await fetch(`/api/tickets/${openId}`).then(r => r.json())); loadTickets()
+    } catch (e: any) { setToast(e.message || 'Failed to send') } finally { setBusy(false) }
   }
 
   if (openId) {
@@ -60,7 +87,10 @@ export default function TicketsClient() {
               <h1 className="text-xl font-bold text-gray-900">{t.subject}</h1>
               <span className="text-xs px-2 py-0.5 rounded-full shrink-0 font-medium" style={{ background: STATUS[t.status]?.bg, color: STATUS[t.status]?.color }}>{STATUS[t.status]?.label ?? t.status}</span>
             </div>
-            <p className="text-gray-500 text-xs mb-4">{t.ticket_code} · {t.category.replace(/_/g, ' ')} · To: {(thread.recipients ?? []).map((r: any) => r.party_name).join(', ')}</p>
+            <p className="text-gray-500 text-xs mb-4">
+              <span className="font-mono font-semibold px-1.5 py-0.5 rounded mr-1" style={codePill}>{t.ticket_code}</span>
+              {t.category.replace(/_/g, ' ')} · To: {(thread.recipients ?? []).map((r: any) => r.party_name).join(', ')}
+            </p>
             <div className="space-y-3 mb-4">
               {(thread.messages ?? []).map((m: any) => {
                 const mine = m.author_type === 'student'
@@ -68,16 +98,26 @@ export default function TicketsClient() {
                   <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                     <div className="max-w-[80%] rounded-2xl px-4 py-2.5" style={{ background: mine ? '#e0e7ff' : '#f1f5f9', border: '1px solid #e5e7eb' }}>
                       {!mine && <p className="text-[11px] font-semibold text-indigo-700 mb-0.5">{m.author_name || m.author_type}</p>}
-                      <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">{m.body}</p>
+                      {m.body && <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">{m.body}</p>}
+                      <Attachments items={m.attachments} />
                       <p className="text-[10px] text-gray-400 mt-1">{fmt(m.created_at)}</p>
                     </div>
                   </div>
                 )
               })}
             </div>
-            <div className="flex items-end gap-2 sticky bottom-3">
-              <textarea value={reply} onChange={e => setReply(e.target.value)} rows={2} placeholder="Write a reply…" className={inp} />
-              <button onClick={sendReply} disabled={busy || !reply.trim()} className="p-3 rounded-xl text-white disabled:opacity-50 shrink-0" style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>{busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}</button>
+            <div className="sticky bottom-3">
+              {replyFiles.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">{replyFiles.map((f, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg bg-gray-100 text-gray-600">{f.name}<button onClick={() => setReplyFiles(p => p.filter((_, j) => j !== i))}><X className="w-3 h-3" /></button></span>
+                ))}</div>
+              )}
+              <div className="flex items-end gap-2">
+                <button onClick={() => replyFileRef.current?.click()} className="p-3 rounded-xl border border-gray-300 text-gray-500 hover:bg-gray-50 shrink-0" title="Attach"><Paperclip className="w-5 h-5" /></button>
+                <input ref={replyFileRef} type="file" accept={ACCEPT} multiple className="hidden" onChange={e => { setReplyFiles(p => [...p, ...Array.from(e.target.files || [])]); e.target.value = '' }} />
+                <textarea value={reply} onChange={e => setReply(e.target.value)} rows={2} placeholder="Write a reply…" className={inp} />
+                <button onClick={sendReply} disabled={busy || (!reply.trim() && !replyFiles.length)} className="p-3 rounded-xl text-white disabled:opacity-50 shrink-0" style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>{busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}</button>
+              </div>
             </div>
           </>
         )}
@@ -87,9 +127,10 @@ export default function TicketsClient() {
 
   return (
     <div className="max-w-3xl mx-auto">
+      {toast && <div className="mb-3 flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 text-sm text-green-800"><Check className="w-4 h-4" /> {toast}</div>}
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2"><Ticket className="w-6 h-6 text-indigo-600" /><h1 className="text-2xl font-bold text-gray-900">Support Tickets</h1></div>
-        <button onClick={() => setCompose(true)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}><Plus className="w-4 h-4" /> Raise a Ticket</button>
+        <button onClick={() => setCompose(true)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white" style={NEON_RED}><Plus className="w-4 h-4" /> Raise a Ticket</button>
       </div>
       <p className="text-gray-500 text-sm mb-5">Reach your mentor, your partner, or oStaran support — and track their responses here.</p>
 
@@ -105,25 +146,29 @@ export default function TicketsClient() {
           {tickets.map(t => (
             <button key={t.id} onClick={() => openTicket(t.id)} className="w-full text-left rounded-xl px-4 py-3 transition-all hover:shadow-md" style={cardBox}>
               <div className="flex items-center justify-between gap-3">
-                <p className="text-gray-900 text-sm font-semibold truncate">{t.subject}</p>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded shrink-0" style={codePill}>{t.ticket_code}</span>
+                  <p className="text-gray-900 text-sm font-semibold truncate">{t.subject}</p>
+                </div>
                 <span className="text-[11px] px-2 py-0.5 rounded-full shrink-0 font-medium" style={{ background: STATUS[t.status]?.bg, color: STATUS[t.status]?.color }}>{STATUS[t.status]?.label ?? t.status}</span>
               </div>
-              <p className="text-gray-500 text-xs mt-0.5">{t.ticket_code} · {t.category.replace(/_/g, ' ')} · {fmt(t.last_message_at)}</p>
+              <p className="text-gray-500 text-xs mt-0.5">{t.category.replace(/_/g, ' ')} · {fmt(t.last_message_at)}</p>
             </button>
           ))}
         </div>
       )}
 
-      {compose && <Compose onClose={() => setCompose(false)} onCreated={() => { setCompose(false); loadTickets() }} />}
+      {compose && <Compose onClose={() => setCompose(false)} onCreated={(code) => { setCompose(false); loadTickets(); setToast(`Ticket ${code} raised — we'll respond here.`); setTimeout(() => setToast(''), 6000) }} />}
     </div>
   )
 }
 
-function Compose({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function Compose({ onClose, onCreated }: { onClose: () => void; onCreated: (code: string) => void }) {
   const [options, setOptions] = useState<Party[]>([])
   const [categories, setCategories] = useState<[string, string][]>([])
   const [to, setTo] = useState<Set<string>>(new Set())
   const [f, setF] = useState({ category: 'query', subject: '', body: '' })
+  const [files, setFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
@@ -137,10 +182,13 @@ function Compose({ onClose, onCreated }: { onClose: () => void; onCreated: () =>
     const recipients = options.filter(o => to.has(key(o)))
     if (!recipients.length) { setErr('Choose at least one recipient.'); return }
     setBusy(true)
-    const res = await fetch('/api/tickets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...f, recipients }) })
-    const j = await res.json()
-    if (!res.ok) { setErr(j.error || 'Failed'); setBusy(false); return }
-    onCreated()
+    try {
+      const attachments = files.length ? await uploadAttachments('/api/tickets/upload', files) : []
+      const res = await fetch('/api/tickets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...f, recipients, attachments }) })
+      const j = await res.json()
+      if (!res.ok) { setErr(j.error || 'Failed'); setBusy(false); return }
+      onCreated(j.ticket_code || 'raised')
+    } catch (e: any) { setErr(e.message || 'Upload failed'); setBusy(false) }
   }
 
   return (
@@ -156,6 +204,14 @@ function Compose({ onClose, onCreated }: { onClose: () => void; onCreated: () =>
           </div>
           <div><label className={lbl}>Subject</label><input value={f.subject} onChange={e => setF(p => ({ ...p, subject: e.target.value }))} className={inp} placeholder="Brief summary" /></div>
           <div><label className={lbl}>Message</label><textarea value={f.body} onChange={e => setF(p => ({ ...p, body: e.target.value }))} rows={5} className={inp} placeholder="Describe your query, complaint or request…" /></div>
+          <div>
+            <label className={lbl}>Attachments (optional)</label>
+            <input type="file" accept={ACCEPT} multiple onChange={e => setFiles(p => [...p, ...Array.from(e.target.files || [])])} className="text-xs text-gray-600 file:mr-2 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 file:text-xs file:font-semibold" />
+            <p className="text-[11px] text-gray-400 mt-1">Image / screenshot / PDF / doc / txt — large images are auto-resized. On phone, you can take a photo.</p>
+            {files.length > 0 && <div className="flex flex-wrap gap-1.5 mt-2">{files.map((f, i) => (
+              <span key={i} className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg bg-gray-100 text-gray-600">{f.name}<button onClick={() => setFiles(p => p.filter((_, j) => j !== i))}><X className="w-3 h-3" /></button></span>
+            ))}</div>}
+          </div>
           {err && <p className="text-red-600 text-sm">{err}</p>}
           <button onClick={submit} disabled={busy} className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white disabled:opacity-50" style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Send ticket</button>
         </div>

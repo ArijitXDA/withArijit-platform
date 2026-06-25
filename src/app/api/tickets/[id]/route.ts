@@ -34,8 +34,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params
   const svc = createServiceClient()
   if (!(await isParticipant(svc, id, me))) return NextResponse.json({ error: 'Not allowed' }, { status: 403 })
-  const { body } = await req.json().catch(() => ({}))
-  const res = await postReply({ ticketId: id, by: me, body })
+  const { body, attachments } = await req.json().catch(() => ({}))
+  const res = await postReply({ ticketId: id, by: me, body, attachments })
   if ('error' in res) return NextResponse.json({ error: res.error }, { status: 400 })
   return NextResponse.json({ ok: true })
 }

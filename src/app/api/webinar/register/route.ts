@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { attributeBroadcast } from '@/lib/broadcastAttribution'
 
 // POST /api/webinar/register  { slug, full_name, email, mobile? }
 // Public — captures a registration for a mentor webinar; returns the join link.
@@ -25,5 +26,7 @@ export async function POST(req: NextRequest) {
   if (error && (error as any).code !== '23505') {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+  // Broadcast funnel: attribute this registration if it came via a cold-email click.
+  if (!error) await attributeBroadcast(req.cookies.get('ost_bk')?.value, 'registered', row.email)
   return NextResponse.json({ ok: true, meeting_link: webinar.meeting_link })
 }

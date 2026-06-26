@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { attributeBroadcast } from '@/lib/broadcastAttribution'
 
 // ── Commission cascade ────────────────────────────────────────────────────────
 async function creditPartnerCommission(
@@ -540,6 +541,9 @@ export async function POST(request: NextRequest) {
       discountCode:        discount_code,
       body,
     })
+
+    // Broadcast funnel: attribute this enrolment if it came via a cold-email click.
+    await attributeBroadcast(request.cookies.get('ost_bk')?.value, 'enrolled', email.toLowerCase())
 
     return NextResponse.json({
       success:      true,

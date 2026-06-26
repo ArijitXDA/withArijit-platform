@@ -66,3 +66,4 @@ begin
 end $$;
 
 revoke execute on function broadcast_queue(uuid, text[], text[], text[], text[], int, int, text, text, text, boolean, int, boolean) from public;
+grant  execute on function broadcast_queue(uuid, text[], text[], text[], text[], int, int, text, text, text, boolean, int, boolean) to service_role;

@@ -22,8 +22,10 @@ async function recordOpen(token: string, req: NextRequest) {
     .select('id, campaign_id, contact_id, opened_at, open_count').eq('send_token', token).maybeSingle()
   if (!s) return
   const now = new Date().toISOString()
+  const firstOpen = !s.opened_at
   await svc.from('broadcast_sends').update({ opened_at: s.opened_at ?? now, open_count: (s.open_count || 0) + 1 }).eq('id', s.id)
-  await svc.from('broadcast_events').insert({ send_id: s.id, campaign_id: s.campaign_id, contact_id: s.contact_id, type: 'opened', ua: req.headers.get('user-agent') || null })
+  // Only log the event on the first open — mailbox prefetch fires the pixel repeatedly.
+  if (firstOpen) await svc.from('broadcast_events').insert({ send_id: s.id, campaign_id: s.campaign_id, contact_id: s.contact_id, type: 'opened', ua: req.headers.get('user-agent') || null })
   if (s.contact_id) {
     const { data: c } = await svc.from('broadcast_contacts').select('open_count').eq('id', s.contact_id).maybeSingle()
     await svc.from('broadcast_contacts').update({ open_count: ((c?.open_count) || 0) + 1, last_opened_at: now }).eq('id', s.contact_id)

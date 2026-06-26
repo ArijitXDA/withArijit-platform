@@ -55,6 +55,10 @@ Deno.serve(async (req) => {
   const { data: cfg } = await supabase.from('broadcast_config').select('cron_key').eq('id', 1).maybeSingle()
   if (!cfg || !payload?.key || payload.key !== cfg.cron_key) return new Response('unauthorized', { status: 401 })
 
+  // Self-throttle: claim the tick atomically — bounds the send pace even if the key leaks.
+  const { data: claimed } = await supabase.rpc('bx_claim_tick', { p_min_seconds: 50 })
+  if (!claimed) return new Response(JSON.stringify({ skipped: 'tick_not_due' }), { headers: { 'Content-Type': 'application/json' } })
+
   let remaining = Math.min(Math.max(Number(payload.limit) || 120, 1), 500)
   const summary: any = { sent: 0, skipped: 0, failed: 0, campaigns: 0 }
 
@@ -78,14 +82,23 @@ Deno.serve(async (req) => {
 
     const ids = sends.map((s) => s.contact_id)
     const { data: contacts } = await supabase.from('broadcast_contacts')
-      .select('id, email, name, city, country, occupation, company_college, unsub_email, hard_bounced, complained, email_sent_count')
+      .select('id, email, name, city, country, occupation, company_college, unsub_email, hard_bounced, complained, email_status, email_sent_count')
       .in('id', ids)
     const byId = new Map((contacts || []).map((c) => [c.id, c]))
+
+    // Re-check the GLOBAL suppression list at send (someone may have opted out after queueing).
+    const emails = (contacts || []).map((c) => c.email).filter(Boolean)
+    const { data: supp } = emails.length
+      ? await supabase.from('lifecycle_suppression').select('email, channels').in('email', emails)
+      : { data: [] as any[] }
+    const suppSet = new Set((supp || [])
+      .filter((r: any) => !Array.isArray(r.channels) || r.channels.length === 0 || r.channels.includes('email'))
+      .map((r: any) => String(r.email || '').toLowerCase()))
 
     for (const s of sends) {
       if (remaining <= 0) break
       const c: any = byId.get(s.contact_id)
-      if (!c || c.unsub_email || c.hard_bounced || c.complained) {
+      if (!c || c.unsub_email || c.hard_bounced || c.complained || c.email_status === 'invalid' || suppSet.has(String(c.email || '').toLowerCase())) {
         await supabase.from('broadcast_sends').update({ status: 'skipped', error: 'suppressed_at_send' }).eq('id', s.id)
         summary.skipped++; continue
       }

@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   if (token) { try { await recordClick(token, u, req) } catch { /* never block the redirect */ } }
 
   const res = NextResponse.redirect(dest, 302)
-  if (token) res.cookies.set('ost_bk', token, { domain: '.ostaran.com', path: '/', maxAge: 60 * 60 * 24 * 30, httpOnly: true, sameSite: 'lax', secure: true })
+  if (token) res.cookies.set('ost_bk', token, { domain: '.ostaran.com', path: '/', maxAge: 60 * 60 * 24 * 14, httpOnly: true, sameSite: 'lax', secure: true })
   return res
 }
 

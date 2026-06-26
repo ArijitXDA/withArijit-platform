@@ -36,9 +36,10 @@ function renderEmail(campaign: any, c: any, token: string) {
   let body = wrapLinks(personalize(campaign.body_html || '', c), token)
   const unsub = `${TRACK}/api/bx/u?s=${token}`
   const pixel = `<img src="${TRACK}/api/bx/o?s=${token}" width="1" height="1" alt="" style="display:none">`
-  const footer = `<div style="margin-top:28px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:12px;color:#888;line-height:1.6;">
-    ${esc(ADDR)}<br>You're receiving this because you opted in or expressed interest in AI upskilling.
-    <a href="${unsub}" style="color:#888;text-decoration:underline;">Unsubscribe</a>.</div>`
+  const footer = `<div style="margin-top:28px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:12px;color:#8a8a8a;line-height:1.6;">
+    <p style="margin:0 0 8px;"><strong>oStaran</strong> is an Indian AI startup and a fully autonomous platform for AI education for business leaders, students, tech developers and entrepreneurs/consultants. It offers an end-to-end, free-of-cost platform service to AI Partners, Professors/Trainers/Teachers, Recruiters and Job Seekers — alongside free &amp; premium AI-upskilling certification programmes. <a href="https://www.ostaran.com" style="color:#8a8a8a;">www.oStaran.com</a></p>
+    <p style="margin:0 0 8px;">Questions? Just reply to this email — we read every message at <a href="mailto:ai@ostaran.com" style="color:#8a8a8a;">ai@ostaran.com</a>.</p>
+    ${esc(ADDR)}<br>You're receiving this because you opted in or expressed interest in AI upskilling. <a href="${unsub}" style="color:#8a8a8a;text-decoration:underline;">Unsubscribe</a>.</div>`
   const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#1a1a1a;max-width:600px;margin:0 auto;padding:8px;">${body}${footer}${pixel}</div>`
   const text = (campaign.body_html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 2000) + `\n\nUnsubscribe: ${unsub}`
   const subject = personalize(campaign.subject || '', c).replace(/<[^>]+>/g, '').slice(0, 200)

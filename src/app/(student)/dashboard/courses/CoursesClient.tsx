@@ -87,8 +87,13 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
   function closePlayer() { setPlayN(null); setVidUrl(null); setVidErr('') }
 
   const today   = new Date().toISOString().split('T')[0]
-  const past    = sessions.filter(s => s.session_date < today)
-  const future  = sessions.filter(s => s.session_date >= today)
+  // A session is "available" once its recording or study guide exists. Today's
+  // class becomes watchable the moment materials are attached — students should
+  // not have to wait for the date to roll over. A today-session with nothing
+  // attached yet stays in Upcoming (joinable).
+  const isAvail = (s: Session) => !!(s.has_recording || s.has_study_material || s.study_material_link)
+  const past    = sessions.filter(s => s.session_date < today || (s.session_date === today && isAvail(s)))
+  const future  = sessions.filter(s => s.session_date > today || (s.session_date === today && !isAvail(s)))
   const doneCount = past.length
   const total26   = totalSessions ?? 26
 
@@ -315,8 +320,9 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
   const totalSessions  = batch?.total_sessions ?? course?.total_sessions ?? null
   const sessionDuration = batch?.duration_mins ?? course?.session_duration_mins ?? 60
   const today          = new Date().toISOString().split('T')[0]
-  const upcomingCount  = sessions.filter(s => s.session_date >= today).length
-  const pastCount      = sessions.filter(s => s.session_date < today).length
+  const isAvail        = (s: Session) => !!(s.has_recording || s.has_study_material || s.study_material_link)
+  const pastCount      = sessions.filter(s => s.session_date < today || (s.session_date === today && isAvail(s))).length
+  const upcomingCount  = sessions.filter(s => s.session_date > today || (s.session_date === today && !isAvail(s))).length
 
   // Monthly membership (rolling cohort): status is derived from the 30-day access
   // window. Active while access_end_date >= today; otherwise paused → renew.

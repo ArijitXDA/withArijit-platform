@@ -27,6 +27,7 @@ import { CourseAfterOutcomes }  from './_components/CourseAfterOutcomes'
 import { CourseSessionJourney } from './_components/CourseSessionJourney'
 import { MentorWhatYouGet, MentorCurriculum, MentorSessions, MentorProjects, MentorFAQ } from './_components/MentorSections'
 import { verifyPreviewToken } from '@/lib/previewToken'
+import { CourseVideos } from '@/components/CourseVideos'
 
 export const revalidate = 3600
 
@@ -202,6 +203,9 @@ export default async function CoursePage({
       <CourseStickyBar course={course} mrp={mrp} enrolProps={enrolProps} />
 
       <div className="min-h-screen" style={{ background: '#06080f' }}>
+
+        {/* 0. Course intro video (very top) — registry-driven, hidden if none */}
+        <CourseVideos courseSlug={slug} />
 
         {/* 1. Hero — 2-col layout, sticky enrol card */}
         <CourseHero

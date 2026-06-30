@@ -13,6 +13,7 @@ export type VideoEntry = {
   youtubeId?: string   // YouTube-hosted
   selfHosted?: boolean // Supabase: marketing-videos/<slug>.mp4
   cta?: { label: string; href: string }
+  courseSlug?: string  // attach >1 video to a course page (Courses bites default to slug)
 }
 
 export const CATEGORY_ORDER: VideoCategory[] = ['Programmes', 'Webinar', 'Courses', 'For You']
@@ -127,6 +128,12 @@ export const VIDEO_LIBRARY: VideoEntry[] = [
 
 export function getVideo(slug: string): VideoEntry | undefined {
   return VIDEO_LIBRARY.find(v => v.slug === slug)
+}
+
+// Videos to show on a course page. Course bites default to slug === courseSlug;
+// set courseSlug explicitly on extra entries to attach more videos to a course.
+export function videosForCourse(courseSlug: string): VideoEntry[] {
+  return VIDEO_LIBRARY.filter(v => (v.courseSlug ?? (v.category === 'Courses' ? v.slug : undefined)) === courseSlug)
 }
 
 export function videosByCategory(): { category: VideoCategory; blurb: string; items: VideoEntry[] }[] {

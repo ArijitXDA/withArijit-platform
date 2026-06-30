@@ -13,6 +13,7 @@ import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import { createServiceClient } from '@/lib/supabase/service'
 import { PaymentModalTrigger } from '@/components/shared/PaymentModalTrigger'
+import { CourseVideos } from '@/components/CourseVideos'
 
 // PaymentModalTrigger uses useSearchParams(); on this fully-static page it must
 // sit inside a Suspense boundary. Small helper keeps the two CTAs tidy.
@@ -118,6 +119,8 @@ export default async function QuantumAIContinuedPage() {
             One live <strong className="text-white">60-minute session every week</strong> on the very latest in AI &amp; Quantum —
             forever. Stay current as the field moves. For every learner, at every level.
           </p>
+
+          <CourseVideos courseSlug={SLUG} />
 
           {/* Key facts */}
           <div className="flex flex-wrap justify-center gap-2.5 mb-10">

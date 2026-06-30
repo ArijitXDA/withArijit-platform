@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getVideo } from '@/lib/videoLibrary'
+import ShareButtons from './ShareButtons'
 
 // Branded, shareable watch pages. A video is either a YouTube embed (youtubeId)
 // or self-hosted on Supabase Storage. ?embed=1 → bare player (for iframing,
@@ -25,6 +26,8 @@ export default async function WatchPage(
   const { embed } = await searchParams
   const meta = getVideo(slug)
   if (!meta) notFound()
+  const pageUrl = `https://www.ostaran.com/watch/${slug}`
+  const youtubeUrl = meta.youtubeId ? `https://youtu.be/${meta.youtubeId}` : undefined
 
   let player
   if (meta.youtubeId) {
@@ -70,7 +73,8 @@ export default async function WatchPage(
             {meta.cta.label}
           </a>
         )}
-        <p className="mt-6"><a href="/videos" className="text-pink-300 hover:text-white text-sm underline">← All videos</a></p>
+        <ShareButtons url={pageUrl} youtubeUrl={youtubeUrl} title={meta.title} tagline={meta.tagline} />
+        <p className="mt-7"><a href="/videos" className="text-pink-300 hover:text-white text-sm underline">← All videos</a></p>
         <p className="text-slate-600 text-xs mt-5">oStaran — a fully autonomous platform for AI education.</p>
       </div>
     </div>

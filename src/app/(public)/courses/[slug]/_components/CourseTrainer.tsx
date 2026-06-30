@@ -54,16 +54,66 @@ function initials(name: string) {
   return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
 }
 
-export function CourseTrainer({ course }: { course?: any }) {
+const LINKEDIN_PATH = 'M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z'
+
+// Compact card for an approved co-mentor ("Co-Instructor").
+function CoInstructorCard({ t }: { t: Trainer }) {
+  return (
+    <div className="rounded-2xl border p-5" style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.07)' }}>
+      <div className="flex items-start gap-4">
+        <div className="relative shrink-0">
+          {t.photo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={t.photo} alt={t.name} className="w-20 h-20 rounded-full object-cover object-top border-2" style={{ borderColor: 'rgba(139,92,246,0.5)' }} />
+          ) : (
+            <div className="w-20 h-20 rounded-full border-2 flex items-center justify-center text-xl font-extrabold text-white"
+              style={{ borderColor: 'rgba(139,92,246,0.5)', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>
+              {initials(t.name)}
+            </div>
+          )}
+        </div>
+        <div className="min-w-0">
+          <span className="inline-block text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full mb-1.5"
+            style={{ background: 'rgba(139,92,246,0.12)', color: '#a78bfa' }}>Co-Instructor</span>
+          <p className="font-extrabold text-white text-lg leading-tight">{t.name}</p>
+          {t.title && <p className="text-indigo-400 text-xs mt-0.5 font-semibold">{t.title}</p>}
+          {t.location && <p className="text-slate-500 text-xs mt-0.5">{t.location}</p>}
+        </div>
+      </div>
+
+      {t.research.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-4">
+          {t.research.slice(0, 6).map(area => (
+            <span key={area} className="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+              style={{ background: 'rgba(139,92,246,0.12)', borderColor: 'rgba(139,92,246,0.25)', color: '#a78bfa' }}>{area}</span>
+          ))}
+        </div>
+      )}
+
+      {t.bio.length > 0 && <p className="text-slate-400 text-sm leading-relaxed mt-4 line-clamp-4">{t.bio[0]}</p>}
+
+      {t.linkedin && (
+        <a href={t.linkedin} target="_blank" rel="noopener noreferrer"
+          className="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90" style={{ background: '#0077B5' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d={LINKEDIN_PATH} /></svg>
+          View on LinkedIn
+        </a>
+      )}
+    </div>
+  )
+}
+
+export function CourseTrainer({ course, coMentors = [] }: { course?: any; coMentors?: Trainer[] }) {
   const { t, isCustom } = resolveTrainer(course)
+  const hasCo = coMentors.length > 0
 
   return (
     <section className="py-16 px-4" style={{ background: '#06080f' }}>
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-10">
-          <h2 className="text-3xl font-extrabold text-white mb-2">Your Trainer</h2>
+          <h2 className="text-3xl font-extrabold text-white mb-2">{hasCo ? 'Your Trainers' : 'Your Trainer'}</h2>
           <p className="text-slate-500 text-sm">
-            The person who will personally teach every single live session
+            {hasCo ? 'The mentors who will personally teach your live sessions' : 'The person who will personally teach every single live session'}
           </p>
         </div>
 
@@ -98,6 +148,12 @@ export function CourseTrainer({ course }: { course?: any }) {
                   <span className="text-white text-xs font-bold">✓</span>
                 </div>
               </div>
+
+              {/* Lead label (only when there are co-instructors) */}
+              {hasCo && (
+                <span className="inline-block text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full mb-2"
+                  style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399' }}>Lead Instructor</span>
+              )}
 
               {/* Name */}
               <p className="font-extrabold text-white text-xl leading-tight">{t.name}</p>
@@ -159,6 +215,12 @@ export function CourseTrainer({ course }: { course?: any }) {
             </div>
           </div>
         </div>
+
+        {coMentors.length > 0 && (
+          <div className={`grid gap-4 mt-6 ${coMentors.length === 1 ? 'max-w-2xl mx-auto' : 'md:grid-cols-2'}`}>
+            {coMentors.map((c, i) => <CoInstructorCard key={i} t={c} />)}
+          </div>
+        )}
       </div>
     </section>
   )

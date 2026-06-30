@@ -17,6 +17,7 @@ import { CourseCurriculum }     from './_components/CourseCurriculum'
 import { CourseSeniorTestimonials } from './_components/CourseSeniorTestimonials'
 import { CourseLearnerReviews } from './_components/CourseLearnerReviews'
 import { CourseTrainer }        from './_components/CourseTrainer'
+import { getCourseCoMentors }   from '@/lib/courseCoMentors'
 import { CourseComparison }     from './_components/CourseComparison'
 import { CourseFAQ }            from './_components/CourseFAQ'
 import { CourseBottomCTA }      from './_components/CourseBottomCTA'
@@ -158,6 +159,9 @@ export default async function CoursePage({
     ? { ...course, trainer_photo_url: trainerPhoto }
     : course
 
+  // Approved co-mentors (joint mentoring) — render alongside the lead trainer.
+  const coMentors = isMentor ? await getCourseCoMentors(supabase, course.id) : []
+
   // Filter testimonials to this course's category
   const testimonials = (allTestimonials ?? []).filter(t => {
     if (!t.feedback || t.feedback.length < 40) return false
@@ -245,7 +249,7 @@ export default async function CoursePage({
         {!isMentor && <CourseLearnerReviews testimonials={testimonials} category={category} />}
 
         {/* 11. Trainer profile (dynamic per course — mentor or oStaran default) */}
-        <CourseTrainer course={courseForTrainer} />
+        <CourseTrainer course={courseForTrainer} coMentors={coMentors} />
 
         {/* 12. Assistant Professor (AI) */}
         <CourseAIClassMonitor />

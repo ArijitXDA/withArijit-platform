@@ -20,14 +20,22 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export const dynamic = 'force-dynamic'
 
 export default async function WatchPage(
-  { params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ embed?: string }> },
+  { params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ embed?: string; partner?: string }> },
 ) {
   const { slug } = await params
-  const { embed } = await searchParams
+  const { embed, partner } = await searchParams
   const meta = getVideo(slug)
   if (!meta) notFound()
-  const pageUrl = `https://www.ostaran.com/watch/${slug}`
+  const pageUrl = `https://www.ostaran.com/watch/${slug}` + (partner ? `?partner=${encodeURIComponent(partner)}` : '')
   const youtubeUrl = meta.youtubeId ? `https://youtu.be/${meta.youtubeId}` : undefined
+  // Forward the source partner's code to the CTA so the destination attributes the lead.
+  const ctaHref = meta.cta
+    ? (partner && meta.ctaTracking
+        ? meta.cta.href + (meta.cta.href.includes('?') ? '&' : '?') + (meta.ctaTracking === 'webinar'
+            ? `utm_source=${encodeURIComponent(partner)}&utm_medium=partner_share&utm_campaign=${encodeURIComponent(partner)}`
+            : `ref=${encodeURIComponent(partner)}`)
+        : meta.cta.href)
+    : undefined
 
   let player
   if (meta.youtubeId) {
@@ -69,7 +77,7 @@ export default async function WatchPage(
         <p className="text-slate-400 text-sm md:text-base mb-6">{meta.tagline}</p>
         {player}
         {meta.cta && (
-          <a href={meta.cta.href} className="inline-flex items-center gap-1.5 mt-7 px-5 py-2.5 rounded-xl font-semibold text-white text-sm" style={{ background: '#FF2D78' }}>
+          <a href={ctaHref} className="inline-flex items-center gap-1.5 mt-7 px-5 py-2.5 rounded-xl font-semibold text-white text-sm" style={{ background: '#FF2D78' }}>
             {meta.cta.label}
           </a>
         )}

@@ -14,6 +14,7 @@ export type VideoEntry = {
   selfHosted?: boolean // Supabase: marketing-videos/<slug>.mp4
   cta?: { label: string; href: string }
   courseSlug?: string  // attach >1 video to a course page (Courses bites default to slug)
+  ctaTracking?: 'webinar' | 'ref' // when ?partner=<code>, append it to the CTA (utm_source / ref)
 }
 
 export const CATEGORY_ORDER: VideoCategory[] = ['Programmes', 'Webinar', 'Courses', 'For You']
@@ -50,6 +51,7 @@ export const VIDEO_LIBRARY: VideoEntry[] = [
     title: 'Become an oStaran AI Partner (2-min)',
     tagline: 'Earn by gifting free AI education — no selling, no tech background, free to start.',
     cta: { label: 'Become an AI Partner →', href: 'https://partner.ostaran.com/' },
+    ctaTracking: 'ref',
   },
 
   // ── Webinar ─────────────────────────────────────────────────────────────
@@ -58,6 +60,7 @@ export const VIDEO_LIBRARY: VideoEntry[] = [
     title: 'FREE AI Certification Webinar',
     tagline: 'A free, live 90-minute session — industry-recognized certificate, lifetime AI library & job support.',
     cta: { label: 'Reserve your FREE seat →', href: 'https://webinar.ostaran.com' },
+    ctaTracking: 'webinar',
   },
 
   // ── Courses (60-sec bites) ────────────────────────────────────────────────

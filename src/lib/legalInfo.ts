@@ -32,7 +32,7 @@ export const LEGAL = {
 
 // Convenience: the registered-address / identity line used across policy pages.
 export function entityIdentityLine() {
-  const bits = [LEGAL.entityName]
+  const bits: string[] = [LEGAL.entityName]
   if (LEGAL.cin) bits.push(`CIN: ${LEGAL.cin}`)
   if (LEGAL.gstin) bits.push(`GSTIN: ${LEGAL.gstin}`)
   bits.push(LEGAL.registeredOffice)

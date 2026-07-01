@@ -313,6 +313,9 @@ export async function POST(request: NextRequest) {
       discount_code,
       partner_code,
       enrolment_type,
+      guardian_name,
+      guardian_email,
+      guardian_consent,
     } = body
 
     if (!payment_id || !order_id || !course_id || !name || !email || !mobile || !amount) {
@@ -438,6 +441,9 @@ export async function POST(request: NextRequest) {
         enrolment_status:   'active',
         access_start_date:  monthlyAccessStart,   // null for one-time courses (unchanged)
         access_end_date:    monthlyAccessEnd,     // null for one-time courses (unchanged)
+        guardian_name:       guardian_name || null,
+        guardian_email:      guardian_email ? String(guardian_email).toLowerCase() : null,
+        guardian_consent_at: guardian_consent === true ? now.toISOString() : null,
       })
       .select('id')
       .single()

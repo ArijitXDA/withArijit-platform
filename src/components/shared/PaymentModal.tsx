@@ -64,6 +64,10 @@ export function PaymentModal({
   const [discountApplied, setDiscountApplied] = useState(0)
   const [discountLabel, setDiscountLabel]     = useState('')
   const [finalAmount, setFinalAmount]         = useState<number | null>(null)
+  const [requiresGuardian, setRequiresGuardian] = useState(false)
+  const [guardianName, setGuardianName]       = useState('')
+  const [guardianEmail, setGuardianEmail]     = useState('')
+  const [guardianConsent, setGuardianConsent] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -76,6 +80,14 @@ export function PaymentModal({
     setDiscountApplied(0)
     setDiscountLabel('')
     setFinalAmount(null)
+
+    // Minor-audience (school) courses require a parent/guardian consent block (DPDP s.9).
+    if (courseId) {
+      createClient().from('awa_courses').select('audience_category').eq('id', courseId).maybeSingle()
+        .then(({ data }) => setRequiresGuardian(data?.audience_category === 'school'))
+    } else {
+      setRequiresGuardian(false)
+    }
 
     // Auto-fill from signed-in user's existing profile/enrolment
     // so returning students don't have to retype name/email/mobile
@@ -138,6 +150,10 @@ export function PaymentModal({
     }
     if (mode === 'gift' && !friendEmail.trim()) {
       setError("Please enter your friend's email address.")
+      return
+    }
+    if (requiresGuardian && (!guardianName.trim() || !guardianEmail.trim() || !guardianConsent)) {
+      setError('A parent/guardian name, email and consent are required for this student programme.')
       return
     }
 
@@ -223,6 +239,9 @@ export function PaymentModal({
                 discount_code:       discountCode.trim().toUpperCase() || undefined,
                 partner_code:        defaultPartnerCode || undefined,
                 enrolment_type:      frequency === 'full' ? 'full_course' : 'monthly',
+                guardian_name:       requiresGuardian ? guardianName.trim() : undefined,
+                guardian_email:      requiresGuardian ? guardianEmail.trim() : undefined,
+                guardian_consent:    requiresGuardian ? guardianConsent : undefined,
               }),
             })
             const enrolJson = await enrolRes.json().catch(() => ({}))
@@ -389,6 +408,22 @@ export function PaymentModal({
                   <Label className="text-slate-300 text-[11px] mb-0.5 block">Friend&apos;s Email *</Label>
                   <Input className={inputCls + ' h-8 text-sm py-1.5'} type="email" value={friendEmail}
                     onChange={e => setFriendEmail(e.target.value)} placeholder="friend@example.com" />
+                </div>
+              )}
+
+              {requiresGuardian && (
+                <div className="rounded-xl p-3 space-y-2" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)' }}>
+                  <p className="text-amber-300 text-xs font-semibold">This programme is for a school student (under 18)</p>
+                  <p className="text-amber-200/70 text-[11px] leading-snug">A parent or legal guardian must enrol on the student&apos;s behalf and consent. Please enter your details as the parent/guardian.</p>
+                  <Input className={inputCls + ' h-8 text-sm py-1.5'} value={guardianName}
+                    onChange={e => setGuardianName(e.target.value)} placeholder="Parent / guardian full name" />
+                  <Input className={inputCls + ' h-8 text-sm py-1.5'} type="email" value={guardianEmail}
+                    onChange={e => setGuardianEmail(e.target.value)} placeholder="Parent / guardian email" />
+                  <label className="flex items-start gap-2 text-[11px] text-amber-200/90 leading-snug cursor-pointer">
+                    <input type="checkbox" checked={guardianConsent} onChange={e => setGuardianConsent(e.target.checked)}
+                      className="mt-0.5 accent-amber-500 shrink-0" />
+                    <span>I am the parent/legal guardian of this student and I consent to their enrolment and to processing their data as described in the Privacy Policy.</span>
+                  </label>
                 </div>
               )}
 

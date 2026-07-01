@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { recordConsent } from '@/lib/consent'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -64,7 +65,7 @@ async function resolveTier(email: string): Promise<{
 // Body: { email, whatsapp?, display_name? }
 export async function POST(req: NextRequest) {
   try {
-    const { email, whatsapp, display_name } = await req.json()
+    const { email, whatsapp, display_name, consent } = await req.json()
     if (!email || !email.includes('@')) {
       return NextResponse.json({ error: 'Valid email required' }, { status: 400 })
     }
@@ -114,6 +115,21 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (error) throw error
+
+    // WhatsApp/email marketing opt-in — only when ticked + a number was given. Non-fatal.
+    if (consent && whatsapp?.trim()) {
+      await recordConsent(db, {
+        email: emailLower,
+        mobile: whatsapp.trim(),
+        channels: ['whatsapp', 'email'],
+        state: 'opted_in',
+        source: 'community_join',
+        ip: req.headers.get('x-forwarded-for'),
+        userAgent: req.headers.get('user-agent'),
+        purpose: 'marketing',
+      })
+    }
+
     return NextResponse.json({ member: { ...newMember, points: 0, rank: 'Explorer', badges: [] } })
   } catch (err: any) {
     console.error('/api/community/join error:', err)

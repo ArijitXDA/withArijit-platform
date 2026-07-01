@@ -11,6 +11,7 @@ const inp = 'w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 te
 
 export default function WebinarRegisterClient({ slug, webinar, course, mentor, partnerCode }: { slug: string; webinar: any; course: any; mentor: any; partnerCode: string | null }) {
   const [f, setF] = useState({ full_name: '', email: '', mobile: '' })
+  const [consent, setConsent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr]   = useState('')
   const [done, setDone] = useState<{ meeting_link: string | null } | null>(null)
@@ -22,7 +23,7 @@ export default function WebinarRegisterClient({ slug, webinar, course, mentor, p
     setBusy(true)
     try {
       const res = await fetch('/api/webinar/register', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug, ...f, partner_code: partnerCode }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug, ...f, partner_code: partnerCode, consent }),
       })
       const j = await res.json(); if (!res.ok) throw new Error(j.error || 'Failed')
       setDone({ meeting_link: j.meeting_link ?? null })
@@ -63,17 +64,29 @@ export default function WebinarRegisterClient({ slug, webinar, course, mentor, p
           ) : (
             <>
               <h2 className="text-lg font-bold text-gray-900 mb-1">Register free</h2>
-              <p className="text-gray-500 text-sm mb-4">Save your seat — it&apos;s live, not recorded slides.</p>
+              <p className="text-gray-500 text-sm mb-4">Save your seat — a live, interactive session.</p>
               <div className="space-y-3">
                 <input value={f.full_name} onChange={set('full_name')} placeholder="Full name" className={inp} />
                 <input type="email" value={f.email} onChange={set('email')} placeholder="Email" className={inp} />
                 <input value={f.mobile} onChange={set('mobile')} placeholder="WhatsApp number (optional)" className={inp} />
+
+                <label className="flex items-start gap-2 text-[12px] text-gray-600 leading-snug cursor-pointer">
+                  <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)}
+                    className="mt-0.5 accent-indigo-600 shrink-0" />
+                  <span>I agree to receive reminders and updates about this and future oStaran webinars &amp; programmes on WhatsApp and email. Opt out anytime.</span>
+                </label>
+
                 {err && <p className="text-red-600 text-sm">{err}</p>}
                 <button onClick={register} disabled={busy}
                   className="w-full px-5 py-3 rounded-xl text-white font-semibold disabled:opacity-50"
                   style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>
                   {busy ? 'Registering…' : 'Reserve my free seat'}
                 </button>
+                <p className="text-[11px] text-gray-400 leading-relaxed">
+                  This live session is recorded &amp; transcribed on Microsoft Teams and may be shared with attendees. By registering you agree to our{' '}
+                  <a href="/terms" target="_blank" rel="noreferrer" className="underline">Terms</a> and{' '}
+                  <a href="/privacy" target="_blank" rel="noreferrer" className="underline">Privacy Policy</a>.
+                </p>
               </div>
             </>
           )}

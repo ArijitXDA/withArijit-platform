@@ -11,6 +11,7 @@ export function GuestModal({ onJoin, onClose }: Props) {
   const [name,     setName]     = useState('')
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
+  const [consent,  setConsent]  = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -18,7 +19,7 @@ export function GuestModal({ onJoin, onClose }: Props) {
     setLoading(true); setError('')
     const res  = await fetch('/api/community/join', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.trim(), whatsapp: whatsapp.trim() || undefined, display_name: name.trim() || undefined }),
+      body: JSON.stringify({ email: email.trim(), whatsapp: whatsapp.trim() || undefined, display_name: name.trim() || undefined, consent }),
     })
     const data = await res.json()
     if (data.expired) { window.location.href = 'https://www.ostaran.com/masterclass'; return }
@@ -85,6 +86,12 @@ export function GuestModal({ onJoin, onClose }: Props) {
             </div>
           </div>
 
+          <label className="flex items-start gap-2 text-[11px] leading-snug cursor-pointer" style={{ color: '#6b7280' }}>
+            <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)}
+              className="mt-0.5 accent-violet-600 shrink-0" />
+            <span>Send me community &amp; course updates on WhatsApp / email (optional — opt out anytime).</span>
+          </label>
+
           {error && (
             <p className="text-xs px-3 py-2 rounded-xl border" style={{ background: '#fef2f2', borderColor: '#fecaca', color: '#dc2626' }}>
               {error}
@@ -96,6 +103,12 @@ export function GuestModal({ onJoin, onClose }: Props) {
             style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', color: '#fff' }}>
             {loading ? <><Loader2 size={15} className="animate-spin" /> Checking…</> : 'Enter Community →'}
           </button>
+
+          <p className="text-[10px] text-center leading-relaxed" style={{ color: '#9ca3af' }}>
+            By joining you agree to our{' '}
+            <a href="https://www.ostaran.com/terms" target="_blank" rel="noreferrer" className="underline">Terms</a>{' '}and{' '}
+            <a href="https://www.ostaran.com/privacy" target="_blank" rel="noreferrer" className="underline">Privacy Policy</a>.
+          </p>
 
           <p className="text-[11px] text-center" style={{ color: '#6b7280' }}>
             Access expired?{' '}

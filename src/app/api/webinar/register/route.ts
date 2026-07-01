@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { attributeBroadcast } from '@/lib/broadcastAttribution'
+import { recordConsent } from '@/lib/consent'
 
-// POST /api/webinar/register  { slug, full_name, email, mobile? }
+// POST /api/webinar/register  { slug, full_name, email, mobile?, consent? }
 // Public — captures a registration for a mentor webinar; returns the join link.
 export async function POST(req: NextRequest) {
-  const { slug, full_name, email, mobile, partner_code } = await req.json().catch(() => ({}))
+  const { slug, full_name, email, mobile, partner_code, consent } = await req.json().catch(() => ({}))
   if (!slug || !full_name?.trim() || !email?.trim()) {
     return NextResponse.json({ error: 'Name and email are required.' }, { status: 400 })
   }
@@ -28,5 +29,21 @@ export async function POST(req: NextRequest) {
   }
   // Broadcast funnel: attribute this registration if it came via a cold-email click.
   if (!error) await attributeBroadcast(req.cookies.get('ost_bk')?.value, 'registered', row.email)
+
+  // Affirmative marketing opt-in (WhatsApp + email) — recorded only when the
+  // registrant ticked the consent box. Non-fatal.
+  if (consent) {
+    await recordConsent(service, {
+      email: row.email,
+      mobile: row.mobile,
+      channels: row.mobile ? ['email', 'whatsapp'] : ['email'],
+      state: 'opted_in',
+      source: 'webinar_register',
+      ip: req.headers.get('x-forwarded-for'),
+      userAgent: req.headers.get('user-agent'),
+      purpose: 'marketing',
+    })
+  }
+
   return NextResponse.json({ ok: true, meeting_link: webinar.meeting_link })
 }

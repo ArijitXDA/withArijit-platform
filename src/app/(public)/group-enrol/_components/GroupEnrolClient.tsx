@@ -30,6 +30,7 @@ export default function GroupEnrolClient({ courses, batches }: { courses: Course
   const [step,            setStep]            = useState<'form'|'paying'|'success'>('form')
   const [error,           setError]           = useState('')
   const [manageToken,     setManageToken]     = useState('')
+  const [authorised,      setAuthorised]      = useState(false)
 
   const selectedCourse = courses.find(c => c.id === courseId)
   const availBatches   = batches.filter(b => b.course_id === courseId)
@@ -64,6 +65,9 @@ export default function GroupEnrolClient({ courses, batches }: { courses: Course
   async function handlePay() {
     if (!courseId || !name || !email || !mobile || quantity < 2) {
       setError('Please fill all required fields'); return
+    }
+    if (!authorised) {
+      setError('Please confirm you are authorised to purchase and to provide the participants’ details.'); return
     }
     setError(''); setStep('paying')
     try {
@@ -371,8 +375,13 @@ export default function GroupEnrolClient({ courses, batches }: { courses: Course
                       </div>
                     </div>
 
+                    <label className="flex items-start gap-2 text-[11px] text-gray-500 leading-snug cursor-pointer mb-1 text-left">
+                      <input type="checkbox" checked={authorised} onChange={e => setAuthorised(e.target.checked)}
+                        className="mt-0.5 accent-indigo-600 shrink-0" />
+                      <span>I am authorised to purchase on behalf of my organisation and to provide the participants&apos; details. For any participant under 18, I am their parent/guardian or have obtained guardian consent.</span>
+                    </label>
                     <button onClick={handlePay}
-                      disabled={step === 'paying' || !courseId || !name || !email || !mobile || quantity < 2}
+                      disabled={step === 'paying' || !courseId || !name || !email || !mobile || quantity < 2 || !authorised}
                       className="w-full py-4 rounded-xl font-bold text-white text-base transition-all hover:opacity-90 hover:shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
                       style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
                       {step === 'paying'

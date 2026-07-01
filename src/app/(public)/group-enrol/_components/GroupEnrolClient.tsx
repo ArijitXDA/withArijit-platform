@@ -384,6 +384,12 @@ export default function GroupEnrolClient({ courses, batches }: { courses: Course
                       <Shield size={11} className="text-green-500" />
                       Razorpay · GST Invoice Issued · Seats never expire
                     </div>
+                    <p className="text-[11px] text-center text-gray-400 leading-relaxed">
+                      By proceeding you agree to our{' '}
+                      <a href="/terms" className="underline">Terms</a>,{' '}
+                      <a href="/privacy" className="underline">Privacy Policy</a> and{' '}
+                      <a href="/refund-policy" className="underline">Refund Policy</a>.
+                    </p>
                   </>
                 )}
               </div>

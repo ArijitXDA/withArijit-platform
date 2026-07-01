@@ -121,6 +121,10 @@ export function PaymentModal({
   // After create-order confirms, finalAmount overrides
   const displayPrice = finalAmount !== null ? finalAmount : basePrice
 
+  // Displayed prices are GST-inclusive (18%). Show the tax portion for transparency
+  // (Consumer Protection E-Commerce Rules 2020 — total price with tax break-up).
+  const gstAmount = displayPrice > 0 ? Math.round(displayPrice - displayPrice / 1.18) : 0
+
   async function handlePay() {
     setError('')
     if (!name.trim() || !email.trim() || !mobile.trim()) {
@@ -297,6 +301,9 @@ export function PaymentModal({
                 </p>
                 <p className="text-amber-200/80 text-xs mt-0.5">
                   {discountPct}% discount has been applied to your enrolment
+                </p>
+                <p className="text-amber-200/50 text-[10px] mt-0.5">
+                  Your referring partner may earn a reward on this enrolment.
                 </p>
               </div>
             </div>
@@ -481,9 +488,26 @@ export function PaymentModal({
                   : `Pay ${formatCurrency(displayPrice)} →`}
               </button>
 
-              <p className="text-xs text-slate-600 text-center">
-                Secured by Razorpay · 256-bit SSL · GST invoice issued automatically
-              </p>
+              {/* Transparency: GST break-up + 50-50 balance-due + legal consent */}
+              <div className="space-y-1.5 pt-0.5">
+                {price ? (
+                  <p className="text-[11px] text-slate-500 text-center">
+                    Price is inclusive of 18% GST ({formatCurrency(gstAmount)}). A GST invoice is emailed automatically.
+                  </p>
+                ) : null}
+                {!membership && frequency === 'half' && price ? (
+                  <p className="text-[11px] text-amber-400/80 text-center">
+                    50-50 plan: pay {formatCurrency(displayPrice)} now — the balance of {formatCurrency(displayPrice)} is due before the second half of your course.
+                  </p>
+                ) : null}
+                <p className="text-[11px] text-slate-600 text-center">Secured by Razorpay · 256-bit SSL</p>
+                <p className="text-[11px] text-slate-500 text-center leading-relaxed">
+                  By paying you agree to our{' '}
+                  <a href="/terms" target="_blank" className="text-indigo-400 underline">Terms</a>,{' '}
+                  <a href="/privacy" target="_blank" className="text-indigo-400 underline">Privacy&nbsp;Policy</a> and{' '}
+                  <a href="/refund-policy" target="_blank" className="text-indigo-400 underline">Refund&nbsp;Policy</a>. Live sessions are recorded &amp; transcribed.
+                </p>
+              </div>
             </div>
           )}
         </div>

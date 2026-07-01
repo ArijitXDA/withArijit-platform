@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Shipping & Delivery Policy | withArijit',
-  description: 'Shipping and delivery policy for withArijit — a digital-only platform operated by oStaran Edu Pvt Ltd.',
+  description: 'Shipping and delivery policy for withArijit — a digital-only platform operated by Star Analytix Pvt Ltd.',
 }
 
 export default function ShippingPolicyPage() {
@@ -15,7 +15,7 @@ export default function ShippingPolicyPage() {
 
         <section>
           <h2 className="text-xl font-semibold text-gray-900 mb-3">1. Digital Products Only</h2>
-          <p>withArijit (operated by <strong>oStaran Edu Pvt Ltd</strong>) is a <strong>100% digital platform</strong>. We do not sell or ship any physical products. All our offerings — including AI certification courses, masterclasses, webinars, study materials, and certificates — are delivered digitally.</p>
+          <p>withArijit (operated by <strong>Star Analytix Pvt Ltd</strong>) is a <strong>100% digital platform</strong>. We do not sell or ship any physical products. All our offerings — including AI certification courses, masterclasses, webinars, study materials, and certificates — are delivered digitally.</p>
           <p className="mt-2">There are no shipping charges applicable to any of our products or services.</p>
         </section>
 
@@ -81,7 +81,7 @@ export default function ShippingPolicyPage() {
           <ol className="list-decimal pl-6 mt-2 space-y-1">
             <li>Check your spam/junk folder</li>
             <li>Verify the email address used at registration</li>
-            <li>Contact us at <a href="mailto:ai@witharijit.com" className="text-indigo-600 hover:underline">ai@witharijit.com</a> with your name, registered email, and Razorpay payment ID</li>
+            <li>Contact us at <a href="mailto:ai@ostaran.com" className="text-indigo-600 hover:underline">ai@ostaran.com</a> with your name, registered email, and Razorpay payment ID</li>
           </ol>
           <p className="mt-2">We will resolve all access issues within <strong>4 business hours</strong> of receiving your query.</p>
         </section>
@@ -94,10 +94,11 @@ export default function ShippingPolicyPage() {
         <section>
           <h2 className="text-xl font-semibold text-gray-900 mb-3">6. Contact Us</h2>
           <div className="space-y-1">
-            <p><strong>oStaran Edu Pvt Ltd</strong></p>
-            <p>Email: <a href="mailto:ai@witharijit.com" className="text-indigo-600 hover:underline">ai@witharijit.com</a></p>
+            <p><strong>Star Analytix Pvt Ltd</strong></p>
+            <p>Email: <a href="mailto:ai@ostaran.com" className="text-indigo-600 hover:underline">ai@ostaran.com</a></p>
+            <p>Grievance Officer: <a href="mailto:grievance@ostaran.com" className="text-indigo-600 hover:underline">grievance@ostaran.com</a></p>
             <p>WhatsApp: Available via the chat widget on our website</p>
-            <p>Address: Mumbai, Maharashtra, India</p>
+            <p>Address: Mira Road East, Mumbai, Maharashtra, India — 401107</p>
           </div>
         </section>
 

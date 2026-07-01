@@ -208,7 +208,9 @@ export default function ActivateClient({
 
             <p className="text-center text-xs text-gray-400 mt-4">
               By activating, you agree to oStaran&apos;s{' '}
-              <Link href="/terms" className="underline hover:text-gray-600">Terms &amp; Conditions</Link>.
+              <Link href="/terms" className="underline hover:text-gray-600">Terms &amp; Conditions</Link>,{' '}
+              <Link href="/refund-policy" className="underline hover:text-gray-600">Refund Policy</Link> and{' '}
+              <Link href="/privacy" className="underline hover:text-gray-600">Privacy Policy</Link>.
             </p>
           </div>
         </div>

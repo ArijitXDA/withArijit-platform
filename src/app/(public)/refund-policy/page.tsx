@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Cancellation & Refund Policy | withArijit',
-  description: 'Refund and cancellation policy for courses purchased on withArijit — operated by oStaran Edu Pvt Ltd.',
+  description: 'Refund and cancellation policy for courses purchased on withArijit — operated by Star Analytix Pvt Ltd.',
 }
 
 export default function RefundPolicyPage() {
@@ -15,7 +15,7 @@ export default function RefundPolicyPage() {
 
         <section>
           <h2 className="text-xl font-semibold text-gray-900 mb-3">1. Overview</h2>
-          <p>At withArijit (operated by <strong>oStaran Edu Pvt Ltd</strong>), we are committed to your satisfaction. We offer a straightforward refund policy for our AI certification courses and programs. All refund requests are handled fairly and promptly.</p>
+          <p>At withArijit (operated by <strong>Star Analytix Pvt Ltd</strong>), we are committed to your satisfaction. We offer a straightforward refund policy for our AI certification courses and programs. All refund requests are handled fairly and promptly.</p>
         </section>
 
         <section>
@@ -66,7 +66,7 @@ export default function RefundPolicyPage() {
           <h2 className="text-xl font-semibold text-gray-900 mb-3">7. How to Request a Refund</h2>
           <p>To request a refund, please:</p>
           <ol className="list-decimal pl-6 mt-2 space-y-1">
-            <li>Email us at <a href="mailto:ai@witharijit.com" className="text-indigo-600 hover:underline">ai@witharijit.com</a></li>
+            <li>Email us at <a href="mailto:ai@ostaran.com" className="text-indigo-600 hover:underline">ai@ostaran.com</a></li>
             <li>Use the subject line: <strong>"Refund Request — [Your Name] — [Order ID]"</strong></li>
             <li>Include your registered email address, the course name, Razorpay payment ID, and reason for refund</li>
           </ol>
@@ -81,10 +81,11 @@ export default function RefundPolicyPage() {
         <section>
           <h2 className="text-xl font-semibold text-gray-900 mb-3">9. Contact for Refund Queries</h2>
           <div className="space-y-1">
-            <p><strong>oStaran Edu Pvt Ltd</strong></p>
-            <p>Email: <a href="mailto:ai@witharijit.com" className="text-indigo-600 hover:underline">ai@witharijit.com</a></p>
+            <p><strong>Star Analytix Pvt Ltd</strong></p>
+            <p>Email: <a href="mailto:ai@ostaran.com" className="text-indigo-600 hover:underline">ai@ostaran.com</a></p>
+            <p>Grievance Officer: <a href="mailto:grievance@ostaran.com" className="text-indigo-600 hover:underline">grievance@ostaran.com</a></p>
             <p>Response time: Within 2 business days</p>
-            <p>Address: Mumbai, Maharashtra, India</p>
+            <p>Address: Mira Road East, Mumbai, Maharashtra, India — 401107</p>
           </div>
         </section>
 

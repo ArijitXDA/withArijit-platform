@@ -198,6 +198,12 @@ function SignUpInner() {
               Send OTP
             </Button>
 
+            <p className="text-center text-xs text-gray-400 leading-relaxed">
+              By continuing you agree to our{' '}
+              <Link href="/terms" className="text-indigo-500 hover:underline">Terms</Link> and{' '}
+              <Link href="/privacy" className="text-indigo-500 hover:underline">Privacy Policy</Link>.
+            </p>
+
             <p className="text-center text-sm text-gray-500">
               Already have an account?{' '}
               <Link href="/signin" className="text-indigo-600 hover:underline font-medium">Sign in</Link>

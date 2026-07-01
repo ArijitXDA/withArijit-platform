@@ -195,7 +195,7 @@ export function MasterclassClient({
       </button>
 
       <p className="text-[10px] text-center text-gray-400">
-        By proceeding you agree to our <a href="/terms" className="underline">Terms</a> &amp; <a href="/refund-policy" className="underline">Refund Policy</a>
+        By proceeding you agree to our <a href="/terms" className="underline">Terms</a>, <a href="/refund-policy" className="underline">Refund Policy</a> &amp; <a href="/privacy" className="underline">Privacy Policy</a>
       </p>
     </form>
   )

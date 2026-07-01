@@ -203,7 +203,13 @@ function SignInForm() {
                 Send verification code
               </button>
 
-              <p className="text-center text-slate-600 text-xs mt-5">
+              <p className="text-center text-slate-600 text-xs mt-3 leading-relaxed">
+                By continuing (including with Google, LinkedIn or GitHub) you agree to our{' '}
+                <a href="/terms" className="text-indigo-400 hover:underline">Terms</a> and{' '}
+                <a href="/privacy" className="text-indigo-400 hover:underline">Privacy Policy</a>.
+              </p>
+
+              <p className="text-center text-slate-600 text-xs mt-3">
                 New here? Just enter your email — we'll create your account automatically.
               </p>
             </>
@@ -266,7 +272,7 @@ function SignInForm() {
 
         {/* Footer */}
         <p className="text-center text-slate-700 text-xs mt-6">
-          oStaran Edu Pvt Ltd · All rights reserved
+          Star Analytix Pvt Ltd · All rights reserved
         </p>
       </div>
     </div>

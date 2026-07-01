@@ -100,6 +100,9 @@ export function Footer() {
                   <p>Maharashtra, India — 401107</p>
                 </div>
               </div>
+              <p className="text-xs text-gray-600 pt-1">
+                Grievance Officer · <a href="mailto:grievance@ostaran.com" className="hover:text-gray-400 underline">grievance@ostaran.com</a>
+              </p>
             </div>
           </div>
 

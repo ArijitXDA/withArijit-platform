@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getVideo } from '@/lib/videoLibrary'
 import ShareButtons from './ShareButtons'
+import WatchBeacons from './WatchBeacons'
 
 // Branded, shareable watch pages. A video is either a YouTube embed (youtubeId)
 // or self-hosted on Supabase Storage. ?embed=1 → bare player (for iframing,
@@ -20,10 +21,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export const dynamic = 'force-dynamic'
 
 export default async function WatchPage(
-  { params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ embed?: string; partner?: string }> },
+  { params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ embed?: string; partner?: string; s?: string }> },
 ) {
   const { slug } = await params
-  const { embed, partner } = await searchParams
+  const { embed, partner, s: commsToken } = await searchParams
   const meta = getVideo(slug)
   if (!meta) notFound()
   const pageUrl = `https://www.ostaran.com/watch/${slug}` + (partner ? `?partner=${encodeURIComponent(partner)}` : '')
@@ -42,7 +43,8 @@ export default async function WatchPage(
     player = (
       <div className="w-full rounded-2xl overflow-hidden" style={frameStyle}>
         <iframe
-          src={`https://www.youtube.com/embed/${meta.youtubeId}?rel=0`}
+          id="ost-player"
+          src={`https://www.youtube.com/embed/${meta.youtubeId}?rel=0&enablejsapi=1&origin=https://www.ostaran.com`}
           title={meta.title}
           className="w-full block"
           style={{ aspectRatio: '16 / 9', border: 0 }}
@@ -57,7 +59,7 @@ export default async function WatchPage(
     try { const h = await fetch(src, { method: 'HEAD', cache: 'no-store' }); available = h.ok } catch { available = false }
     player = available ? (
       <div className="w-full rounded-2xl overflow-hidden" style={frameStyle}>
-        <video src={src} controls playsInline preload="metadata" className="w-full block bg-black" style={{ aspectRatio: '16 / 9' }} />
+        <video id="ost-player" src={src} controls playsInline preload="metadata" className="w-full block bg-black" style={{ aspectRatio: '16 / 9' }} />
       </div>
     ) : (
       <div className="w-full rounded-2xl flex items-center justify-center text-slate-400 text-sm" style={{ aspectRatio: '16 / 9', background: '#10101c', border: '1.5px solid rgba(255,255,255,0.1)' }}>
@@ -67,7 +69,12 @@ export default async function WatchPage(
   }
 
   if (embed === '1') {
-    return <div className="min-h-screen w-full flex items-center justify-center bg-black p-0">{player}</div>
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-black p-0">
+        {player}
+        <WatchBeacons slug={slug} token={commsToken} youtube={!!meta.youtubeId} />
+      </div>
+    )
   }
 
   return (
@@ -85,6 +92,7 @@ export default async function WatchPage(
         <p className="mt-7"><a href="/videos" className="text-pink-300 hover:text-white text-sm underline">← All videos</a></p>
         <p className="text-slate-600 text-xs mt-5">oStaran — a fully autonomous platform for AI education.</p>
       </div>
+      <WatchBeacons slug={slug} token={commsToken} youtube={!!meta.youtubeId} />
     </div>
   )
 }

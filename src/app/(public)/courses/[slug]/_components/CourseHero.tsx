@@ -24,10 +24,10 @@ const SLUG_AUDIENCE: Record<string, string> = {
 }
 
 export function CourseHero({
-  course, mrp, gstAmount, netBeforeGst, discountPct, partner, enrolProps,
+  course, mrp, gstAmount, netBeforeGst, discountPct, partner, partnerName, enrolProps,
 }: {
   course: any; mrp: number; gstAmount: number; netBeforeGst: number
-  discountPct: number; partner?: string; enrolProps: any
+  discountPct: number; partner?: string; partnerName?: string; enrolProps: any
 }) {
   const tagKey  = SLUG_AUDIENCE[course.slug] ?? course.audience_category ?? 'general'
   const tag     = AUDIENCE_TAG[tagKey] ?? AUDIENCE_TAG.general
@@ -137,7 +137,7 @@ export function CourseHero({
             <div className="lg:hidden mb-8">
               <PriceCard mrp={mrp} finalPrice={finalPrice} finalGst={finalGst} finalNet={finalNet}
                 discountPct={discountPct} discountAmt={discountAmt} fmtINR={fmtINR}
-                enrolProps={enrolProps} partner={partner} />
+                enrolProps={enrolProps} partner={partner} partnerName={partnerName} />
             </div>
 
             {/* Quick stats row — lead with the 9-week weekend intensive */}
@@ -160,7 +160,7 @@ export function CourseHero({
           <div className="hidden lg:block pt-4 sticky top-6 self-start pb-12">
             <PriceCard mrp={mrp} finalPrice={finalPrice} finalGst={finalGst} finalNet={finalNet}
               discountPct={discountPct} discountAmt={discountAmt} fmtINR={fmtINR}
-              enrolProps={enrolProps} partner={partner} />
+              enrolProps={enrolProps} partner={partner} partnerName={partnerName} />
           </div>
         </div>
       </div>
@@ -168,7 +168,7 @@ export function CourseHero({
   )
 }
 
-function PriceCard({ mrp, finalPrice, finalGst, finalNet, discountPct, discountAmt, fmtINR, enrolProps, partner }: any) {
+function PriceCard({ mrp, finalPrice, finalGst, finalNet, discountPct, discountAmt, fmtINR, enrolProps, partner, partnerName }: any) {
   return (
     <div className="rounded-3xl border overflow-hidden" style={{ background: '#0d0d1f', borderColor: 'rgba(139,92,246,0.25)' }}>
       <div className="h-1" style={{ background: 'linear-gradient(90deg, #7c3aed, #4f46e5)' }} />
@@ -179,7 +179,7 @@ function PriceCard({ mrp, finalPrice, finalGst, finalNet, discountPct, discountA
             <div className="flex items-center gap-2 mb-1">
               <p className="text-slate-500 line-through text-sm">{fmtINR(mrp)}</p>
               <span className="text-xs font-bold text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">
-                {discountPct}% partner discount
+                {discountPct}% OFF
               </span>
             </div>
           )}
@@ -188,6 +188,17 @@ function PriceCard({ mrp, finalPrice, finalGst, finalNet, discountPct, discountA
             incl. 18% GST ({fmtINR(discountPct > 0 ? finalGst : mrp - Math.round(mrp/1.18))}) · net taxable {fmtINR(discountPct > 0 ? finalNet : Math.round(mrp/1.18))}
           </p>
         </div>
+
+        {/* Exclusive partner-referral gift banner — only for a valid active partner */}
+        {discountPct > 0 && (
+          <div className="rounded-xl p-3 mb-4 border" style={{ borderColor: 'rgba(52,211,153,0.35)', background: 'rgba(16,185,129,0.10)' }}>
+            <p className="text-emerald-200 text-xs font-semibold leading-relaxed">
+              🎁 Exclusive <strong className="text-emerald-100">{discountPct}% discount</strong>
+              {partnerName ? <> gifted by <strong className="text-white">{partnerName}</strong></> : ' from your partner'} as part of the{' '}
+              <span className="text-emerald-100">oStaran AI Partner Programme</span>
+            </p>
+          </div>
+        )}
 
         {/* 50-50 plan */}
         <div className="rounded-xl p-3 mb-4 border border-indigo-500/20 bg-indigo-500/05 text-xs">

@@ -1,6 +1,7 @@
 import Image             from 'next/image'
 import Link              from 'next/link'
 import { redirect }      from 'next/navigation'
+import { cookies }       from 'next/headers'
 import { createServiceClient } from '@/lib/supabase/service'
 import { notFound }      from 'next/navigation'
 import { formatCurrency } from '@/lib/utils'
@@ -90,6 +91,10 @@ export default async function CoursePage({
 }) {
   const { slug }                                                      = await params
   const { partner, email: sqEmail, name: sqName, mobile: sqMobile, preview } = await searchParams
+  // Partner referral: URL ?partner= OR the durable ost_partner cookie (middleware sets it
+  // on any partner-coded landing) so the discount survives bite→course + direct landings.
+  const cookieStore = await cookies()
+  const partnerCode = (partner || cookieStore.get('ost_partner')?.value || '').trim()
   const supabase                                                      = createServiceClient()
 
   // ── Fetch course ─────────────────────────────────────────────────────────────
@@ -137,8 +142,8 @@ export default async function CoursePage({
       .order('rated_at', { ascending: false })
       .limit(30),
 
-    partner
-      ? supabase.from('partners').select('full_name').eq('partner_code', partner).eq('status', 'active').single()
+    partnerCode
+      ? supabase.from('partners').select('full_name').eq('partner_code', partnerCode).eq('status', 'active').maybeSingle()
       : Promise.resolve({ data: null }),
 
     // Mentor course: pull the mentor's trainer photo (and partner link) as a live
@@ -169,7 +174,10 @@ export default async function CoursePage({
     return filters.some(f => t.course_name?.toLowerCase().includes(f.toLowerCase()))
   })
 
-  const discountPct  = partner ? Number(course.discount_percent ?? 0) : 0
+  // Discount shows ONLY for a valid active partner (partnerRow found) — keeps the
+  // displayed strike-through in lock-step with what create-order actually charges.
+  const isPartnerReferred = !!partnerRow
+  const discountPct  = isPartnerReferred ? Number(course.discount_percent ?? 0) : 0
   const partnerName  = partnerRow?.full_name ?? ''
   const mrp          = Number(course.mrp)
   const gstPct       = Number(course.gst_percent ?? 18) / 100
@@ -177,12 +185,12 @@ export default async function CoursePage({
   const gstAmount    = mrp - netBeforeGst
 
   // Track click (fire and forget)
-  if (partner || (await searchParams).enrol) {
+  if (partnerCode || (await searchParams).enrol) {
     const sp     = await searchParams
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ostaran.com'
     void fetch(`${appUrl}/api/track/click`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ link_type: 'enrolment_page', partner_code: partner ?? null, course_id: course.id, course_name: course.name, student_email: sp.email || null, utm_medium: 'partner_share' }),
+      body: JSON.stringify({ link_type: 'enrolment_page', partner_code: partnerCode || null, course_id: course.id, course_name: course.name, student_email: sp.email || null, utm_medium: 'partner_share' }),
     }).catch(() => {})
   }
 
@@ -192,7 +200,7 @@ export default async function CoursePage({
     price:             mrp,
     discountPct,
     partnerName,
-    defaultPartnerCode: partner ?? '',
+    defaultPartnerCode: isPartnerReferred ? partnerCode : '',
     defaultEmail:      sqEmail ?? '',
     defaultName:       sqName ?? '',
     defaultMobile:     sqMobile ?? '',
@@ -214,7 +222,7 @@ export default async function CoursePage({
         {/* 1. Hero — 2-col layout, sticky enrol card */}
         <CourseHero
           course={course} mrp={mrp} gstAmount={gstAmount} netBeforeGst={netBeforeGst}
-          discountPct={discountPct} partner={partner} enrolProps={enrolProps}
+          discountPct={discountPct} partner={isPartnerReferred ? partnerCode : undefined} partnerName={partnerName} enrolProps={enrolProps}
         />
 
         {/* 2. Transformation outcomes */}

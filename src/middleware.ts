@@ -117,8 +117,17 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse
   }
 
-  // ── Public routes — refresh session ───────────────────────────────────────
+  // ── Public routes — refresh session (+ capture partner referral) ──────────
   const { supabaseResponse } = await updateSession(request)
+  // Persist a partner referral code from the URL into a durable first-party cookie so
+  // the discount attribution survives navigation (bite → course, or a later direct
+  // course landing). Validated at read time by the course page / create-order.
+  const ref = (request.nextUrl.searchParams.get('partner') || request.nextUrl.searchParams.get('ref') || '').trim()
+  if (ref && ref.length <= 64 && /^[A-Za-z0-9._-]+$/.test(ref) && request.cookies.get('ost_partner')?.value !== ref) {
+    supabaseResponse.cookies.set('ost_partner', ref, {
+      domain: '.ostaran.com', path: '/', maxAge: 60 * 60 * 24 * 30, httpOnly: true, sameSite: 'lax', secure: true,
+    })
+  }
   return supabaseResponse
 }
 

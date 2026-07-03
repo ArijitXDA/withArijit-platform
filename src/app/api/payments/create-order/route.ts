@@ -69,6 +69,26 @@ export async function POST(request: NextRequest) {
       if (!resolvedPartnerCode) resolvedPartnerCode = reg.utm_source
     }
 
+    // Also honor a partner referral code carried on the link (course-page ?partner= /
+    // ost_partner cookie) when the buyer isn't yet a known registration. Validated
+    // against an ACTIVE partner so the charged price matches the course-page display.
+    if (autoDiscountPct === 0 && resolvedPartnerCode) {
+      const code = String(resolvedPartnerCode).trim()
+      if (code) {
+        const { data: partner } = await supabase
+          .from('partners')
+          .select('partner_code')
+          .eq('partner_code', code)
+          .eq('status', 'active')
+          .maybeSingle()
+        if (partner) {
+          autoDiscountPct     = courseDiscountPct
+          autoDiscountLabel   = `Partner Referral Discount (${Math.round(courseDiscountPct * 100)}% off)`
+          resolvedPartnerCode = partner.partner_code
+        }
+      }
+    }
+
     // ── 3. Base amount after auto-discount ─────────────────────────────────
     const baseAfterAutoDiscount = mrp * (1 - autoDiscountPct)
     let finalAmount = payment_frequency === 'half' ? baseAfterAutoDiscount / 2 : baseAfterAutoDiscount

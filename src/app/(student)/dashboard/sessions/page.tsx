@@ -108,15 +108,17 @@ export default async function SessionsPage() {
                     )}
                     <p className="text-sm font-semibold truncate" style={{ color: T.textPrimary }}>
                       {s.session_title ?? `Session ${s.session_number}`}
+                      {s.status === 'rescheduled' && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: '#fef3c7', color: '#b45309' }}>Rescheduled</span>}
+                      {s.status === 'skipped' && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: '#fee2e2', color: '#b91c1c' }}>Cancelled</span>}
                     </p>
                     <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: T.textMuted }}>
                       <Calendar size={10} />
                       Session {s.session_number} · {fmt(s.session_date)}
-                      {s.session_start_time ? ` · ${fmtTime(s.session_start_time)} IST` : ''}
+                      {s.status === 'skipped' ? ' · No class this week' : (s.session_start_time ? ` · ${fmtTime(s.session_start_time)} IST` : '')}
                     </p>
                   </div>
                 </div>
-                {s.session_link && (
+                {s.session_link && s.status !== 'skipped' && (
                   <a href={joinUrl(email, s.batch_id, s.session_number)} target="_blank" rel="noopener noreferrer"
                     className="shrink-0 flex items-center gap-1.5 text-xs font-bold text-white px-3 py-1.5 rounded-lg transition-all hover:opacity-90 hover:scale-105"
                     style={{ background: T.purple }}>

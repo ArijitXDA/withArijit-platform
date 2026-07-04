@@ -17,11 +17,20 @@ function generateSessionSchedule(
   return Array.from({ length: totalSessions }, (_, i) => {
     const d = new Date(batch.start_date! + 'T00:00:00')
     d.setDate(d.getDate() + i * 7)
+    const computedISO = d.toISOString().split('T')[0]
     const saved = savedLinks[i + 1] ?? {}
+    // Per-session reschedule/skip override (admin sets these on awa_session_links).
+    const status: 'scheduled' | 'rescheduled' | 'skipped' =
+      (saved.status === 'rescheduled' || saved.status === 'skipped') ? saved.status : 'scheduled'
+    const rescheduled = status === 'rescheduled' && !!saved.override_date
+    const effISO = rescheduled ? String(saved.override_date) : computedISO
     return {
       session_number:      i + 1,
-      session_date:        d.toISOString().split('T')[0],
-      session_start_time:  batch.start_time,
+      session_date:        effISO,
+      original_date:       computedISO,
+      status,
+      change_reason:       (saved.change_reason || null) as string | null,
+      session_start_time:  rescheduled && saved.override_time ? String(saved.override_time).slice(0, 5) : batch.start_time,
       duration_mins:       batch.duration_mins,
       // Overlay from awa_session_links — null until admin pastes them
       session_title:       (saved.session_title       || null) as string | null,
@@ -71,7 +80,7 @@ export default async function CoursesPage() {
   if (batchIds.length > 0) {
     const { data: linkRows } = await service
       .from('awa_session_links')
-      .select('batch_id, session_number, session_title, recording_link, study_material_link, meeting_link, recording_item_id, study_material_md')
+      .select('batch_id, session_number, session_title, recording_link, study_material_link, meeting_link, recording_item_id, study_material_md, status, override_date, override_time, change_reason')
       .in('batch_id', batchIds)
     for (const row of linkRows ?? []) {
       if (!savedLinksMap[row.batch_id]) savedLinksMap[row.batch_id] = {}

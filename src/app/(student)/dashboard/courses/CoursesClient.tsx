@@ -40,6 +40,9 @@ interface Session {
   batch_id?: string              // for the enrolment-gated recording endpoint
   has_recording?: boolean        // a recording exists (the URL is never sent to the client)
   has_study_material?: boolean   // an LLM study guide exists → in-app study page
+  status?: 'scheduled' | 'rescheduled' | 'skipped'
+  original_date?: string         // computed date before a reschedule
+  change_reason?: string | null
 }
 interface Course {
   id: string; name: string; short_name: string | null; description: string | null
@@ -113,6 +116,7 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
   // Show most recent 3 past + next 3 upcoming by default, all when expanded
   const visiblePast   = showAll ? past   : past.slice(-3)
   const visibleFuture = showAll ? future : future.slice(0, 3)
+  const firstJoinIdx  = visibleFuture.findIndex(s => s.status !== 'skipped')  // first joinable (skips cancelled)
   const hiddenCount   = sessions.length - visiblePast.length - visibleFuture.length
 
   return (
@@ -209,8 +213,10 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
           <div className="divide-y" style={{ borderColor: T.borderLight }}>
             {visibleFuture.map((s, i) => {
               const sessionNum  = past.length + future.indexOf(s) + 1
-              const isNext      = i === 0  // the very next upcoming session
-              const isToday     = s.session_date === today
+              const skipped     = s.status === 'skipped'
+              const rescheduled = s.status === 'rescheduled'
+              const isNext      = i === firstJoinIdx  // first joinable upcoming (skips cancelled)
+              const isToday     = s.session_date === today && !skipped
               return (
                 <div key={s.session_number ?? sessionNum}
                   className="px-5 py-3 flex items-center justify-between gap-4 transition-colors"
@@ -233,10 +239,20 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
                           <span className="text-xs px-2 py-0.5 rounded-full font-bold animate-pulse"
                             style={{ background: T.greenBg, color: T.green }}>TODAY</span>
                         )}
+                        {rescheduled && (
+                          <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: '#fef3c7', color: '#b45309' }}>Rescheduled</span>
+                        )}
+                        {skipped && (
+                          <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: '#fee2e2', color: '#b91c1c' }}>Cancelled</span>
+                        )}
                       </div>
                       <p className="text-xs mt-0.5" style={{ color: T.textMuted }}>
-                        Session {sessionNum} of {total26} · {fmtDate(s.session_date)}
-                        {s.session_start_time ? ` · ${fmtTime(s.session_start_time)} IST` : ''}
+                        Session {sessionNum} of {total26} · {skipped
+                          ? <span style={{ textDecoration: 'line-through' }}>{fmtDate(s.original_date ?? s.session_date)}</span>
+                          : fmtDate(s.session_date)}
+                        {!skipped && s.session_start_time ? ` · ${fmtTime(s.session_start_time)} IST` : ''}
+                        {rescheduled && s.original_date && <span style={{ color: '#b45309' }}> · moved from {fmtDate(s.original_date)}</span>}
+                        {skipped && <span style={{ color: '#b91c1c' }}> · no class this week</span>}
                       </p>
                     </div>
                   </div>
@@ -248,7 +264,11 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
                         📄 Notes
                       </a>
                     )}
-                    {isNext && (s.meeting_link || batchMeetingLink) ? (
+                    {skipped ? (
+                      <span className="text-xs px-2.5 py-1 rounded-lg" style={{ background: '#fee2e2', color: '#b91c1c' }}>
+                        Cancelled
+                      </span>
+                    ) : isNext && (s.meeting_link || batchMeetingLink) ? (
                       <a href={s.join_url ?? batchMeetingLink ?? '#'} target="_blank" rel="noopener noreferrer"
                         className="text-xs px-2.5 py-1 rounded-lg font-semibold text-white"
                         style={{ background: T.green }}>
@@ -333,11 +353,12 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
     d ? new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
 
   // Detect if there's a session happening today (for the pulsing CTA)
-  const hasClassToday  = sessions.some(s => s.session_date === today)
+  const hasClassToday  = sessions.some(s => s.session_date === today && s.status !== 'skipped')
   const meetingLink    = batch?.meeting_link ?? null
   // Route the live-class CTA through the next session's tracked join URL so every
-  // click is attributable (who/when); falls back to the raw batch link.
-  const nextSession    = sessions.find(s => s.session_date >= today)
+  // click is attributable (who/when); falls back to the raw batch link. Skip
+  // cancelled sessions so the CTA never points at a class that isn't happening.
+  const nextSession    = sessions.find(s => s.session_date >= today && s.status !== 'skipped')
   const joinHref       = nextSession?.join_url ?? meetingLink
 
   return (

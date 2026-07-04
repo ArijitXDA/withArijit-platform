@@ -462,12 +462,14 @@ export default async function DashboardPage({
                 <div>
                   <p className="text-sm font-medium" style={{ color: T.textPrimary }}>
                     {s.session_title ?? `Session — ${fmt(s.session_date)}`}
+                    {s.status === 'rescheduled' && <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ background: '#fef3c7', color: '#b45309' }}>Rescheduled</span>}
+                    {s.status === 'skipped' && <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ background: '#fee2e2', color: '#b91c1c' }}>Cancelled</span>}
                   </p>
                   <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: T.textMuted }}>
-                    <Clock size={10} /> {fmt(s.session_date)}{s.session_start_time ? ` · ${fmtTime(s.session_start_time)}` : ''}
+                    <Clock size={10} /> {fmt(s.session_date)}{s.status === 'skipped' ? ' · No class this week' : (s.session_start_time ? ` · ${fmtTime(s.session_start_time)}` : '')}
                   </p>
                 </div>
-                {s.session_link && (
+                {s.session_link && s.status !== 'skipped' && (
                   <a href={joinUrl(email, s.batch_id, s.session_number)} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1 text-xs font-semibold"
                     style={{ color: T.blue }}>

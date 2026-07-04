@@ -22,6 +22,9 @@ export interface StudentSessionRow {
   session_link:        string | null  // join link
   recording_link:      string | null
   study_material_link: string | null
+  status:              'scheduled' | 'rescheduled' | 'skipped'
+  original_date:       string         // computed date before reschedule (== session_date if not rescheduled)
+  change_reason:       string | null
   isPast:              boolean
 }
 export interface StudentSessions {
@@ -51,7 +54,7 @@ export async function getStudentSessions(email: string): Promise<StudentSessions
 
     const [linkRes, curRes] = await Promise.all([
       service.from('awa_session_links')
-        .select('batch_id, session_number, session_title, recording_link, study_material_link, meeting_link, notes')
+        .select('batch_id, session_number, session_title, recording_link, study_material_link, meeting_link, notes, status, override_date, override_time, change_reason')
         .in('batch_id', batchIds),
       courseIds.length
         ? service.from('course_curriculum')
@@ -80,10 +83,13 @@ export async function getStudentSessions(email: string): Promise<StudentSessions
           session_number:      s.n,
           session_title:       s.title,
           session_date:        s.dateISO,
-          session_start_time:  b.start_time ?? null,
+          session_start_time:  s.timeRaw ?? b.start_time ?? null,
           session_link:        s.meetingLink,
           recording_link:      s.recordingLink,
           study_material_link: s.studyMaterialLink,
+          status:              s.status,
+          original_date:       s.originalDateISO,
+          change_reason:       s.changeReason,
           isPast:              s.isPast,
         })
       }
@@ -112,6 +118,9 @@ export async function getStudentSessions(email: string): Promise<StudentSessions
       session_link:        r.session_link ?? null,
       recording_link:      null,
       study_material_link: r.study_material_link ?? null,
+      status:              'scheduled' as const,
+      original_date:       r.session_date,
+      change_reason:       null,
       isPast:              r.session_date < today,
     }))
     return { all, upcoming: all.filter(s => !s.isPast), past: all.filter(s => s.isPast), source: 'legacy' }

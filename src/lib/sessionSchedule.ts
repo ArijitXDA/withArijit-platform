@@ -32,6 +32,10 @@ export interface SessionLinkRow {
   study_material_link: string | null
   meeting_link: string | null
   notes: string | null
+  status?: string | null                // 'scheduled' | 'rescheduled' | 'skipped'
+  override_date?: string | null         // YYYY-MM-DD — effective date when rescheduled
+  override_time?: string | null         // HH:MM[:SS] — effective time when rescheduled
+  change_reason?: string | null
 }
 
 export interface CurriculumRow {
@@ -56,6 +60,11 @@ export interface ScheduleSession {
   studyMaterialLink: string | null
   meetingLink: string | null      // per-session link, else the batch-level link
   curriculumRange: string | null  // weekend9 only, e.g. "Curriculum S1–S3"
+  status: 'scheduled' | 'rescheduled' | 'skipped'
+  timeRaw: string | null          // effective raw start time (override_time if rescheduled)
+  originalDateISO: string         // the computed date, before any reschedule
+  originalDateLabel: string
+  changeReason: string | null
   isPast: boolean
   isToday: boolean
 }
@@ -132,6 +141,16 @@ export function generateSchedule(
     const dateISO = ymd(d)
     const link    = linkMap.get(i + 1)
 
+    // Reschedule/skip override (per-session, on awa_session_links). A rescheduled
+    // session keeps its number, title, join link, recording + materials — only its
+    // date/time move. A skipped session keeps its computed slot but is flagged.
+    const status: 'scheduled' | 'rescheduled' | 'skipped' =
+      (link?.status === 'rescheduled' || link?.status === 'skipped') ? link.status : 'scheduled'
+    const rescheduled = status === 'rescheduled' && !!link?.override_date
+    const effISO   = rescheduled ? String(link!.override_date) : dateISO
+    const effD     = new Date(effISO + 'T00:00:00')
+    const effTime  = rescheduled && link?.override_time ? String(link.override_time) : batch.start_time
+
     let curTitle = ''
     let topics: string[] = []
     let projectHint: string | null = null
@@ -157,9 +176,9 @@ export function generateSchedule(
 
     out.push({
       n: i + 1,
-      dateISO,
-      dateLabel: d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }),
-      time: fmtTime(batch.start_time),
+      dateISO: effISO,
+      dateLabel: effD.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }),
+      time: fmtTime(effTime),
       durationMins: batch.duration_mins ?? 60,
       title: link?.session_title || curTitle || `Session ${i + 1}`,
       topics,
@@ -169,16 +188,21 @@ export function generateSchedule(
       studyMaterialLink: link?.study_material_link ?? null,
       meetingLink: link?.meeting_link ?? batch.meeting_link ?? null,
       curriculumRange,
-      isPast: dateISO < todayISO,
-      isToday: dateISO === todayISO,
+      status,
+      timeRaw: effTime,
+      originalDateISO: dateISO,
+      originalDateLabel: d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }),
+      changeReason: link?.change_reason ?? null,
+      isPast: effISO < todayISO,
+      isToday: effISO === todayISO,
     })
   }
   return out
 }
 
-/** The next not-yet-past session (today counts as upcoming), or null. */
+/** The next not-yet-past session (today counts as upcoming), skipping skipped ones. */
 export function nextSessionOf(schedule: ScheduleSession[]): ScheduleSession | null {
-  return schedule.find(s => !s.isPast) ?? null
+  return schedule.find(s => !s.isPast && s.status !== 'skipped') ?? null
 }
 
 /** Whole days from now until an ISO date (negative if past, 0 if today). */

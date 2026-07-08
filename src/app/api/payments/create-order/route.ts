@@ -168,7 +168,10 @@ export async function POST(request: NextRequest) {
 
     // ── 6. Create Razorpay order ───────────────────────────────────────────
     const order = await getRazorpay().orders.create({
-      amount:   Math.round(finalAmount * 100),  // paise
+      // Charge whole rupees so the paise collected equals the displayed amount
+      // (displayAmount = Math.round(finalAmount)) exactly — no sub-rupee gap where
+      // the buyer sees ₹663 but is charged ₹663.30.
+      amount:   Math.round(finalAmount) * 100,  // paise (whole rupees)
       currency: 'INR',
       receipt:  `rcpt_${Date.now()}`,
       notes: {

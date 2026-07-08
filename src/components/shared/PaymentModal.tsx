@@ -127,8 +127,10 @@ export function PaymentModal({
   const mrp = price ?? 0
 
   // Apply partner auto-discount upfront (shown before hitting Pay)
-  const autoDiscountAmt  = discountPct > 0 ? Math.round(mrp * discountPct / 100) : 0
-  const priceAfterAuto   = mrp - autoDiscountAmt
+  // Payable base uses subtract-then-round to MATCH the server (create-order computes
+  // mrp*(1-pct) and rounds at the end), so the button never shows a rupee less than
+  // what is actually charged. formatCurrency rounds this for display.
+  const priceAfterAuto   = mrp * (1 - discountPct / 100)
 
   // Apply frequency
   const basePrice  = frequency === 'half' ? priceAfterAuto / 2 : priceAfterAuto
@@ -140,6 +142,17 @@ export function PaymentModal({
   // Displayed prices are GST-inclusive (18%). Show the tax portion for transparency
   // (Consumer Protection E-Commerce Rules 2020 — total price with tax break-up).
   const gstAmount = displayPrice > 0 ? Math.round(displayPrice - displayPrice / 1.18) : 0
+
+  // Any change to a price-affecting input (plan, email, code) invalidates a cached
+  // discount preview — clear it so the button falls back to the live base price and
+  // can NEVER show a stale amount lower than what will be charged (e.g. a code applied
+  // on the 50-50 plan, then switching to Full).
+  function resetPreview() {
+    setFinalAmount(null)
+    setDiscountApplied(0)
+    setDiscountLabel('')
+    setDiscountNote('')
+  }
 
   // Validate + preview a discount code WITHOUT creating a Razorpay order, so the
   // Pay button reflects the true post-discount amount before the student commits.
@@ -277,13 +290,13 @@ export function PaymentModal({
                 order_id:            response.razorpay_order_id,
                 course_id:           courseId,
                 name, email, mobile,
-                amount:              displayAmount ?? basePrice,
+                amount:              displayAmount ?? Math.round(basePrice),
                 // For 50-50 plan: pass the FULL discounted price so enrollment API
                 // can correctly set net_after_discount and balance_due.
                 // For full payment: full_discounted_price === amount (same value).
                 full_discounted_price: frequency === 'half'
-                  ? (displayAmount ?? basePrice) * 2
-                  : (displayAmount ?? basePrice),
+                  ? (displayAmount ?? Math.round(basePrice)) * 2
+                  : (displayAmount ?? Math.round(basePrice)),
                 discount_code:       discountCode.trim().toUpperCase() || undefined,
                 partner_code:        defaultPartnerCode || undefined,
                 enrolment_type:      frequency === 'full' ? 'full_course' : 'monthly',
@@ -446,7 +459,7 @@ export function PaymentModal({
                 <div>
                   <Label className="text-slate-300 text-[11px] mb-0.5 block">Email *</Label>
                   <Input className={inputCls + ' h-8 text-sm py-1.5'} type="email" value={email}
-                    onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
+                    onChange={e => { setEmail(e.target.value); resetPreview() }} placeholder="you@example.com" />
                 </div>
                 <div>
                   <Label className="text-slate-300 text-[11px] mb-0.5 block">Mobile *</Label>
@@ -491,7 +504,7 @@ export function PaymentModal({
               ) : (
                 <div>
                   <Label className="text-slate-300 text-[11px] mb-0.5 block">Payment Plan</Label>
-                  <Select value={frequency} onValueChange={v => { if (v === 'full' || v === 'half') setFrequency(v) }}>
+                  <Select value={frequency} onValueChange={v => { if (v === 'full' || v === 'half') { setFrequency(v); resetPreview() } }}>
                     <SelectTrigger className={inputCls + ' h-8 text-sm'}>
                       <SelectValue />
                     </SelectTrigger>
@@ -520,7 +533,8 @@ export function PaymentModal({
                   <Input
                     className={inputCls + ' h-8 text-sm py-1.5 uppercase tracking-wider flex-1'}
                     value={discountCode}
-                    onChange={e => { setDiscountCode(e.target.value.toUpperCase()); setDiscountApplied(0); setFinalAmount(null); setDiscountNote('') }}
+                    onChange={e => { setDiscountCode(e.target.value.toUpperCase()); resetPreview() }}
+                    onBlur={() => { if (discountCode.trim() && email.trim() && discountNote !== 'applied' && !applying) applyDiscount() }}
                     placeholder="e.g. ADMINAX"
                   />
                   <button
@@ -555,7 +569,7 @@ export function PaymentModal({
                         {partnerName && <span className="text-green-400/70 ml-1">· Gift from {partnerName}</span>}
                       </span>
                       <span className="text-green-400 font-semibold text-xs">
-                        −{formatCurrency(Math.round(mrpForPlan * discountPct / 100))}
+                        −{formatCurrency(Math.round(mrpForPlan) - Math.round(basePrice))}
                       </span>
                     </div>
                   )}

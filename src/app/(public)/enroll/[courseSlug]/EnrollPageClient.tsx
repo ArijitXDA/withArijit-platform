@@ -18,6 +18,8 @@ interface Props {
   course:      Course
   prefill:     { name: string; email: string; mobile: string }
   partnerCode: string | null
+  partnerName: string
+  discountPct: number
   refSource:   string | null  // 'webinar' | 'nudge' | etc
 }
 
@@ -72,11 +74,13 @@ const FAQS = [
 
 const BENEFIT_EMOJIS = ['🤖','📜','🛠️','🎓','💼','⚡','🚀','💻','☁️']
 
-export function EnrollPageClient({ course, prefill, partnerCode, refSource }: Props) {
+export function EnrollPageClient({ course, prefill, partnerCode, partnerName, discountPct, refSource }: Props) {
   const [open, setOpen] = useState(false)
 
   const isFromWebinar = refSource === 'webinar' || refSource === 'nudge'
   const benefits      = BENEFITS[course.slug] ?? DEFAULT_BENEFITS
+  const discountAmt   = discountPct > 0 ? Math.round(course.mrp * discountPct / 100) : 0
+  const priceAfter    = course.mrp - discountAmt
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -89,9 +93,13 @@ export function EnrollPageClient({ course, prefill, partnerCode, refSource }: Pr
               You attended the free webinar -- take the next step
             </Badge>
           )}
-          {partnerCode && (
+          {discountPct > 0 ? (
+            <Badge className="bg-indigo-600/20 text-indigo-300 border border-indigo-600/30 mb-2">
+              🎁 {discountPct}% discount{partnerName ? ` gifted by ${partnerName}` : ''} applied
+            </Badge>
+          ) : partnerCode ? (
             <p className="text-xs text-indigo-300 font-mono">Partner referral: {partnerCode}</p>
-          )}
+          ) : null}
           <h1 className="text-3xl md:text-5xl font-extrabold leading-tight">
             Enrol in<br />
             <span className="text-indigo-400">{course.name}</span>
@@ -99,8 +107,11 @@ export function EnrollPageClient({ course, prefill, partnerCode, refSource }: Pr
           <p className="text-gray-300 text-lg max-w-xl mx-auto">{course.description}</p>
 
           <div className="flex items-center justify-center gap-4 pt-2">
-            <span className="text-4xl font-black">{formatCurrency(course.mrp)}</span>
+            <span className="text-4xl font-black">{formatCurrency(discountPct > 0 ? priceAfter : course.mrp)}</span>
             <div className="text-left">
+              {discountPct > 0 && (
+                <p className="text-gray-400 text-sm line-through leading-none">{formatCurrency(course.mrp)}</p>
+              )}
               <p className="text-gray-400 text-xs">+ 18% GST</p>
               <p className="text-green-400 text-xs font-semibold">50-50 plan available</p>
             </div>
@@ -211,6 +222,8 @@ export function EnrollPageClient({ course, prefill, partnerCode, refSource }: Pr
         courseId={course.id}
         courseName={course.name}
         price={course.mrp}
+        discountPct={discountPct}
+        partnerName={partnerName}
         defaultName={prefill.name}
         defaultEmail={prefill.email}
         defaultMobile={prefill.mobile}

@@ -22,7 +22,7 @@ export default async function EnrollPage({ params, searchParams }: Props) {
 
   const { data: course } = await supabase
     .from('awa_courses')
-    .select('id, name, slug, description, mrp, gst_percent, subjects, target_audience')
+    .select('id, name, slug, description, mrp, gst_percent, discount_percent, subjects, target_audience')
     .eq('slug', courseSlug)
     .eq('is_active', true)
     .single()
@@ -67,7 +67,7 @@ export default async function EnrollPage({ params, searchParams }: Props) {
     mobile: sp.mobile ?? studentProfile?.mobile    ?? regMobile ?? '',
   }
 
-  // Resolve partner code: URL param wins, then look up from registration
+  // Resolve partner code: URL param wins, then the buyer's registration utm_source.
   let partnerCode = sp.partner ?? null
   if (!partnerCode && emailHint) {
     const service = createServiceClient()
@@ -82,6 +82,23 @@ export default async function EnrollPage({ params, searchParams }: Props) {
     if (reg?.utm_source) partnerCode = reg.utm_source
   }
 
+  // Show the discount ONLY for a VALIDATED active partner (mirrors /courses/[slug]) so
+  // the displayed price == the charged price and survives an email change at checkout
+  // (create-order re-applies the discount from the same active partner_code).
+  let partnerName = ''
+  let partnerValid = false
+  if (partnerCode) {
+    const service = createServiceClient()
+    const { data: partnerRow } = await service
+      .from('partners')
+      .select('full_name')
+      .eq('partner_code', partnerCode)
+      .eq('status', 'active')
+      .maybeSingle()
+    if (partnerRow) { partnerValid = true; partnerName = partnerRow.full_name ?? '' }
+  }
+  const discountPct = partnerValid ? Number((course as any).discount_percent ?? 0) : 0
+
   const ref = sp.ref ?? null
 
   return (
@@ -95,6 +112,8 @@ export default async function EnrollPage({ params, searchParams }: Props) {
       }}
       prefill={prefill}
       partnerCode={partnerCode}
+      partnerName={partnerName}
+      discountPct={discountPct}
       refSource={ref}
     />
   )

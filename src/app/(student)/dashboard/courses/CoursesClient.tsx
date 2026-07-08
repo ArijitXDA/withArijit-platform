@@ -60,6 +60,7 @@ interface Enrolment {
   amount_paid: string; is_active: boolean; payment_date: string | null
   enrolment_seq: number; course: Course | null; batch: Batch | null
   access_end_date?: string | null; enrolment_status?: string | null
+  student_email?: string | null; student_name?: string | null; student_mobile?: string | null
   sessions: Session[]
 }
 
@@ -361,6 +362,16 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
   const nextSession    = sessions.find(s => s.session_date >= today && s.status !== 'skipped')
   const joinHref       = nextSession?.join_url ?? meetingLink
 
+  // Renew a lapsed monthly membership → straight to pre-filled checkout on the
+  // course page (?enrol=1 auto-opens the payment modal), not the marketing page.
+  const courseSlug   = course?.slug || 'quantum-ai-continued'
+  const manageHref   = `/courses/${courseSlug}`
+  const renewParams  = new URLSearchParams({ enrol: '1' })
+  if (enrolment.student_email)  renewParams.set('email',  enrolment.student_email)
+  if (enrolment.student_name)   renewParams.set('name',   enrolment.student_name)
+  if (enrolment.student_mobile) renewParams.set('mobile', enrolment.student_mobile)
+  const renewHref    = `/courses/${courseSlug}?${renewParams.toString()}`
+
   return (
     <div className="rounded-2xl overflow-hidden bg-white" style={{ border: `1px solid ${T.border}` }}>
 
@@ -410,7 +421,7 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
               ? `Membership active — renews monthly. Active through ${fmtShortDate(accessEnd)}.`
               : 'Membership paused. Renew to resume the weekly live sessions & recordings.'}
           </span>
-          <a href="/courses/quantum-ai-continued" className="font-bold shrink-0" style={{ color: T.blue }}>
+          <a href={membershipActive ? manageHref : renewHref} className="font-bold shrink-0" style={{ color: T.blue }}>
             {membershipActive ? 'Manage →' : 'Renew →'}
           </a>
         </div>

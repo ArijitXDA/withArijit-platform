@@ -60,6 +60,7 @@ export default async function CoursesPage() {
     .select(`
       id, created_at, enrolment_type, amount_paid, is_active,
       payment_date, enrolment_seq, access_end_date, enrolment_status,
+      student_email, student_name, student_mobile,
       course:course_id(id, name, short_name, description, total_sessions, session_duration_mins, slug, subjects),
       batch:batch_id(id, label, day_of_week, start_time, start_date, end_date, meeting_link, instructor_name, duration_mins, variant, total_sessions)
     `)

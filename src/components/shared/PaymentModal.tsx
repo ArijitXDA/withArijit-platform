@@ -65,6 +65,8 @@ export function PaymentModal({
   const [discountApplied, setDiscountApplied] = useState(0)
   const [discountLabel, setDiscountLabel]     = useState('')
   const [finalAmount, setFinalAmount]         = useState<number | null>(null)
+  const [applying, setApplying]               = useState(false)
+  const [discountNote, setDiscountNote]       = useState<'' | 'applied' | 'invalid'>('')
   const [requiresGuardian, setRequiresGuardian] = useState(false)
   const [guardianName, setGuardianName]       = useState('')
   const [guardianEmail, setGuardianEmail]     = useState('')
@@ -81,6 +83,7 @@ export function PaymentModal({
     setDiscountApplied(0)
     setDiscountLabel('')
     setFinalAmount(null)
+    setDiscountNote('')
 
     // Minor-audience (school) courses require a parent/guardian consent block (DPDP s.9).
     if (courseId) {
@@ -137,6 +140,50 @@ export function PaymentModal({
   // Displayed prices are GST-inclusive (18%). Show the tax portion for transparency
   // (Consumer Protection E-Commerce Rules 2020 — total price with tax break-up).
   const gstAmount = displayPrice > 0 ? Math.round(displayPrice - displayPrice / 1.18) : 0
+
+  // Validate + preview a discount code WITHOUT creating a Razorpay order, so the
+  // Pay button reflects the true post-discount amount before the student commits.
+  // Uses the exact create-order math (same course_id/email/partner_code), so the
+  // previewed amount always equals what will be charged.
+  async function applyDiscount() {
+    const code = discountCode.trim().toUpperCase()
+    if (!code) return
+    if (!email.trim()) { setError('Please enter your email above, then apply the code.'); return }
+    setApplying(true)
+    setDiscountNote('')
+    setError('')
+    try {
+      const res = await fetch('/api/payments/create-order', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          preview:           true,
+          course_id:         courseId,
+          payment_frequency: frequency,
+          discount_code:     code,
+          partner_code:      defaultPartnerCode || undefined,
+          name, email, mobile,
+        }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (res.ok && j.codeApplied) {
+        setFinalAmount(typeof j.displayAmount === 'number' ? j.displayAmount : null)
+        setDiscountApplied(j.discountApplied ?? 0)
+        setDiscountLabel(j.discountLabel ?? '')
+        setDiscountNote('applied')
+      } else {
+        // Code didn't reduce the price (invalid / expired / wrong course / used up)
+        setFinalAmount(null)
+        setDiscountApplied(0)
+        setDiscountLabel('')
+        setDiscountNote('invalid')
+      }
+    } catch {
+      setDiscountNote('invalid')
+    } finally {
+      setApplying(false)
+    }
+  }
 
   async function handlePay() {
     setError('')
@@ -469,12 +516,28 @@ export function PaymentModal({
               {/* Discount code */}
               <div>
                 <Label className="text-slate-300 text-[11px] mb-0.5 block">Discount Code (optional)</Label>
-                <Input
-                  className={inputCls + ' h-8 text-sm py-1.5 uppercase tracking-wider'}
-                  value={discountCode}
-                  onChange={e => { setDiscountCode(e.target.value.toUpperCase()); setDiscountApplied(0); setFinalAmount(null) }}
-                  placeholder="e.g. ADMINAX"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    className={inputCls + ' h-8 text-sm py-1.5 uppercase tracking-wider flex-1'}
+                    value={discountCode}
+                    onChange={e => { setDiscountCode(e.target.value.toUpperCase()); setDiscountApplied(0); setFinalAmount(null); setDiscountNote('') }}
+                    placeholder="e.g. ADMINAX"
+                  />
+                  <button
+                    type="button"
+                    onClick={applyDiscount}
+                    disabled={applying || !discountCode.trim()}
+                    className="h-8 px-4 rounded-lg text-xs font-semibold text-white shrink-0 disabled:opacity-40 transition-all"
+                    style={{ background: 'rgba(99,102,241,0.9)' }}>
+                    {applying ? '…' : 'Apply'}
+                  </button>
+                </div>
+                {discountNote === 'applied' && (
+                  <p className="text-green-400 text-[11px] mt-1">✓ Code applied — the amount below is your final payable.</p>
+                )}
+                {discountNote === 'invalid' && (
+                  <p className="text-amber-400 text-[11px] mt-1">This code isn’t valid for this plan — the price is unchanged.</p>
+                )}
               </div>
 
               {/* Price breakdown — visible immediately when partner discount exists */}

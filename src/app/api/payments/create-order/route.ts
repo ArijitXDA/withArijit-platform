@@ -6,8 +6,12 @@ import { paymentOrderSchema } from '@/lib/validations/payment'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    const isPreview = body.preview === true
     const parsed = paymentOrderSchema.safeParse(body)
-    if (!parsed.success) {
+    // Real orders must pass the strict schema. A PREVIEW (live discount amount for the
+    // modal — no Razorpay order is created) may omit name/email/mobile, so it falls
+    // back to raw body values.
+    if (!parsed.success && !isPreview) {
       // Extract the first human-readable field error to show in the modal
       const fieldErrors  = parsed.error.flatten().fieldErrors
       const firstField   = Object.keys(fieldErrors)[0]
@@ -20,7 +24,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { course_id, payment_frequency, discount_code, name, email, mobile } = parsed.data
+    const course_id         = parsed.success ? parsed.data.course_id         : (body.course_id as string)
+    const payment_frequency = parsed.success ? parsed.data.payment_frequency : ((body.payment_frequency as string) ?? 'full')
+    const discount_code     = parsed.success ? parsed.data.discount_code     : (body.discount_code as string | undefined)
+    const name              = parsed.success ? parsed.data.name              : ((body.name as string) ?? '')
+    const email             = parsed.success ? parsed.data.email             : ((body.email as string) ?? '')
+    const mobile            = parsed.success ? parsed.data.mobile            : ((body.mobile as string) ?? '')
+    if (!course_id) return NextResponse.json({ error: 'course_id is required' }, { status: 400 })
     const supabase = createServiceClient()
 
     // ── 1. Fetch course ────────────────────────────────────────────────────
@@ -138,6 +148,23 @@ export async function POST(request: NextRequest) {
       autoDiscountLabel && `${autoDiscountLabel} (−₹${autoDiscountAmount.toLocaleString('en-IN')})`,
       manualDiscountLabel && `${manualDiscountLabel} (−₹${Math.round(manualDiscountApplied).toLocaleString('en-IN')})`,
     ].filter(Boolean).join(' + ')
+
+    // Preview: return the computed payable amount (incl. a validated discount code)
+    // WITHOUT creating a Razorpay order — the modal shows this live when a code is
+    // applied, using the SAME math the real charge uses so the two never diverge.
+    if (isPreview) {
+      return NextResponse.json({
+        preview:         true,
+        displayAmount:   Math.round(finalAmount),
+        originalAmount:  Math.round(originalAmount),
+        autoDiscountPct: Math.round(autoDiscountPct * 100),
+        autoDiscountAmount,
+        discountApplied: totalDiscountApplied,
+        discountLabel:   discountLabel || null,
+        codeEntered:     !!discount_code,
+        codeApplied:     !!(discount_code && manualDiscountApplied > 0),
+      })
+    }
 
     // ── 6. Create Razorpay order ───────────────────────────────────────────
     const order = await getRazorpay().orders.create({

@@ -161,6 +161,84 @@ export default async function DashboardPage({
     },
   ]
 
+  // ── Payments due / due-soon — monthly-membership renewals + 50-50 balances ──
+  // Surfaced as a hero alert so a student never silently loses access. "Due soon" =
+  // within 7 days; "overdue" = the access window already lapsed. Runs on ALL rows
+  // (not just is_active) so a paused membership still shows up here.
+  const dueToday  = new Date(new Date().toISOString().split('T')[0] + 'T00:00:00')
+  const dueCutoff = new Date(dueToday); dueCutoff.setDate(dueCutoff.getDate() + 7)
+  const dueMobile = profile?.mobile ?? (enrolment as any)?.student_mobile ?? ''
+
+  const { data: allEnrolForDue } = await service
+    .from('student_enrolments')
+    .select('id, course_id, created_at, access_end_date, balance_due, is_active, course:course_id(name, short_name, slug, tenure_type)')
+    .eq('student_email', email)
+    .order('created_at', { ascending: false })
+
+  type DueItem = {
+    kind: 'renewal' | 'balance'
+    courseName: string
+    status: 'overdue' | 'due_soon'
+    dateLabel: string | null
+    amount: number | null
+    href: string
+    cta: string
+  }
+  const dueItems: DueItem[] = []
+
+  // Group by course so each course is evaluated on its "current" state, not a stray
+  // row. Renewal uses the FURTHEST access_end_date (so a null/older row can't mask a
+  // real expiry); balance uses the newest-created row (rows are ordered created_at DESC).
+  const rollingByCourse = new Map<string, { name: string; slug: string | null; latestEnd: string | null }>()
+  const balanceByCourse = new Map<string, { name: string; bal: number }>()
+
+  for (const e of allEnrolForDue ?? []) {
+    const c: any = e.course
+    const cid = e.course_id as string | null
+    if (!cid) continue
+    const nm = c?.name ?? c?.short_name ?? 'your course'
+    if (c?.tenure_type === 'monthly') {
+      const end  = e.access_end_date as string | null
+      const prev = rollingByCourse.get(cid)
+      if (!prev) rollingByCourse.set(cid, { name: nm, slug: c?.slug ?? null, latestEnd: end })
+      else if (end && (!prev.latestEnd || end > prev.latestEnd)) prev.latestEnd = end
+    }
+    if (!balanceByCourse.has(cid)) balanceByCourse.set(cid, { name: nm, bal: Number(e.balance_due ?? 0) })
+  }
+
+  // (a) Monthly-membership renewals due / overdue
+  for (const r of rollingByCourse.values()) {
+    if (!r.latestEnd) continue
+    const endD = new Date(r.latestEnd + 'T00:00:00')
+    if (endD > dueCutoff) continue
+    dueItems.push({
+      kind: 'renewal',
+      courseName: r.name,
+      status: endD < dueToday ? 'overdue' : 'due_soon',
+      dateLabel: fmt(r.latestEnd),
+      amount: null,
+      href: r.slug
+        ? `/courses/${r.slug}?enrol=1&email=${encodeURIComponent(email)}&name=${encodeURIComponent(studentName)}&mobile=${encodeURIComponent(dueMobile)}`
+        : '/dashboard/courses',
+      cta: 'Renew',
+    })
+  }
+
+  // (b) 50-50 outstanding balances (newest row per course; monthly rows are 0 → skipped)
+  for (const b of balanceByCourse.values()) {
+    if (b.bal <= 0) continue
+    dueItems.push({
+      kind: 'balance',
+      courseName: b.name,
+      status: 'due_soon',
+      dateLabel: null,
+      amount: b.bal,
+      href: '/dashboard/payments',
+      cta: 'Pay Balance',
+    })
+  }
+  const hasOverdue = dueItems.some((d) => d.status === 'overdue')
+
   return (
     <div className="space-y-5 pb-12 max-w-5xl">
 
@@ -181,6 +259,36 @@ export default async function DashboardPage({
             style={{ background: T.amber }}>
             Choose Batch →
           </Link>
+        </div>
+      )}
+
+      {/* ── Payment due / renewal alert ──────────────────────────────────── */}
+      {dueItems.length > 0 && (
+        <div className="rounded-2xl px-5 py-4 space-y-3"
+          style={hasOverdue
+            ? { background: '#fef2f2', border: '1px solid #fecaca' }
+            : { background: T.amberBg, border: `1px solid ${T.amberBorder}` }}>
+          <p className="font-semibold text-sm flex items-center gap-2"
+            style={{ color: hasOverdue ? '#b91c1c' : T.amber }}>
+            {hasOverdue ? '⚠️ Payment due — action needed' : '⏳ Upcoming payment'}
+          </p>
+          {dueItems.map((d, i) => (
+            <div key={i} className="flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-xs" style={{ color: hasOverdue ? '#991b1b' : '#b45309' }}>
+                <span className="font-semibold">{d.courseName}</span>
+                {d.kind === 'renewal'
+                  ? (d.status === 'overdue'
+                      ? ` — membership lapsed on ${d.dateLabel}. Renew to resume live sessions & recordings.`
+                      : ` — membership renews by ${d.dateLabel}.`)
+                  : ` — balance of ₹${(d.amount ?? 0).toLocaleString('en-IN')} is due.`}
+              </p>
+              <Link href={d.href}
+                className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white"
+                style={{ background: d.status === 'overdue' ? '#dc2626' : T.amber }}>
+                {d.cta} →
+              </Link>
+            </div>
+          ))}
         </div>
       )}
 

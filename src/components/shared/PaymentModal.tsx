@@ -61,6 +61,7 @@ export function PaymentModal({
   const [loading, setLoading]             = useState(false)
   const [error, setError]                 = useState('')
   const [success, setSuccess]             = useState(false)
+  const [renewed, setRenewed]             = useState(false)
   const [discountApplied, setDiscountApplied] = useState(0)
   const [discountLabel, setDiscountLabel]     = useState('')
   const [finalAmount, setFinalAmount]         = useState<number | null>(null)
@@ -260,18 +261,22 @@ export function PaymentModal({
               return  // ← stops here — no success state, no redirect
             }
 
+            setRenewed(!!enrolJson.renewed)
             setSuccess(true)
             setLoading(false)
             const enrolmentId = enrolJson.enrolment_id ?? ''
             const batchParams = new URLSearchParams()
             if (courseId)    batchParams.set('course_id', courseId)
             if (enrolmentId) batchParams.set('enrolment_id', enrolmentId)
-            const selectBatchUrl = `/select-batch?${batchParams.toString()}`
-            // Redirect immediately — don't wait for getUser() which can be slow
-            // The select-batch page itself handles auth gating correctly
+            // A monthly-membership RENEWAL already carries its batch — send the
+            // student straight back to their dashboard, not the batch picker.
+            const nextUrl = enrolJson.renewed
+              ? '/dashboard/courses'
+              : `/select-batch?${batchParams.toString()}`
+            // Redirect immediately — don't wait for getUser() which can be slow.
             setTimeout(() => {
               onClose()
-              window.location.href = selectBatchUrl
+              window.location.href = nextUrl
             }, 2000)
           } catch (err: any) {
             setError('Enrolment recording failed. Payment was successful. Contact support with payment ID: ' + response.razorpay_payment_id)
@@ -346,14 +351,14 @@ export function PaymentModal({
             <div className="py-8 text-center space-y-3">
               <div className="text-5xl">🎉</div>
               <p className="text-green-400 font-bold text-lg">Payment Successful!</p>
-              <p className="text-slate-400 text-sm">Redirecting to batch selection…</p>
+              <p className="text-slate-400 text-sm">{renewed ? 'Membership renewed — taking you to your dashboard…' : 'Redirecting to batch selection…'}</p>
               <p className="text-slate-500 text-xs mt-1">
                 Not redirected?{' '}
                 <a
-                  href={courseId && `/select-batch?course_id=${courseId}`}
+                  href={renewed ? '/dashboard/courses' : (courseId ? `/select-batch?course_id=${courseId}` : '#')}
                   className="text-indigo-400 underline"
                 >
-                  Click here to choose your batch
+                  {renewed ? 'Go to your dashboard' : 'Click here to choose your batch'}
                 </a>
               </p>
             </div>

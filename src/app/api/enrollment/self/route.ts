@@ -347,6 +347,25 @@ export async function POST(request: NextRequest) {
       monthlyAccessEnd   = end.toISOString().split('T')[0]
     }
 
+    // Monthly-membership RENEWAL: if the student already has an enrolment for this
+    // course with a chosen batch, carry that same batch onto the renewal row so it's
+    // recognised as the same membership (no batch-less row, no re-pick a batch). Only
+    // for monthly memberships — one-time courses keep the select-batch flow untouched.
+    let carryBatchId: string | null = null
+    if (isMonthlyMembership) {
+      const { data: prior } = await supabase
+        .from('student_enrolments')
+        .select('batch_id')
+        .eq('student_email', email.toLowerCase())
+        .eq('course_id', course_id)
+        .not('batch_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      carryBatchId = (prior?.batch_id as string | null) ?? null
+    }
+    const isRenewal = !!carryBatchId
+
     const mrp            = Number(course?.mrp ?? amount)
     const gstPct         = Number(course?.gst_percent ?? 18) / 100
     const partnerPoolPct = Number(course?.partner_pool_percent ?? 0.40)
@@ -439,6 +458,7 @@ export async function POST(request: NextRequest) {
         is_active:          true,
         enrolment_seq:      enrolmentSeq,
         enrolment_status:   'active',
+        batch_id:           carryBatchId,         // carried on a monthly renewal; null otherwise (select-batch sets it)
         access_start_date:  monthlyAccessStart,   // null for one-time courses (unchanged)
         access_end_date:    monthlyAccessEnd,     // null for one-time courses (unchanged)
         guardian_name:       guardian_name || null,
@@ -556,6 +576,7 @@ export async function POST(request: NextRequest) {
       enrolment_id: enrolmentId,
       partner_code: resolvedPartnerCode ?? null,
       partner_id:   resolvedPartnerId ?? null,
+      renewed:      isRenewal,          // true → membership renewal (client skips select-batch)
     })
 
   } catch (error: any) {

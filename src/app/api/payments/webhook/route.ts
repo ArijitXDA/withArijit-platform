@@ -102,6 +102,10 @@ export async function POST(request: NextRequest) {
         email,
         mobile:         mobile ?? '',
         amount,
+        // For a 50-50 plan the paid amount is the first instalment; the full price is
+        // 2× so net_after_discount/balance_due record correctly if the webhook is the
+        // writer (the client sends this too).
+        full_discounted_price: paymentFreq === 'half' ? amount * 2 : amount,
         partner_code:   partnerCode,
         enrolment_type: paymentFreq === 'full' ? 'full_course' : 'monthly',
         currency,

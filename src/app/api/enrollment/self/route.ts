@@ -329,6 +329,23 @@ export async function POST(request: NextRequest) {
     const now      = new Date()
     const today    = now.toISOString().split('T')[0]
 
+    // ── 0. Idempotency ────────────────────────────────────────────────────────
+    // The client handler AND the Razorpay webhook can BOTH call this for one payment
+    // (whichever fires first). Dedup on the Razorpay payment_id so a single payment
+    // never creates two enrolment rows. Renewals use a distinct payment_id each time,
+    // so they are unaffected.
+    {
+      const { data: dup } = await supabase
+        .from('student_enrolments')
+        .select('id')
+        .eq('payment_reference', payment_id)
+        .limit(1)
+        .maybeSingle()
+      if (dup) {
+        return NextResponse.json({ success: true, enrolment_id: dup.id, duplicate: true })
+      }
+    }
+
     // ── 1. Fetch course pricing ───────────────────────────────────────────────
     const { data: course } = await supabase
       .from('awa_courses')

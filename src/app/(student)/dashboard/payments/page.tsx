@@ -16,6 +16,23 @@ function formatINR(n: number) {
   return '₹' + Math.round(n).toLocaleString('en-IN')
 }
 
+// Render an INR-stored amount in the currency it was actually charged in (USD/EUR
+// convert at the snapshotted fx_rate; INR is unchanged).
+const CUR_FMT: Record<string, { sym: string; locale: string }> = {
+  INR: { sym: '₹', locale: 'en-IN' },
+  USD: { sym: '$', locale: 'en-US' },
+  EUR: { sym: '€', locale: 'en-IE' },
+}
+function money(inr: number, currency?: string | null, fxRate?: number | string | null): string {
+  const c = (currency === 'USD' || currency === 'EUR') ? currency : 'INR'
+  const rate = Number(fxRate) > 0 ? Number(fxRate) : 1
+  const f = CUR_FMT[c]
+  const val = inr / rate
+  return c === 'INR'
+    ? f.sym + Math.round(val).toLocaleString('en-IN')
+    : f.sym + val.toLocaleString(f.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 function payTypeLabel(type: string, inst: number, total: number): string {
   if (type === 'full')              return 'Full Payment'
   if (type === 'first_instalment')  return `Instalment ${inst}/${total}`
@@ -71,7 +88,7 @@ export default async function PaymentsPage() {
   // ── Fetch all active enrolments with balance_due > 0 ─────────────────────
   const { data: enrolmentsWithBalance } = await service
     .from('student_enrolments')
-    .select('id, course_name, course_id, enrolment_type, amount_paid, balance_due, mrp, net_after_discount, student_name, student_mobile')
+    .select('id, course_name, course_id, enrolment_type, amount_paid, balance_due, mrp, net_after_discount, student_name, student_mobile, currency, fx_rate')
     .eq('student_email', email.toLowerCase())
     .eq('is_active', true)
     .gt('balance_due', 0)
@@ -130,7 +147,7 @@ export default async function PaymentsPage() {
   // ── Payment history (invoices + legacy) ───────────────────────────────────
   const { data: transactions } = await service
     .from('payment_transactions')
-    .select('invoice_number, course_name, payment_type, instalment_number, total_instalments, amount_paid, payment_mode, payment_date, payment_reference, net_taxable, gst_amount, gst_mode, gst_pct, invoice_url, created_at')
+    .select('invoice_number, course_name, payment_type, instalment_number, total_instalments, amount_paid, payment_mode, payment_date, payment_reference, net_taxable, gst_amount, gst_mode, gst_pct, invoice_url, created_at, currency, fx_rate')
     .eq('student_email', email.toLowerCase())
     .order('created_at', { ascending: false })
 
@@ -187,7 +204,7 @@ export default async function PaymentsPage() {
                     <p className="text-xs mt-0.5" style={{ color: T.amber }}>{next.label}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="font-black text-xl" style={{ color: T.amberDark }}>{formatINR(balanceDue)}</p>
+                    <p className="font-black text-xl" style={{ color: T.amberDark }}>{money(balanceDue, e.currency, e.fx_rate)}</p>
                     <p className="text-xs" style={{ color: T.amber }}>balance due</p>
                   </div>
                 </div>
@@ -199,17 +216,17 @@ export default async function PaymentsPage() {
                     {Number(e.mrp) > Number(e.net_after_discount) && (
                       <p>
                         <span style={{ color: T.textMuted }}>Original price: </span>
-                        <span className="line-through" style={{ color: T.textMuted }}>{formatINR(Number(e.mrp))}</span>
+                        <span className="line-through" style={{ color: T.textMuted }}>{money(Number(e.mrp), e.currency, e.fx_rate)}</span>
                       </p>
                     )}
                     <p>
                       <span style={{ color: T.textSec }}>Your discounted price: </span>
                       <span className="font-semibold" style={{ color: T.textPrimary }}>
-                        {formatINR(Number(e.net_after_discount))}
-                        <span className="font-normal text-xs ml-1" style={{ color: T.textMuted }}>(2 instalments of {formatINR(balanceDue)})</span>
+                        {money(Number(e.net_after_discount), e.currency, e.fx_rate)}
+                        <span className="font-normal text-xs ml-1" style={{ color: T.textMuted }}>(2 instalments of {money(balanceDue, e.currency, e.fx_rate)})</span>
                       </span>
                     </p>
-                    <p>Already paid: <span className="font-semibold" style={{ color: T.green }}>{formatINR(Number(e.amount_paid))}</span></p>
+                    <p>Already paid: <span className="font-semibold" style={{ color: T.green }}>{money(Number(e.amount_paid), e.currency, e.fx_rate)}</span></p>
                     <p style={{ color: T.textMuted }}>GST included · Invoice issued on payment</p>
                   </div>
 
@@ -262,14 +279,14 @@ export default async function PaymentsPage() {
                       <p className="text-xs font-mono mt-0.5" style={{ color: T.textMuted }}>{t.payment_reference}</p>
                     )}
                     <p className="text-xs mt-0.5" style={{ color: T.textMuted }}>
-                      Taxable ₹{Math.round(Number(t.net_taxable)).toLocaleString('en-IN')} + GST ₹{Math.round(Number(t.gst_amount)).toLocaleString('en-IN')}
+                      Taxable {money(Number(t.net_taxable), t.currency, t.fx_rate)} + GST {money(Number(t.gst_amount), t.currency, t.fx_rate)}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
                   <div className="text-right">
-                    <p className="font-black text-base" style={{ color: T.textPrimary }}>{formatINR(Number(t.amount_paid))}</p>
+                    <p className="font-black text-base" style={{ color: T.textPrimary }}>{money(Number(t.amount_paid), t.currency, t.fx_rate)}</p>
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium"
                       style={{ background: T.greenBg, color: T.green, border: `1px solid ${T.greenBorder}` }}>
                       Paid

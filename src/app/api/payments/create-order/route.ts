@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getRazorpay } from '@/lib/razorpay'
 import { createServiceClient } from '@/lib/supabase/service'
 import { paymentOrderSchema } from '@/lib/validations/payment'
+import { getFxRates } from '@/lib/fxRates'
+import { toOrderAmount } from '@/lib/orderCurrency'
+import { isCurrency } from '@/lib/currency-config'
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,6 +34,10 @@ export async function POST(request: NextRequest) {
     const email             = parsed.success ? parsed.data.email             : ((body.email as string) ?? '')
     const mobile            = parsed.success ? parsed.data.mobile            : ((body.mobile as string) ?? '')
     if (!course_id) return NextResponse.json({ error: 'course_id is required' }, { status: 400 })
+
+    // Buyer's charge currency (INR default). Drives the Razorpay order currency +
+    // amount; the INR pricing math below is unchanged.
+    const reqCurrency = isCurrency(body.currency) ? body.currency : 'INR'
     const supabase = createServiceClient()
 
     // ── 1. Fetch course ────────────────────────────────────────────────────
@@ -167,12 +174,16 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 6. Create Razorpay order ───────────────────────────────────────────
+    // INR is charged in whole rupees (paise collected == displayed rupees). USD/EUR
+    // are charged in 2-decimal units converted from the SAME INR finalAmount at the
+    // admin FX rate, snapshotted onto the order + returned so the enrolment + invoice
+    // reflect exactly what was charged. Non-INR requires Razorpay International.
+    const fxRates = await getFxRates()
+    const oa = toOrderAmount(finalAmount, reqCurrency, fxRates)
+
     const order = await getRazorpay().orders.create({
-      // Charge whole rupees so the paise collected equals the displayed amount
-      // (displayAmount = Math.round(finalAmount)) exactly — no sub-rupee gap where
-      // the buyer sees ₹663 but is charged ₹663.30.
-      amount:   Math.round(finalAmount) * 100,  // paise (whole rupees)
-      currency: 'INR',
+      amount:   oa.amount,
+      currency: oa.currency,
       receipt:  `rcpt_${Date.now()}`,
       notes: {
         course_id,
@@ -185,6 +196,10 @@ export async function POST(request: NextRequest) {
         discount_code:         discount_code ?? '',
         auto_discount_pct:     String(Math.round(autoDiscountPct * 100)),
         manual_discount_applied: String(Math.round(manualDiscountApplied)),
+        currency:              oa.currency,
+        fx_rate:               String(oa.fxRate),
+        charged_amount:        String(oa.chargedAmount),
+        inr_amount:            String(oa.inrAmount),
       },
     })
 
@@ -194,6 +209,9 @@ export async function POST(request: NextRequest) {
       currency:             order.currency,
       courseName:           course.name,
       displayAmount:        Math.round(finalAmount),
+      chargedCurrency:      oa.currency,
+      chargedAmount:        oa.chargedAmount,
+      fxRate:               oa.fxRate,
       originalAmount:       Math.round(originalAmount),
       autoDiscountPct:      Math.round(autoDiscountPct * 100),
       autoDiscountAmount,

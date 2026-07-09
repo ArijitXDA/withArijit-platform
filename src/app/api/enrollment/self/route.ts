@@ -310,6 +310,9 @@ export async function POST(request: NextRequest) {
       mobile,
       amount,
       full_discounted_price,  // full discounted course fee (= amount*2 for 50-50, = amount for full pay)
+      currency,               // INR | USD | EUR actually charged (display + invoice); INR math unchanged
+      amount_charged,         // amount charged in `currency` (major units); defaults to INR `amount`
+      fx_rate,                // INR per 1 unit of `currency` at purchase (snapshot); 1 for INR
       discount_code,
       partner_code,
       enrolment_type,
@@ -447,7 +450,10 @@ export async function POST(request: NextRequest) {
         gst_pct:            gstPct,
         gst_amount:         gstAmount,
         net_taxable:        netTaxable,
-        amount_paid:        amount,                // first instalment only
+        amount_paid:        amount,                // first instalment only (INR — internal accounting)
+        currency:           (currency === 'USD' || currency === 'EUR') ? currency : 'INR',
+        amount_charged:     Number.isFinite(Number(amount_charged)) ? Number(amount_charged) : amount,
+        fx_rate:            Number(fx_rate) > 0 ? Number(fx_rate) : 1,
         balance_due:        resolvedBalanceDue,    // ₹0 for full pay, = amount for 50-50
         payment_mode:       'upi',
         payment_date:       today,
@@ -518,6 +524,18 @@ export async function POST(request: NextRequest) {
         p_razorpay_order_id: order_id,
         p_partner_code:      resolvedPartnerCode ?? null,
       })
+      // Stamp the charged currency + FX snapshot onto the invoice row so the
+      // student's dashboard invoice renders the currency actually charged. INR
+      // orders keep the defaults (currency 'INR', fx_rate 1).
+      if (currency === 'USD' || currency === 'EUR') {
+        await supabase.from('payment_transactions')
+          .update({
+            currency,
+            fx_rate:        Number(fx_rate) > 0 ? Number(fx_rate) : 1,
+            amount_charged: Number.isFinite(Number(amount_charged)) ? Number(amount_charged) : amount,
+          })
+          .eq('enrolment_id', enrolmentId)
+      }
     } catch (e: any) {
       // Non-fatal: log to recovery but don't block the student
       // (enrolment already succeeded — student has access to the course)

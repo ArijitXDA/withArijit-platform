@@ -24,6 +24,8 @@ interface Txn {
   payment_reference:   string | null
   razorpay_order_id:   string | null
   created_at:          string
+  currency?:           string
+  fx_rate?:            string | number
 }
 
 interface Company {
@@ -48,8 +50,12 @@ interface Company {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const n = (v: string | number) => Number(v)
-const inr = (v: string | number) =>
-  '₹' + n(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+const CUR_FMT: Record<string, { sym: string; locale: string }> = {
+  INR: { sym: '₹', locale: 'en-IN' },
+  USD: { sym: '$', locale: 'en-US' },
+  EUR: { sym: '€', locale: 'en-IE' },
+}
 
 function fmtDate(d: string | null): string {
   if (!d) return '—'
@@ -123,6 +129,14 @@ export default function InvoiceClient({ txn, company }: { txn: Txn; company: Com
   const gstAmt     = n(txn.gst_amount)
   const totalPaid  = n(txn.amount_paid)
   const mrp        = n(txn.mrp_reference)
+
+  // Currency-correct display: amounts are stored in INR; for a USD/EUR order convert
+  // at the snapshotted fx_rate and format with the right symbol. INR is unchanged.
+  const curr = (txn.currency === 'USD' || txn.currency === 'EUR') ? txn.currency : 'INR'
+  const rate = Number(txn.fx_rate) > 0 ? Number(txn.fx_rate) : 1
+  const cfmt = CUR_FMT[curr] ?? CUR_FMT.INR
+  const money = (v: string | number) =>
+    cfmt.sym + (n(v) / rate).toLocaleString(cfmt.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   return (
     <>
@@ -300,7 +314,7 @@ export default function InvoiceClient({ txn, company }: { txn: Txn; company: Com
                   {co.sac_code}
                 </td>
                 <td style={{ padding: '14px 16px 14px 0', color: '#1e293b', fontWeight: 600, textAlign: 'right', verticalAlign: 'top', width: 120 }}>
-                  {inr(netTaxable)}
+                  {money(netTaxable)}
                 </td>
               </tr>
 
@@ -309,24 +323,24 @@ export default function InvoiceClient({ txn, company }: { txn: Txn; company: Com
 
               {/* Discount row — only if discount was applied */}
               {discount > 0 && (
-                <TRow label="Discount / Partner Offer" value={`−${inr(discount)}`} />
+                <TRow label="Discount / Partner Offer" value={`−${money(discount)}`} />
               )}
 
               {/* Taxable amount */}
-              <TRow label="Taxable Amount" value={inr(netTaxable)} border />
+              <TRow label="Taxable Amount" value={money(netTaxable)} border />
 
               {/* GST rows — split or integrated */}
               {isSplit ? (
                 <>
-                  <TRow label={`CGST @ ${co.cgst_pct}%`} value={inr(txn.cgst_amount)} />
-                  <TRow label={`SGST @ ${co.sgst_pct}%`} value={inr(txn.sgst_amount)} />
+                  <TRow label={`CGST @ ${co.cgst_pct}%`} value={money(txn.cgst_amount)} />
+                  <TRow label={`SGST @ ${co.sgst_pct}%`} value={money(txn.sgst_amount)} />
                 </>
               ) : (
-                <TRow label={`IGST (GST) @ ${Number(txn.gst_pct)}%`} value={inr(gstAmt)} />
+                <TRow label={`IGST (GST) @ ${Number(txn.gst_pct)}%`} value={money(gstAmt)} />
               )}
 
               {/* Total */}
-              <TRow label="TOTAL (INR)" value={inr(totalPaid)} bold accent border />
+              <TRow label="TOTAL (INR)" value={money(totalPaid)} bold accent border />
 
               <tr><td colSpan={4} style={{ height: 12 }} /></tr>
             </tbody>

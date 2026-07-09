@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { formatCurrency } from '@/lib/utils'
+import { useCurrency } from '@/lib/currency'
 import { createClient } from '@/lib/supabase/client'
 
 interface PaymentModalProps {
@@ -71,6 +71,9 @@ export function PaymentModal({
   const [guardianName, setGuardianName]       = useState('')
   const [guardianEmail, setGuardianEmail]     = useState('')
   const [guardianConsent, setGuardianConsent] = useState(false)
+
+  // Buyer's selected currency — prices display in it and the charge is created in it.
+  const { currency, format } = useCurrency()
 
   useEffect(() => {
     if (!open) return
@@ -228,6 +231,7 @@ export function PaymentModal({
           payment_frequency: frequency,
           discount_code:     discountCode.trim().toUpperCase() || undefined,
           partner_code:      defaultPartnerCode || undefined,
+          currency,
           name, email, mobile, mode,
           friend_email: mode === 'gift' ? friendEmail : undefined,
         }),
@@ -241,12 +245,15 @@ export function PaymentModal({
       }
 
       const {
-        orderId, amount, currency,
+        orderId, amount, currency: orderCurrency,
         discountApplied: disc,
         discountLabel: discLbl,
         displayAmount,
         partnerDiscountApplied,
         autoDiscountPct,
+        chargedCurrency,
+        chargedAmount,
+        fxRate,
       } = orderData
 
       if (disc && disc > 0) {
@@ -264,7 +271,7 @@ export function PaymentModal({
       const rzp = new (window as any).Razorpay({
         key:         process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         order_id:    orderId,
-        amount, currency,
+        amount, currency: orderCurrency,
         name:        'oStaran × AIwithArijit',
         description: courseName,
         prefill:     { name, email, contact: mobile },
@@ -300,6 +307,9 @@ export function PaymentModal({
                 discount_code:       discountCode.trim().toUpperCase() || undefined,
                 partner_code:        defaultPartnerCode || undefined,
                 enrolment_type:      frequency === 'full' ? 'full_course' : 'monthly',
+                currency:            chargedCurrency ?? 'INR',
+                amount_charged:      chargedAmount ?? (displayAmount ?? Math.round(basePrice)),
+                fx_rate:             fxRate ?? 1,
                 guardian_name:       requiresGuardian ? guardianName.trim() : undefined,
                 guardian_email:      requiresGuardian ? guardianEmail.trim() : undefined,
                 guardian_consent:    requiresGuardian ? guardianConsent : undefined,
@@ -313,7 +323,7 @@ export function PaymentModal({
             // and we can manually recover. Do NOT call setSuccess(true).
             if (!enrolRes.ok) {
               setError(
-                `Your payment of ${formatCurrency(displayAmount ?? basePrice)} was received (Ref: ${response.razorpay_payment_id}) ` +
+                `Your payment of ${format(displayAmount ?? basePrice)} was received (Ref: ${response.razorpay_payment_id}) ` +
                 `but we hit an error activating your course. Please WhatsApp us on +91-XXXXXXXXXX or email ai@ostaran.com ` +
                 `with this payment ID and we will activate your course within 1 hour.`
               )
@@ -498,7 +508,7 @@ export function PaymentModal({
                   style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
                   <span className="text-slate-300 text-xs font-semibold">Monthly Membership</span>
                   <span className="text-indigo-300 text-sm font-bold">
-                    {price ? formatCurrency(priceAfterAuto) : '—'}<span className="text-slate-400 text-xs font-normal"> / month</span>
+                    {price ? format(priceAfterAuto) : '—'}<span className="text-slate-400 text-xs font-normal"> / month</span>
                   </span>
                 </div>
               ) : (
@@ -510,15 +520,15 @@ export function PaymentModal({
                     </SelectTrigger>
                     <SelectContent className="bg-slate-800 border-slate-700 text-white">
                       <SelectItem value="full">
-                        Full Payment — {price ? formatCurrency(priceAfterAuto) : '—'}
+                        Full Payment — {price ? format(priceAfterAuto) : '—'}
                         {discountPct > 0 && price && (
-                          <span className="text-slate-400 line-through ml-2 text-xs">{formatCurrency(mrp)}</span>
+                          <span className="text-slate-400 line-through ml-2 text-xs">{format(mrp)}</span>
                         )}
                       </SelectItem>
                       <SelectItem value="half">
-                        50-50 Plan — {price ? formatCurrency(priceAfterAuto / 2) : '—'} now
+                        50-50 Plan — {price ? format(priceAfterAuto / 2) : '—'} now
                         {discountPct > 0 && price && (
-                          <span className="text-slate-400 line-through ml-2 text-xs">{formatCurrency(mrp / 2)}</span>
+                          <span className="text-slate-400 line-through ml-2 text-xs">{format(mrp / 2)}</span>
                         )}
                       </SelectItem>
                     </SelectContent>
@@ -560,7 +570,7 @@ export function PaymentModal({
                   style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-400">MRP</span>
-                    <span className="text-slate-400 line-through">{formatCurrency(mrpForPlan)}</span>
+                    <span className="text-slate-400 line-through">{format(mrpForPlan)}</span>
                   </div>
                   {discountPct > 0 && discountApplied === 0 && (
                     <div className="flex justify-between text-xs">
@@ -569,20 +579,20 @@ export function PaymentModal({
                         {partnerName && <span className="text-green-400/70 ml-1">· Gift from {partnerName}</span>}
                       </span>
                       <span className="text-green-400 font-semibold text-xs">
-                        −{formatCurrency(Math.round(mrpForPlan) - Math.round(basePrice))}
+                        −{format(Math.round(mrpForPlan) - Math.round(basePrice))}
                       </span>
                     </div>
                   )}
                   {discountApplied > 0 && (
                     <div className="flex justify-between text-xs">
                       <span className="text-green-400">🎉 {discountLabel}</span>
-                      <span className="text-green-400 font-semibold">−{formatCurrency(discountApplied)}</span>
+                      <span className="text-green-400 font-semibold">−{format(discountApplied)}</span>
                     </div>
                   )}
                   <div className="flex justify-between font-bold text-xs border-t pt-1"
                     style={{ borderColor: 'rgba(99,102,241,0.2)' }}>
                     <span className="text-white">You pay{frequency === 'half' ? ' now' : ''}</span>
-                    <span className="text-indigo-300 text-sm">{formatCurrency(displayPrice)}</span>
+                    <span className="text-indigo-300 text-sm">{format(displayPrice)}</span>
                   </div>
                 </div>
               )}
@@ -602,19 +612,19 @@ export function PaymentModal({
                 style={{ background: loading ? 'rgba(99,102,241,0.6)' : 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
                 {loading
                   ? 'Processing…'
-                  : `Pay ${formatCurrency(displayPrice)} →`}
+                  : `Pay ${format(displayPrice)} →`}
               </button>
 
               {/* Transparency: GST break-up + 50-50 balance-due + legal consent */}
               <div className="space-y-1.5 pt-0.5">
                 {price ? (
                   <p className="text-[11px] text-slate-500 text-center">
-                    Price is inclusive of 18% GST ({formatCurrency(gstAmount)}). A GST invoice is emailed automatically.
+                    Price is inclusive of 18% GST ({format(gstAmount)}). A GST invoice is emailed automatically.
                   </p>
                 ) : null}
                 {!membership && frequency === 'half' && price ? (
                   <p className="text-[11px] text-amber-400/80 text-center">
-                    50-50 plan: pay {formatCurrency(displayPrice)} now — the balance of {formatCurrency(displayPrice)} is due before the second half of your course.
+                    50-50 plan: pay {format(displayPrice)} now — the balance of {format(displayPrice)} is due before the second half of your course.
                   </p>
                 ) : null}
                 <p className="text-[11px] text-slate-600 text-center">Secured by Razorpay · 256-bit SSL</p>

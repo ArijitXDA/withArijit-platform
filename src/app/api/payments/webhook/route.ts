@@ -59,7 +59,14 @@ export async function POST(request: NextRequest) {
   const mobile          = notes.mobile
   const paymentFreq     = notes.payment_frequency ?? 'full'
   const partnerCode     = notes.partner_code ?? null
-  const amount          = amountRaw / 100   // convert paise → ₹
+  // Use the INR-equivalent stamped by create-order (notes.inr_amount) for internal
+  // accounting — NOT amountRaw/100, which for a USD/EUR order is the FOREIGN major
+  // unit (cents/100 = dollars) and would record the sale at ~1/rate of its value.
+  const inrFromNotes    = Number(notes.inr_amount)
+  const amount          = Number.isFinite(inrFromNotes) && inrFromNotes > 0 ? inrFromNotes : amountRaw / 100
+  const currency        = (notes.currency === 'USD' || notes.currency === 'EUR') ? notes.currency : 'INR'
+  const amountCharged   = Number(notes.charged_amount)
+  const fxRate          = Number(notes.fx_rate)
 
   if (!courseId || !email) {
     console.warn('[webhook] Missing course_id or email in notes — skipping enrolment')
@@ -97,6 +104,9 @@ export async function POST(request: NextRequest) {
         amount,
         partner_code:   partnerCode,
         enrolment_type: paymentFreq === 'full' ? 'full_course' : 'monthly',
+        currency,
+        amount_charged: Number.isFinite(amountCharged) && amountCharged > 0 ? amountCharged : amount,
+        fx_rate:        Number.isFinite(fxRate) && fxRate > 0 ? fxRate : 1,
       }),
     })
 

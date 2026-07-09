@@ -278,7 +278,7 @@ export default function InvoiceClient({ txn, company }: { txn: Txn; company: Com
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                {['#', 'Description', 'HSN/SAC', 'Amount (INR)'].map((h, i) => (
+                {['#', 'Description', 'HSN/SAC', `Amount (${curr})`].map((h, i) => (
                   <th key={h} style={{
                     padding: '10px 12px', textAlign: i === 3 ? 'right' : 'left',
                     fontSize: 11, fontWeight: 700, color: '#64748b',
@@ -340,13 +340,14 @@ export default function InvoiceClient({ txn, company }: { txn: Txn; company: Com
               )}
 
               {/* Total */}
-              <TRow label="TOTAL (INR)" value={money(totalPaid)} bold accent border />
+              <TRow label={`TOTAL (${curr})`} value={money(totalPaid)} bold accent border />
 
               <tr><td colSpan={4} style={{ height: 12 }} /></tr>
             </tbody>
           </table>
 
-          {/* ── Amount in words ──────────────────────────────────────────── */}
+          {/* ── Amount in words (INR only — the words helper is Rupees-specific) ── */}
+          {curr === 'INR' && (
           <div style={{
             margin: '0 16px 16px', padding: '10px 14px',
             background: '#f8fafc', borderRadius: 6,
@@ -357,6 +358,7 @@ export default function InvoiceClient({ txn, company }: { txn: Txn; company: Com
               {amountInWords(totalPaid)} Only
             </span>
           </div>
+          )}
 
           {/* ── Notes section ────────────────────────────────────────────── */}
           <div style={{

@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Clock, Calendar, Users, Shield, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Price } from '@/lib/currency'
 
 declare global { interface Window { Razorpay: any } }
 
@@ -29,9 +30,6 @@ interface Props {
 }
 
 type PayStatus = 'idle' | 'form' | 'submitting' | 'paying' | 'success' | 'error'
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n)
 
 function fmtDate(d: string) {
   const dt = new Date(d + 'T00:00:00')
@@ -176,9 +174,9 @@ export function MasterclassCards({
                   <div className="flex items-center gap-4 shrink-0">
                     <div className="text-right">
                       {hasCampaign && (
-                        <p className="text-xs text-gray-400 line-through">{fmt(basePrice)}</p>
+                        <p className="text-xs text-gray-400 line-through"><Price inr={basePrice} /></p>
                       )}
-                      <p className="text-xl font-black" style={{ color: meta.color }}>{fmt(finalPrice)}</p>
+                      <p className="text-xl font-black" style={{ color: meta.color }}><Price inr={finalPrice} /></p>
                     </div>
                     <button
                       onClick={e => { e.stopPropagation(); selectSession(s) }}
@@ -193,7 +191,7 @@ export function MasterclassCards({
                 {hasCampaign && (
                   <div className="px-5 py-2 border-t text-xs font-semibold"
                     style={{ borderColor: `${meta.color}20`, color: meta.color, background: `${meta.color}06` }}>
-                    🎉 {discountLabel} — You save {fmt(discountAmt)}!
+                    🎉 {discountLabel} — You save <Price inr={discountAmt} />!
                   </div>
                 )}
               </div>
@@ -247,22 +245,22 @@ export function MasterclassCards({
                     <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 space-y-1.5 text-xs">
                       <div className="flex justify-between text-gray-500">
                         <span>Session Fee (MRP)</span>
-                        <span className={hasCampaign ? 'line-through text-gray-400' : 'font-semibold text-gray-700'}>{fmt(basePrice)}</span>
+                        <Price inr={basePrice} className={hasCampaign ? 'line-through text-gray-400' : 'font-semibold text-gray-700'} />
                       </div>
                       {hasCampaign && (
                         <div className="flex justify-between text-green-600 font-semibold">
                           <span>{discountLabel}</span>
-                          <span>− {fmt(discountAmt)}</span>
+                          <span>− <Price inr={discountAmt} /></span>
                         </div>
                       )}
                       <div className="border-t border-gray-200 pt-2 flex justify-between items-center">
                         <span className="font-semibold text-gray-700">You Pay Today</span>
-                        <span className="text-2xl font-black" style={{ color: sessionMeta[selected.course_id]?.color }}>{fmt(finalPrice)}</span>
+                        <span className="text-2xl font-black" style={{ color: sessionMeta[selected.course_id]?.color }}><Price inr={finalPrice} /></span>
                       </div>
                       {hasCampaign && (
                         <div className="flex justify-center pt-0.5">
                           <span className="text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-2.5 py-0.5 rounded-full">
-                            You save {fmt(discountAmt)}!
+                            You save <Price inr={discountAmt} />!
                           </span>
                         </div>
                       )}
@@ -280,7 +278,7 @@ export function MasterclassCards({
                       style={{ background: `linear-gradient(135deg, ${sessionMeta[selected.course_id]?.color}, #7c3aed)` }}>
                       {payStatus === 'submitting' && <><Loader2 size={15} className="animate-spin" /> Creating order…</>}
                       {payStatus === 'paying'     && <><Loader2 size={15} className="animate-spin" /> Opening payment…</>}
-                      {(payStatus === 'form' || payStatus === 'error') && <>Pay {fmt(finalPrice)} — Confirm Seat</>}
+                      {(payStatus === 'form' || payStatus === 'error') && <>Pay <Price inr={finalPrice} /> — Confirm Seat</>}
                     </button>
 
                     <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400">

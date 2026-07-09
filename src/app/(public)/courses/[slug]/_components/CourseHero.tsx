@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { PaymentModalTrigger } from '@/components/shared/PaymentModalTrigger'
+import { Price } from '@/lib/currency'
 
 const AUDIENCE_TAG: Record<string, { label: string; color: string; emoji: string }> = {
   working_professionals: { label: 'Working Professionals',  color: '#4f46e5', emoji: '💼' },
@@ -31,7 +32,6 @@ export function CourseHero({
 }) {
   const tagKey  = SLUG_AUDIENCE[course.slug] ?? course.audience_category ?? 'general'
   const tag     = AUDIENCE_TAG[tagKey] ?? AUDIENCE_TAG.general
-  const fmtINR  = (n: number) => `₹${n.toLocaleString('en-IN')}`
 
   const discountAmt   = Math.round(mrp * discountPct / 100)
   const finalPrice    = mrp - discountAmt
@@ -136,7 +136,7 @@ export function CourseHero({
             {/* Mobile: show price card inline */}
             <div className="lg:hidden mb-8">
               <PriceCard mrp={mrp} finalPrice={finalPrice} finalGst={finalGst} finalNet={finalNet}
-                discountPct={discountPct} discountAmt={discountAmt} fmtINR={fmtINR}
+                discountPct={discountPct} discountAmt={discountAmt}
                 enrolProps={enrolProps} partner={partner} partnerName={partnerName} />
             </div>
 
@@ -159,7 +159,7 @@ export function CourseHero({
           {/* ── Right: Sticky price card (desktop) ───────────────────────── */}
           <div className="hidden lg:block pt-4 sticky top-6 self-start pb-12">
             <PriceCard mrp={mrp} finalPrice={finalPrice} finalGst={finalGst} finalNet={finalNet}
-              discountPct={discountPct} discountAmt={discountAmt} fmtINR={fmtINR}
+              discountPct={discountPct} discountAmt={discountAmt}
               enrolProps={enrolProps} partner={partner} partnerName={partnerName} />
           </div>
         </div>
@@ -168,7 +168,7 @@ export function CourseHero({
   )
 }
 
-function PriceCard({ mrp, finalPrice, finalGst, finalNet, discountPct, discountAmt, fmtINR, enrolProps, partner, partnerName }: any) {
+function PriceCard({ mrp, finalPrice, finalGst, finalNet, discountPct, discountAmt, enrolProps, partner, partnerName }: any) {
   return (
     <div className="rounded-3xl border overflow-hidden" style={{ background: '#0d0d1f', borderColor: 'rgba(139,92,246,0.25)' }}>
       <div className="h-1" style={{ background: 'linear-gradient(90deg, #7c3aed, #4f46e5)' }} />
@@ -177,15 +177,15 @@ function PriceCard({ mrp, finalPrice, finalGst, finalNet, discountPct, discountA
         <div className="mb-4">
           {discountPct > 0 && (
             <div className="flex items-center gap-2 mb-1">
-              <p className="text-slate-500 line-through text-sm">{fmtINR(mrp)}</p>
+              <p className="text-slate-500 line-through text-sm"><Price inr={mrp} /></p>
               <span className="text-xs font-bold text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">
                 {discountPct}% OFF
               </span>
             </div>
           )}
-          <p className="text-4xl font-black text-white">{fmtINR(discountPct > 0 ? finalPrice : mrp)}</p>
+          <p className="text-4xl font-black text-white"><Price inr={discountPct > 0 ? finalPrice : mrp} /></p>
           <p className="text-xs text-slate-500 mt-1">
-            incl. 18% GST ({fmtINR(discountPct > 0 ? finalGst : mrp - Math.round(mrp/1.18))}) · net taxable {fmtINR(discountPct > 0 ? finalNet : Math.round(mrp/1.18))}
+            incl. 18% GST (<Price inr={discountPct > 0 ? finalGst : mrp - Math.round(mrp/1.18)} />) · net taxable <Price inr={discountPct > 0 ? finalNet : Math.round(mrp/1.18)} />
           </p>
         </div>
 
@@ -204,8 +204,8 @@ function PriceCard({ mrp, finalPrice, finalGst, finalNet, discountPct, discountA
         <div className="rounded-xl p-3 mb-4 border border-indigo-500/20 bg-indigo-500/05 text-xs">
           <p className="text-indigo-300 font-semibold mb-1">💳 50-50 Payment Plan</p>
           <p className="text-slate-400">
-            Pay <strong className="text-white">{fmtINR(Math.round((discountPct > 0 ? finalPrice : mrp) / 2))}</strong> now
-            · <strong className="text-white">{fmtINR(Math.round((discountPct > 0 ? finalPrice : mrp) / 2))}</strong> after session 13
+            Pay <strong className="text-white"><Price inr={Math.round((discountPct > 0 ? finalPrice : mrp) / 2)} /></strong> now
+            · <strong className="text-white"><Price inr={Math.round((discountPct > 0 ? finalPrice : mrp) / 2)} /></strong> after session 13
           </p>
         </div>
 

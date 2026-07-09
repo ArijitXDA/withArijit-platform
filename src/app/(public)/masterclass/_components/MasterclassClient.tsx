@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Loader2, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { useCurrency } from '@/lib/currency'
 
 declare global {
   interface Window { Razorpay: any }
@@ -21,14 +22,12 @@ interface Props {
 
 type Status = 'idle' | 'submitting' | 'paying' | 'success' | 'error'
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n)
-
 export function MasterclassClient({
   basePrice, finalPrice, discountAmt, discountLabel,
   campaignId, utmSource, utmMedium, utmCampaign, utmContent,
   professionOptions,
 }: Props) {
+  const { format } = useCurrency()
   const [form, setForm] = useState({ name: '', email: '', mobile: '', profession: '' })
   const [status, setStatus]   = useState<Status>('idle')
   const [error,  setError]    = useState('')
@@ -158,22 +157,22 @@ export function MasterclassClient({
       <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-1.5 text-xs">
         <div className="flex justify-between text-gray-500">
           <span>Session Fee (MRP)</span>
-          <span className={discountAmt > 0 ? 'line-through text-gray-400' : 'font-semibold text-gray-700'}>{fmt(basePrice)}</span>
+          <span className={discountAmt > 0 ? 'line-through text-gray-400' : 'font-semibold text-gray-700'}>{format(basePrice)}</span>
         </div>
         {discountAmt > 0 && (
           <div className="flex justify-between text-green-600 font-semibold">
             <span>{discountLabel}</span>
-            <span>− {fmt(discountAmt)}</span>
+            <span>− {format(discountAmt)}</span>
           </div>
         )}
         <div className="border-t border-gray-200 pt-2 flex justify-between items-center">
           <span className="text-xs font-semibold text-gray-600">You Pay Today</span>
-          <span className="text-2xl font-black" style={{ color: '#4f46e5' }}>{fmt(finalPrice)}</span>
+          <span className="text-2xl font-black" style={{ color: '#4f46e5' }}>{format(finalPrice)}</span>
         </div>
         {discountAmt > 0 && (
           <div className="flex justify-center">
             <span className="text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
-              You save {fmt(discountAmt)}!
+              You save {format(discountAmt)}!
             </span>
           </div>
         )}
@@ -191,7 +190,7 @@ export function MasterclassClient({
         style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
         {status === 'submitting' && <><Loader2 size={15} className="animate-spin" /> Creating order…</>}
         {status === 'paying'     && <><Loader2 size={15} className="animate-spin" /> Opening payment…</>}
-        {(status === 'idle' || status === 'error') && <>Pay {fmt(finalPrice)} — Enrol Now</>}
+        {(status === 'idle' || status === 'error') && <>Pay {format(finalPrice)} — Enrol Now</>}
       </button>
 
       <p className="text-[10px] text-center text-gray-400">

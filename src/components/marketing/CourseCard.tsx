@@ -4,6 +4,7 @@ import {
   BookOpen, Heart, Code2, Atom, Brain,
   Clock, Layers, Star, ChevronRight
 } from 'lucide-react'
+import { Price } from '@/lib/currency'
 
 interface CourseCardProps {
   course: {
@@ -39,10 +40,6 @@ function getCourseTheme(name: string, slug: string) {
                                    return { Icon: Briefcase,       accent: '#4f46e5', bg: '#eef2ff', badge: 'Professional',       audience: 'Working Professionals'       }
   // Default — AI Mastery Programme
   return                             { Icon: Brain,             accent: '#4f46e5', bg: '#eef2ff', badge: 'All Levels',         audience: 'Everyone'                    }
-}
-
-function formatPrice(price: number) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(price)
 }
 
 export function CourseCard({ course }: CourseCardProps) {
@@ -116,7 +113,7 @@ export function CourseCard({ course }: CourseCardProps) {
           <div>
             <p className="text-xs text-gray-400 leading-none mb-0.5">{isMembership ? 'Monthly membership' : 'Starting from'}</p>
             <p className="text-xl font-extrabold" style={{ color: accent }}>
-              {course.mrp ? formatPrice(course.mrp) : 'Free'}{isMembership && <span className="text-xs font-medium text-gray-400">/mo</span>}
+              {course.mrp ? <Price inr={course.mrp} /> : 'Free'}{isMembership && <span className="text-xs font-medium text-gray-400">/mo</span>}
             </p>
           </div>
           <div className="flex items-center gap-1 text-sm font-semibold transition-all duration-200 group-hover:gap-2"

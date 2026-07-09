@@ -14,6 +14,7 @@ import { notFound } from 'next/navigation'
 import { createServiceClient } from '@/lib/supabase/service'
 import { PaymentModalTrigger } from '@/components/shared/PaymentModalTrigger'
 import { CourseVideos } from '@/components/CourseVideos'
+import { Price } from '@/lib/currency'
 
 // PaymentModalTrigger uses useSearchParams(); on this fully-static page it must
 // sit inside a Suspense boundary. Small helper keeps the two CTAs tidy.
@@ -146,7 +147,7 @@ export default async function QuantumAIContinuedPage() {
               className="px-8 py-4 text-base font-bold shadow-2xl shadow-fuchsia-500/20"
             />
             <p className="text-xs" style={{ color: '#64748b' }}>
-              {priceStr} / month · incl {gstPct}% GST · 🔒 Razorpay · GST invoice issued
+              <Price inr={price} /> / month · incl {gstPct}% GST · 🔒 Razorpay · GST invoice issued
             </p>
           </div>
         </div>
@@ -222,7 +223,7 @@ export default async function QuantumAIContinuedPage() {
           style={{ background: '#0d0d1f', borderColor: 'rgba(168,85,247,0.3)' }}>
           <div className="h-1" style={{ background: 'linear-gradient(90deg, #a855f7, #22d3ee)' }} />
           <div className="p-8 text-center">
-            <p className="text-5xl font-black text-white">{priceStr}<span className="text-lg text-slate-400 font-medium"> / month</span></p>
+            <p className="text-5xl font-black text-white"><Price inr={price} /><span className="text-lg text-slate-400 font-medium"> / month</span></p>
             <p className="text-xs text-slate-500 mt-1">incl {gstPct}% GST · cancel or pause anytime</p>
             <ul className="text-left text-sm text-slate-300 space-y-2 my-6">
               {[

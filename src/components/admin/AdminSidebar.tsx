@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, Calendar, Link2, Award, Library,
   BookOpen, CreditCard, Mail, MapPin, UserCheck, Building2,
   ScrollText, LogOut, Megaphone, Route, FileText, Shield,
-  ChevronRight, Activity,
+  ChevronRight, Activity, Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
@@ -43,6 +43,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/admin/crm',              label: 'CRM',              icon: UserCheck,  page: 'crm',              group: 'super' },
   { href: '/admin/audit-log',        label: 'Audit Log',        icon: ScrollText, page: 'audit-log',        group: 'super' },
   { href: '/admin/lifecycle-status', label: 'Lifecycle Status', icon: Activity,   page: 'lifecycle-status', group: 'super' },
+  { href: '/admin/settings',         label: 'Settings',         icon: Settings,   page: 'settings',         group: 'super' },
 ]
 
 // ── Permission check (client-side mirror of lib/admin-auth canAccess) ─────────
@@ -70,6 +71,7 @@ const PAGE_MIN_ROLE: Record<AdminPage, AdminRole> = {
   crm:               'super_admin',
   'audit-log':       'super_admin',
   'lifecycle-status':'super_admin',
+  settings:          'super_admin',
 }
 
 function clientCanAccess(role: AdminRole, page: AdminPage): boolean {

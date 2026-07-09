@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { PaymentModalTrigger } from '@/components/shared/PaymentModalTrigger'
+import { Price } from '@/lib/currency'
 
 export function CourseStickyBar({
   course,
@@ -18,8 +19,6 @@ export function CourseStickyBar({
     window.addEventListener('scroll', handler, { passive: true })
     return () => window.removeEventListener('scroll', handler)
   }, [])
-
-  const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`
 
   return (
     <div
@@ -41,7 +40,7 @@ export function CourseStickyBar({
         <div className="flex items-center gap-4 shrink-0 ml-auto">
           <div className="text-right hidden sm:block">
             <p className="text-indigo-300 text-xs">Fee increases monthly</p>
-            <p className="text-white font-black text-xl">{fmt(mrp)}</p>
+            <Price inr={mrp} className="text-white font-black text-xl block" />
           </div>
           <PaymentModalTrigger
             {...enrolProps}

@@ -1,8 +1,6 @@
 'use client'
 import { Shield, Users, Star, Clock, Award } from 'lucide-react'
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n)
+import { Price } from '@/lib/currency'
 
 interface Props {
   basePrice:    number
@@ -68,16 +66,16 @@ export function MasterclassHero({ basePrice, finalPrice, discountAmt, discountLa
             <>
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Session Fee (MRP)</p>
-                <p className="text-2xl font-semibold text-gray-400 line-through">{fmt(basePrice)}</p>
+                <p className="text-2xl font-semibold text-gray-400 line-through"><Price inr={basePrice} /></p>
               </div>
               <div className="text-2xl text-gray-500 hidden sm:block">→</div>
               <div>
                 <p className="text-xs text-amber-400 font-bold uppercase tracking-widest mb-1">You Pay Today</p>
-                <p className="text-6xl font-black text-white leading-none">{fmt(finalPrice)}</p>
+                <p className="text-6xl font-black text-white leading-none"><Price inr={finalPrice} /></p>
               </div>
               <div className="flex flex-col gap-1.5">
                 <span className="px-3 py-1.5 rounded-xl text-sm font-bold bg-green-500/20 text-green-400 border border-green-500/30">
-                  Save {fmt(discountAmt)} 🎉
+                  Save <Price inr={discountAmt} /> 🎉
                 </span>
                 <p className="text-xs text-gray-500 px-1">{discountLabel}</p>
               </div>
@@ -85,7 +83,7 @@ export function MasterclassHero({ basePrice, finalPrice, discountAmt, discountLa
           ) : (
             <div>
               <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Session Fee</p>
-              <p className="text-5xl font-black text-white">{fmt(finalPrice)}</p>
+              <p className="text-5xl font-black text-white"><Price inr={finalPrice} /></p>
             </div>
           )}
         </div>

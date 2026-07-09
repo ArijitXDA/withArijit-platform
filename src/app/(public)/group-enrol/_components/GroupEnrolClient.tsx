@@ -1,18 +1,17 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { Users, Tag, Shield, Loader2, CheckCircle2, AlertTriangle, Building2, ChevronDown } from 'lucide-react'
+import { Price, useCurrency } from '@/lib/currency'
 
 declare global { interface Window { Razorpay: any } }
 
 interface Course  { id: string; name: string; slug: string; mrp: string; target_audience: string | null; total_sessions: number }
 interface Batch   { id: string; course_id: string; label: string; day_of_week: string; start_time: string; start_date: string; max_seats: number; seats_filled: number; is_open: boolean }
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(n)
-
 const inp = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50 focus:bg-white transition-all"
 
 export default function GroupEnrolClient({ courses, batches }: { courses: Course[]; batches: Batch[] }) {
+  const { format } = useCurrency()
   // ── Form state ─────────────────────────────────────────────────────────────
   const [courseId,        setCourseId]        = useState('')
   const [quantity,        setQuantity]        = useState(5)
@@ -184,7 +183,7 @@ export default function GroupEnrolClient({ courses, batches }: { courses: Course
                 <option value="">Select a course…</option>
                 {courses.map(c => (
                   <option key={c.id} value={c.id}>
-                    {c.name} — {fmt(Number(c.mrp))} / seat
+                    {c.name} — {format(Number(c.mrp))} / seat
                   </option>
                 ))}
               </select>
@@ -305,7 +304,7 @@ export default function GroupEnrolClient({ courses, batches }: { courses: Course
             </div>
             {couponStatus === 'valid' && (
               <p className="text-xs text-green-600 font-semibold flex items-center gap-1 mt-1">
-                <CheckCircle2 size={13} /> {couponData.label} — {fmt(couponData.discount_per_seat)} off per seat
+                <CheckCircle2 size={13} /> {couponData.label} — <Price inr={couponData.discount_per_seat} /> off per seat
               </p>
             )}
             {couponStatus === 'invalid' && (
@@ -339,17 +338,17 @@ export default function GroupEnrolClient({ courses, batches }: { courses: Course
                       </div>
                       <div className="flex justify-between text-gray-600">
                         <span>MRP per seat</span>
-                        <span className={couponData ? 'line-through text-gray-400' : 'font-semibold'}>{fmt(mrp)}</span>
+                        <Price inr={mrp} className={couponData ? 'line-through text-gray-400' : 'font-semibold'} />
                       </div>
                       {couponData && (
                         <div className="flex justify-between text-green-600 font-semibold">
                           <span>Discount / seat</span>
-                          <span>− {fmt(discountPerSeat)}</span>
+                          <span>− <Price inr={discountPerSeat} /></span>
                         </div>
                       )}
                       <div className="flex justify-between text-gray-600">
                         <span>Price per seat</span>
-                        <span className="font-semibold">{fmt(pricePerSeat)}</span>
+                        <Price inr={pricePerSeat} className="font-semibold" />
                       </div>
                       <div className="flex justify-between text-gray-600">
                         <span>Seats</span>
@@ -357,21 +356,21 @@ export default function GroupEnrolClient({ courses, batches }: { courses: Course
                       </div>
                       <div className="border-t border-gray-100 pt-2 flex justify-between text-gray-600">
                         <span>Subtotal</span>
-                        <span className="font-semibold">{fmt(subTotal)}</span>
+                        <Price inr={subTotal} className="font-semibold" />
                       </div>
                       {couponData && (
                         <div className="flex justify-between text-green-600 text-xs">
                           <span>Total savings</span>
-                          <span className="font-bold">− {fmt(totalDiscount)}</span>
+                          <span className="font-bold">− <Price inr={totalDiscount} /></span>
                         </div>
                       )}
                       <div className="flex justify-between text-gray-500 text-xs">
                         <span>GST (18%)</span>
-                        <span>+ {fmt(gst)}</span>
+                        <span>+ <Price inr={gst} /></span>
                       </div>
                       <div className="border-t border-gray-200 pt-2 flex justify-between items-center">
                         <span className="font-bold text-gray-800">Total Payable</span>
-                        <span className="text-2xl font-black text-indigo-700">{fmt(totalPayable)}</span>
+                        <Price inr={totalPayable} className="text-2xl font-black text-indigo-700" />
                       </div>
                     </div>
 
@@ -386,7 +385,7 @@ export default function GroupEnrolClient({ courses, batches }: { courses: Course
                       style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
                       {step === 'paying'
                         ? <><Loader2 size={18} className="animate-spin" /> Opening payment…</>
-                        : `Pay ${fmt(totalPayable)} →`}
+                        : `Pay ${format(totalPayable)} →`}
                     </button>
 
                     <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400">

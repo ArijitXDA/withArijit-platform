@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { Menu, X, ChevronDown, GraduationCap, Briefcase, Rocket, Crown, BookOpen, Heart, Code2, Atom } from 'lucide-react'
 import { ThemeToggle } from '@/components/shared/ThemeToggle'
+import { CurrencySwitcher } from '@/components/shared/CurrencySwitcher'
 
 const COURSES_BY_AUDIENCE = [
   { href: '/courses/ai-mastery-for-working-professionals', label: 'Working Professionals', icon: Briefcase,     color: 'text-indigo-600'  },
@@ -178,6 +179,8 @@ export function Navbar() {
 
           {/* Desktop CTAs */}
           <div className="hidden lg:flex items-center gap-2.5 shrink-0">
+            {/* Currency selector (INR / USD / EUR) */}
+            <CurrencySwitcher />
             {/* Colour theme toggle (light / dark) — home page only for this rollout */}
             {pathname === '/' && <ThemeToggle />}
             {/* Student Sign In — neon green */}
@@ -248,6 +251,7 @@ export function Navbar() {
             </div>
           </Link>
           <div className="flex items-center gap-2">
+            <CurrencySwitcher />
             {pathname === '/' && <ThemeToggle />}
             <button onClick={() => setMobileOpen(false)} aria-label="Close menu"
               className="p-2 -mr-1 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"

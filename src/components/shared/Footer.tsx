@@ -48,7 +48,7 @@ const TRUST_BADGES = [
   { label: 'MSME Registered',          emoji: '🏛️' },
   { label: 'GST Invoices Issued',       emoji: '🧾' },
   { label: '10,000+ Learners',          emoji: '🎓' },
-  { label: 'IIT Bombay Affiliated',     emoji: '🏫' },
+  { label: 'IIT Bombay Instructors',    emoji: '🏫' },
 ]
 
 export function Footer() {

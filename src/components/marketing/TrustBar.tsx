@@ -2,7 +2,7 @@ const STATS = [
   { emoji: '🎓', value: '50,000+',  label: 'AI-Certified Learners',   sub: 'India, USA & Canada' },
   { emoji: '⭐', value: '4.9/5',    label: 'Average Rating',          sub: 'From verified learners' },
   { emoji: '🌍', value: '3',        label: 'Countries',               sub: 'India · USA · Canada' },
-  { emoji: '🏛️', value: 'IIT',      label: 'Bombay Affiliated',       sub: 'Guest Lecturer' },
+  { emoji: '🏛️', value: 'IIT',      label: 'Bombay Instructors',      sub: 'Guest Lecturer' },
   { emoji: '🧾', value: '100%',     label: 'GST Invoices',            sub: 'For all purchases' },
   { emoji: '📜', value: '95%',      label: 'Placement Rate',          sub: 'Career outcomes' },
 ]

@@ -178,8 +178,8 @@ export function Navbar() {
 
           {/* Desktop CTAs */}
           <div className="hidden lg:flex items-center gap-2.5 shrink-0">
-            {/* Colour theme toggle (light / dark) */}
-            <ThemeToggle />
+            {/* Colour theme toggle (light / dark) — home page only for this rollout */}
+            {pathname === '/' && <ThemeToggle />}
             {/* Student Sign In — neon green */}
             <Link href="/signin"
               className="px-3.5 py-2 text-sm font-bold rounded-xl transition-all hover:opacity-90 whitespace-nowrap"
@@ -248,7 +248,7 @@ export function Navbar() {
             </div>
           </Link>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
+            {pathname === '/' && <ThemeToggle />}
             <button onClick={() => setMobileOpen(false)} aria-label="Close menu"
               className="p-2 -mr-1 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
               style={{ touchAction: 'manipulation' }}>

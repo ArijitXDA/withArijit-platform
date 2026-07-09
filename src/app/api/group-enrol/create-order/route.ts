@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getRazorpay } from '@/lib/razorpay'
+import { getFxRates } from '@/lib/fxRates'
+import { toOrderAmount } from '@/lib/orderCurrency'
+import { isCurrency } from '@/lib/currency-config'
 
 // ── POST /api/group-enrol/create-order ────────────────────────────────────────
 // 1. Validates all inputs server-side (course, quantity, coupon, batch capacity)
@@ -43,6 +46,10 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceClient()
     const now      = new Date().toISOString()
+
+    // Buyer's charge currency (INR default). Drives the Razorpay order currency +
+    // amount; the INR per-seat pricing math below is unchanged.
+    const reqCurrency = isCurrency(body.currency) ? body.currency : 'INR'
 
     // ── 1. Fetch course — server-side MRP, never trust client ───────────────
     const { data: course, error: courseErr } = await supabase
@@ -162,11 +169,17 @@ export async function POST(req: NextRequest) {
       }, { status: 503 })
     }
 
+    // INR is charged in whole rupees (paise collected == displayed rupees). USD/EUR
+    // are charged in 2-decimal units converted from the SAME INR totalPayable at the
+    // admin FX rate, snapshotted onto the order + persisted so the enrolment record +
+    // invoice reflect exactly what was charged. Non-INR requires Razorpay International.
+    const oa = toOrderAmount(totalPayable, reqCurrency, await getFxRates())
+
     let order: any
     try {
       order = await getRazorpay().orders.create({
-      amount:   Math.round(totalPayable * 100),   // paise
-      currency: 'INR',
+      amount:   oa.amount,
+      currency: oa.currency,
       receipt:  `grp_${Date.now()}`,
       notes: {
         type:           'group_enrolment',
@@ -176,6 +189,10 @@ export async function POST(req: NextRequest) {
         purchaser_name,
         purchaser_email,
         discount_code:  discount_code?.trim().toUpperCase() ?? '',
+        currency:       oa.currency,
+        fx_rate:        String(oa.fxRate),
+        charged_amount: String(oa.chargedAmount),
+        inr_amount:     String(oa.inrAmount),
       },
     })
     } catch (rzpErr: any) {
@@ -209,6 +226,10 @@ export async function POST(req: NextRequest) {
         discount_amount_total: totalDiscount,   // legacy column name
         total_payable:      totalPayable,
         gst_amount:         gstAmount,
+        // Charge-currency snapshot — internal accounting above stays INR.
+        currency:           oa.currency,
+        amount_charged:     oa.chargedAmount,
+        fx_rate:            oa.fxRate,
         batch_id:           batch_id || null,
         razorpay_order_id:  order.id,
         payment_status:     'pending',
@@ -226,9 +247,13 @@ export async function POST(req: NextRequest) {
     // ── 8. Return to client ───────────────────────────────────────────────────
     return NextResponse.json({
       razorpay_order_id:  order.id,
-      amount_paise:       order.amount,
+      amount_paise:       order.amount,        // smallest unit of chargedCurrency (paise for INR, cents for USD/EUR)
       group_enrolment_id: groupEnrolment.id,
       manage_token:       groupEnrolment.manage_token,
+      // Charge-currency snapshot — client opens Razorpay in this currency.
+      chargedCurrency:    oa.currency,
+      chargedAmount:      oa.chargedAmount,
+      fxRate:             oa.fxRate,
       // Pricing summary for display in checkout UI
       pricing: {
         mrp_per_seat:       mrpPerSeat,

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getRazorpay } from '@/lib/razorpay'
+import { getFxRates } from '@/lib/fxRates'
+import { toOrderAmount } from '@/lib/orderCurrency'
+import { isCurrency } from '@/lib/currency-config'
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,6 +19,10 @@ export async function POST(req: NextRequest) {
 
     if (!name || !email || !mobile || !profession)
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 })
+
+    // Buyer's charge currency (INR default). Drives the Razorpay order currency +
+    // amount; the INR pricing math below is unchanged.
+    const reqCurrency = isCurrency(body.currency) ? body.currency : 'INR'
 
     // 1. Fetch base price from config (server-side — never trust client)
     const { data: config } = await admin
@@ -82,9 +89,15 @@ export async function POST(req: NextRequest) {
     if (regErr) throw new Error(regErr.message)
 
     // 4. Create Razorpay order
+    // INR is charged in whole rupees (unchanged). USD/EUR are charged in 2-decimal
+    // units converted from the SAME INR finalPrice at the admin FX rate, snapshotted
+    // onto the order notes + returned so the record + confirmation email reflect
+    // exactly what was charged. Non-INR requires Razorpay International.
+    const oa = toOrderAmount(finalPrice, reqCurrency, await getFxRates())
+
     const order = await getRazorpay().orders.create({
-      amount:   Math.round(finalPrice * 100),
-      currency: 'INR',
+      amount:   oa.amount,
+      currency: oa.currency,
       receipt:  `mc_${Date.now()}`,
       notes: {
         type:            'masterclass',
@@ -92,6 +105,10 @@ export async function POST(req: NextRequest) {
         name,
         email,
         campaign_id:     validCampaignId ?? '',
+        currency:        oa.currency,
+        fx_rate:         String(oa.fxRate),
+        charged_amount:  String(oa.chargedAmount),
+        inr_amount:      String(oa.inrAmount),
       },
     })
 
@@ -108,6 +125,10 @@ export async function POST(req: NextRequest) {
       finalPrice,
       basePrice,
       discountAmt,
+      orderCurrency:   order.currency,
+      chargedCurrency: oa.currency,
+      chargedAmount:   oa.chargedAmount,
+      fxRate:          oa.fxRate,
     })
 
   } catch (err: any) {

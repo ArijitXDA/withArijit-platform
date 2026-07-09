@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getRazorpay }         from '@/lib/razorpay'
 import { createClient }        from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { toOrderAmount }       from '@/lib/orderCurrency'
+import { isCurrency, type FxRates } from '@/lib/currency-config'
 
 /**
  * POST /api/payments/create-order-balance
@@ -32,6 +34,7 @@ export async function POST(req: NextRequest) {
         id, student_email, student_name, student_mobile,
         course_id, course_name, enrolment_type,
         mrp, amount_paid, balance_due,
+        currency, fx_rate,
         partner_id
       `)
       .eq('id', enrolment_id)
@@ -80,10 +83,34 @@ export async function POST(req: NextRequest) {
       partnerCode = partner?.partner_code ?? ''
     }
 
+    // ── Currency snapshot: charge the balance in the SAME currency at the SAME
+    // rate as the first instalment (honour the original deal). The student
+    // dashboard has NO currency selector — currency + fx_rate come from the
+    // enrolment row, NOT from the current admin FX rate. INR stays byte-identical
+    // (whole-paise from the DB balance); USD/EUR re-charge the same INR balance
+    // at the snapshotted rate. Non-INR requires Razorpay International.
+    const enrolCurrency = isCurrency(enrolment.currency) ? enrolment.currency : 'INR'
+    const snapRate      = Number(enrolment.fx_rate) > 0 ? Number(enrolment.fx_rate) : 1
+
+    let orderAmount   = Math.round(balance * 100)      // paise — unchanged INR path
+    let orderCurrency: 'INR' | 'USD' | 'EUR' = 'INR'
+    let chargedAmount = balance                         // major units actually charged
+    let fxRate        = 1
+
+    if (enrolCurrency === 'USD' || enrolCurrency === 'EUR') {
+      // Build the rates from the SNAPSHOT so the same rate applies to both instalments.
+      const snapRates: FxRates = { usd_inr: snapRate, eur_inr: snapRate }
+      const oa = toOrderAmount(balance, enrolCurrency, snapRates)
+      orderAmount   = oa.amount          // cents at the snapshotted rate
+      orderCurrency = oa.currency
+      chargedAmount = oa.chargedAmount
+      fxRate        = oa.fxRate
+    }
+
     // ── Create Razorpay order for exact balance_due amount ─────────────────
     const order = await getRazorpay().orders.create({
-      amount:   Math.round(balance * 100),   // paise — always from DB, never from client
-      currency: 'INR',
+      amount:   orderAmount,                 // smallest unit — always from DB, never from client
+      currency: orderCurrency,
       receipt:  `bal_${Date.now()}`,
       notes: {
         enrolment_id,
@@ -94,6 +121,10 @@ export async function POST(req: NextRequest) {
         instalment_number: String(nextInstalment),
         total_instalments: String(totalInstalments),
         partner_code:      partnerCode,
+        currency:          orderCurrency,
+        fx_rate:           String(fxRate),
+        charged_amount:    String(chargedAmount),
+        inr_amount:        String(Math.round(balance)),
       },
     })
 
@@ -106,6 +137,9 @@ export async function POST(req: NextRequest) {
       paymentType,
       instalmentNumber:     nextInstalment,
       totalInstalments,
+      chargedCurrency:      orderCurrency,
+      chargedAmount:        chargedAmount,
+      fxRate:               fxRate,
     })
 
   } catch (err: any) {

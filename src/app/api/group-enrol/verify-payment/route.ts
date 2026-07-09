@@ -132,6 +132,17 @@ async function runBackgroundWork(params: {
       group_purchase:      true,
       group_enrolment_id:  ge.id,
       notes:               `Group enrolment — ${ge.quantity} seats`,
+      // Charge-currency snapshot so the invoice renders the currency actually
+      // charged. Read from the group_enrolments row (server-authoritative — set at
+      // create-order, never trusts a client-sent amount). INR keeps the column
+      // defaults (currency 'INR', fx_rate 1, amount_charged null) — byte-identical.
+      ...((ge.currency === 'USD' || ge.currency === 'EUR')
+        ? {
+            currency:       ge.currency,
+            fx_rate:        Number(ge.fx_rate) > 0 ? Number(ge.fx_rate) : 1,
+            amount_charged: Number.isFinite(Number(ge.amount_charged)) ? Number(ge.amount_charged) : ge.total_payable,
+          }
+        : {}),
     })
   } catch (e: any) {
     console.warn('[group-enrol verify bg] payment_transactions insert failed (non-fatal):', e.message)

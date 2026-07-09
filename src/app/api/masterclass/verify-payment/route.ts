@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { verifyPaymentSignature } from '@/lib/razorpay'
+import { CURRENCY_LOCALE, isCurrency, type CurrencyCode } from '@/lib/currency-config'
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,7 +10,12 @@ const admin = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, registration_id } = await req.json()
+    const {
+      razorpay_order_id, razorpay_payment_id, razorpay_signature, registration_id,
+      currency,        // INR | USD | EUR actually charged (invoice); INR math unchanged
+      amount_charged,  // amount charged in `currency` (major units); defaults to INR final price
+      fx_rate,         // INR per 1 unit of `currency` at purchase (snapshot); 1 for INR
+    } = await req.json()
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !registration_id)
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -31,6 +37,21 @@ export async function POST(req: NextRequest) {
       .eq('registration_type', 'masterclass')
 
     if (updateErr) throw new Error(updateErr.message)
+
+    // 2b. Stamp the charged currency + FX snapshot onto the registration so the
+    // record + confirmation-email invoice reflect exactly what was charged. INR
+    // orders keep the column defaults (masterclass_currency 'INR', fx_rate 1).
+    if (currency === 'USD' || currency === 'EUR') {
+      await admin
+        .from('qr_landing_registrations')
+        .update({
+          masterclass_currency:       currency,
+          masterclass_fx_rate:        Number(fx_rate) > 0 ? Number(fx_rate) : 1,
+          masterclass_amount_charged: Number.isFinite(Number(amount_charged)) ? Number(amount_charged) : null,
+        })
+        .eq('id', registration_id)
+        .eq('registration_type', 'masterclass')
+    }
 
     // 3. Increment campaign uses_count if applicable
     const { data: reg } = await admin
@@ -64,12 +85,18 @@ export async function POST(req: NextRequest) {
     if (resendKey) {
       const { data: regData } = await admin
         .from('qr_landing_registrations')
-        .select('full_name, email, masterclass_final_price')
+        .select('full_name, email, masterclass_final_price, masterclass_currency, masterclass_amount_charged')
         .eq('id', registration_id)
         .single()
 
       if (regData) {
-        const price = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(Number(regData.masterclass_final_price ?? 0))
+        // Invoice must equal the charge: for USD/EUR show the foreign amount actually
+        // charged; INR keeps the exact whole-rupee formatting (byte-identical).
+        const invCurrency = regData.masterclass_currency
+        const invCharged  = Number(regData.masterclass_amount_charged)
+        const price = (isCurrency(invCurrency) && invCurrency !== 'INR' && Number.isFinite(invCharged))
+          ? new Intl.NumberFormat(CURRENCY_LOCALE[invCurrency as CurrencyCode], { style: 'currency', currency: invCurrency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(invCharged)
+          : new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(Number(regData.masterclass_final_price ?? 0))
         await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },

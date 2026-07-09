@@ -27,7 +27,7 @@ export function MasterclassClient({
   campaignId, utmSource, utmMedium, utmCampaign, utmContent,
   professionOptions,
 }: Props) {
-  const { format } = useCurrency()
+  const { format, currency } = useCurrency()
   const [form, setForm] = useState({ name: '', email: '', mobile: '', profession: '' })
   const [status, setStatus]   = useState<Status>('idle')
   const [error,  setError]    = useState('')
@@ -54,6 +54,7 @@ export function MasterclassClient({
           mobile:      form.mobile,
           profession:  form.profession,
           campaign_id: campaignId,
+          currency,
           utm_source:  utmSource,
           utm_medium:  utmMedium,
           utm_campaign: utmCampaign,
@@ -63,6 +64,13 @@ export function MasterclassClient({
       const order = await orderRes.json()
       if (!orderRes.ok) throw new Error(order.error || 'Order creation failed')
 
+      // Charge-currency snapshot from the order route. Read the order currency as
+      // `orderCurrency` (NOT `currency` — that name is the useCurrency() hook value).
+      const orderCurrency   = order.orderCurrency ?? 'INR'
+      const chargedCurrency = order.chargedCurrency ?? 'INR'
+      const chargedAmount   = order.chargedAmount
+      const fxRate          = order.fxRate
+
       setStatus('paying')
 
       // 2. Open Razorpay checkout
@@ -71,7 +79,7 @@ export function MasterclassClient({
           key:         process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
           order_id:    order.razorpayOrderId,
           amount:      order.amountPaise,
-          currency:    'INR',
+          currency:    orderCurrency,
           name:        'oStaran — AI Masterclass',
           description: 'AI Masterclass Programme',
           image:       '/ostaran-logo.png',
@@ -87,6 +95,9 @@ export function MasterclassClient({
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature:  response.razorpay_signature,
                 registration_id:     order.registrationId,
+                currency:            chargedCurrency,
+                amount_charged:      chargedAmount,
+                fx_rate:             fxRate,
               }),
             })
             const verified = await verifyRes.json()

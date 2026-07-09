@@ -11,7 +11,7 @@ interface Batch   { id: string; course_id: string; label: string; day_of_week: s
 const inp = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50 focus:bg-white transition-all"
 
 export default function GroupEnrolClient({ courses, batches }: { courses: Course[]; batches: Batch[] }) {
-  const { format } = useCurrency()
+  const { format, currency } = useCurrency()
   // ── Form state ─────────────────────────────────────────────────────────────
   const [courseId,        setCourseId]        = useState('')
   const [quantity,        setQuantity]        = useState(5)
@@ -78,6 +78,7 @@ export default function GroupEnrolClient({ courses, batches }: { courses: Course
           purchaser_type:  purchaserType, organization_name: orgName, gstin,
           partner_code:    partnerCode, course_id: courseId, quantity,
           batch_id:        batchId || null, discount_code: couponCode || null,
+          currency,
         }),
       })
       const order = await orderRes.json()
@@ -91,7 +92,7 @@ export default function GroupEnrolClient({ courses, batches }: { courses: Course
           key:         razorpayKey,
           order_id:    order.razorpay_order_id,
           amount:      order.amount_paise,
-          currency:    'INR',
+          currency:    order.chargedCurrency ?? 'INR',
           name:        'oStaran — Group Enrolment',
           description: `${quantity} seats · ${selectedCourse?.name}`,
           image:       '/ostaran-logo.png',

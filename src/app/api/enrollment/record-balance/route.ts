@@ -28,6 +28,9 @@ export async function POST(req: NextRequest) {
       payment_type     = 'balance_clearance',
       instalment_number = 2,
       total_instalments = 2,
+      currency,          // INR | USD | EUR charged (snapshot from the enrolment); INR math unchanged
+      amount_charged,    // amount charged in `currency` (major units); defaults to INR balance
+      fx_rate,           // INR per 1 unit of `currency` at the first instalment (snapshot); 1 for INR
     } = body
 
     if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature || !enrolment_id) {
@@ -99,6 +102,21 @@ export async function POST(req: NextRequest) {
         p_partner_code:      partnerCode,
       })
       invoiceNumber = inv ?? ''
+
+      // Stamp the charged currency + FX snapshot onto THIS balance invoice row so the
+      // student's dashboard invoice renders the currency actually charged. Scoped by
+      // razorpay_order_id (unique to this balance order) so the first-instalment row —
+      // which shares the same enrolment_id — is never touched. INR keeps the defaults.
+      if (currency === 'USD' || currency === 'EUR') {
+        await service.from('payment_transactions')
+          .update({
+            currency,
+            fx_rate:        Number(fx_rate) > 0 ? Number(fx_rate) : 1,
+            amount_charged: Number.isFinite(Number(amount_charged)) ? Number(amount_charged) : balance,
+          })
+          .eq('enrolment_id',      enrolment_id)
+          .eq('razorpay_order_id', razorpay_order_id)
+      }
     } catch (e: any) {
       console.warn('[record-balance] invoice creation failed (non-fatal):', e.message)
     }

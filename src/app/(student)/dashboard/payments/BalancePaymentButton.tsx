@@ -107,6 +107,11 @@ export function BalancePaymentButton({
                 payment_type:        orderData.paymentType,
                 instalment_number:   orderData.instalmentNumber,
                 total_instalments:   orderData.totalInstalments,
+                // Currency snapshot (from the order — same currency + rate as the
+                // first instalment). INR orders send INR / balance / 1.
+                currency:            orderData.chargedCurrency,
+                amount_charged:      orderData.chargedAmount,
+                fx_rate:             orderData.fxRate,
               }),
             })
             const recordData = await recordRes.json().catch(() => ({}))

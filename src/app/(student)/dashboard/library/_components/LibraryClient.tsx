@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Library as LibraryIcon, Search, BookOpen, FileText, Star, User,
-  Filter, X, ExternalLink, Lock, Loader2, AlertCircle, GraduationCap,
+  Filter, X, ExternalLink, Lock, GraduationCap,
 } from 'lucide-react'
+import { PdfViewer } from './PdfViewer'
 
 // ────────────────────────────────────────────────────────────────────────
 // Student Library — card grid, faceted search, secure modal reader.
@@ -354,20 +355,14 @@ function LibraryCard({ item, onOpen }: { item: LibraryItem; onOpen: () => void }
 function LibraryReaderModal({
   item, studentEmail, onClose,
 }: { item: LibraryItem; studentEmail: string; onClose: () => void }) {
-  const [loaded,  setLoaded]  = useState(false)
-  const [error,   setError]   = useState<string | null>(null)
-  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [loaded, setLoaded] = useState(false)
 
-  const streamSrc = `/api/student/library/stream/${item.id}#toolbar=0&navpanes=0&statusbar=0`
-
-  // Chrome's built-in PDF viewer does not reliably fire iframe.onLoad, so
-  // we also force the spinner to clear after a short grace period. The
-  // iframe itself is always visible (no opacity gate) so the PDF plugin
-  // can take over as soon as bytes arrive.
-  useEffect(() => {
-    const t = setTimeout(() => setLoaded(true), 1200)
-    return () => clearTimeout(t)
-  }, [item.id])
+  // Raw PDF bytes are served by the auth-gated stream proxy; PdfViewer fetches
+  // them and renders each page to a <canvas> in a scrollable list. This
+  // replaces the old <iframe> + native PDF plugin, which on mobile (iOS
+  // Safari) showed only page 1 and would not scroll. setLoaded(true) fires
+  // once page 1 renders → the watermark overlay appears over the content.
+  const streamSrc = `/api/student/library/stream/${item.id}`
 
   // ── Close on Esc + soft-block save/print shortcuts ───────────────────
   useEffect(() => {
@@ -443,38 +438,9 @@ function LibraryReaderModal({
           </span>
         </div>
 
-        {/* Viewer + loading + watermark */}
+        {/* Viewer (pdf.js canvas — scrollable on every device) + watermark */}
         <div className="relative flex-1 overflow-hidden" style={{ background: '#0b1426' }}>
-          {!loaded && !error && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-              <Loader2 size={24} className="animate-spin text-indigo-300" />
-              <p className="text-xs text-slate-400">Loading content securely…</p>
-            </div>
-          )}
-          {error && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                style={{ background: 'rgba(220,38,38,0.2)', border: '1px solid rgba(220,38,38,0.4)' }}>
-                <AlertCircle size={20} className="text-red-300" />
-              </div>
-              <p className="text-sm font-semibold text-white">Content temporarily unavailable</p>
-              <p className="text-xs text-slate-400 max-w-sm">{error}</p>
-            </div>
-          )}
-
-          <iframe
-            ref={iframeRef}
-            src={streamSrc}
-            className="w-full h-full"
-            style={{ border: 0, background: '#0b1426' }}
-            onLoad={() => setLoaded(true)}
-            onError={() => setError('We could not load this item. Please try again shortly.')}
-            // NO sandbox here: Chrome's native PDF viewer is an internal
-            // plugin that gets blocked by sandbox="allow-same-origin
-            // allow-scripts". The real protection is the proxy (source
-            // URL never reaches the client) + auth gate + watermark.
-            title={item.title}
-          />
+          <PdfViewer src={streamSrc} onReady={() => setLoaded(true)} />
 
           {/* Watermark overlay — pointer-events:none so it doesn't block viewer */}
           {loaded && (

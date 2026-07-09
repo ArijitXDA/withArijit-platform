@@ -92,6 +92,15 @@ export async function POST(req: NextRequest) {
     const enrolCurrency = isCurrency(enrolment.currency) ? enrolment.currency : 'INR'
     const snapRate      = Number(enrolment.fx_rate) > 0 ? Number(enrolment.fx_rate) : 1
 
+    // Guard: a USD/EUR enrolment MUST carry a positive snapshot rate — refuse rather
+    // than fall back to 1:1 (which would ~100× overcharge the foreign balance).
+    if (enrolCurrency !== 'INR' && !(Number(enrolment.fx_rate) > 0)) {
+      return NextResponse.json(
+        { error: 'This enrolment is missing a valid exchange-rate snapshot — please contact support to pay the balance.' },
+        { status: 409 },
+      )
+    }
+
     let orderAmount   = Math.round(balance * 100)      // paise — unchanged INR path
     let orderCurrency: 'INR' | 'USD' | 'EUR' = 'INR'
     let chargedAmount = balance                         // major units actually charged

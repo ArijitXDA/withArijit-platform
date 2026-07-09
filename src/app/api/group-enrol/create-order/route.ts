@@ -174,11 +174,14 @@ export async function POST(req: NextRequest) {
     // admin FX rate, snapshotted onto the order + persisted so the enrolment record +
     // invoice reflect exactly what was charged. Non-INR requires Razorpay International.
     const oa = toOrderAmount(totalPayable, reqCurrency, await getFxRates())
+    // INR stays exact-paise (byte-identical to before, so the charge equals the stored
+    // total_payable — no reconciliation gap); USD/EUR use oa's converted whole-cent amount.
+    const orderAmount = reqCurrency === 'INR' ? Math.round(totalPayable * 100) : oa.amount
 
     let order: any
     try {
       order = await getRazorpay().orders.create({
-      amount:   oa.amount,
+      amount:   orderAmount,
       currency: oa.currency,
       receipt:  `grp_${Date.now()}`,
       notes: {

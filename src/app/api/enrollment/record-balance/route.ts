@@ -28,9 +28,6 @@ export async function POST(req: NextRequest) {
       payment_type     = 'balance_clearance',
       instalment_number = 2,
       total_instalments = 2,
-      currency,          // INR | USD | EUR charged (snapshot from the enrolment); INR math unchanged
-      amount_charged,    // amount charged in `currency` (major units); defaults to INR balance
-      fx_rate,           // INR per 1 unit of `currency` at the first instalment (snapshot); 1 for INR
     } = body
 
     if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature || !enrolment_id) {
@@ -54,7 +51,7 @@ export async function POST(req: NextRequest) {
     // ── Re-fetch enrolment: balance_due is authoritative ──────────────────
     const { data: enrolment, error: enrolErr } = await service
       .from('student_enrolments')
-      .select('id, student_email, course_id, balance_due, partner_id')
+      .select('id, student_email, course_id, balance_due, partner_id, currency, fx_rate')
       .eq('id', enrolment_id)
       .eq('student_email', user.email!.toLowerCase())
       .eq('is_active', true)
@@ -107,12 +104,17 @@ export async function POST(req: NextRequest) {
       // student's dashboard invoice renders the currency actually charged. Scoped by
       // razorpay_order_id (unique to this balance order) so the first-instalment row —
       // which shares the same enrolment_id — is never touched. INR keeps the defaults.
-      if (currency === 'USD' || currency === 'EUR') {
+      // Server-authoritative: the balance's currency + rate come from the enrolment's
+      // first-instalment snapshot (NOT the client body), matching what was charged.
+      const enrolRate     = Number(enrolment.fx_rate) > 0 ? Number(enrolment.fx_rate) : 1
+      const enrolCurrency = ((enrolment.currency === 'USD' || enrolment.currency === 'EUR') && enrolRate > 0)
+        ? enrolment.currency : 'INR'
+      if (enrolCurrency === 'USD' || enrolCurrency === 'EUR') {
         await service.from('payment_transactions')
           .update({
-            currency,
-            fx_rate:        Number(fx_rate) > 0 ? Number(fx_rate) : 1,
-            amount_charged: Number.isFinite(Number(amount_charged)) ? Number(amount_charged) : balance,
+            currency:       enrolCurrency,
+            fx_rate:        enrolRate,
+            amount_charged: Math.round((balance / enrolRate) * 100) / 100,
           })
           .eq('enrolment_id',      enrolment_id)
           .eq('razorpay_order_id', razorpay_order_id)

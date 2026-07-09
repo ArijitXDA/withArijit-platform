@@ -451,7 +451,7 @@ export async function POST(request: NextRequest) {
         gst_amount:         gstAmount,
         net_taxable:        netTaxable,
         amount_paid:        amount,                // first instalment only (INR — internal accounting)
-        currency:           (currency === 'USD' || currency === 'EUR') ? currency : 'INR',
+        currency:           ((currency === 'USD' || currency === 'EUR') && Number(fx_rate) > 0) ? currency : 'INR',
         amount_charged:     Number.isFinite(Number(amount_charged)) ? Number(amount_charged) : amount,
         fx_rate:            Number(fx_rate) > 0 ? Number(fx_rate) : 1,
         balance_due:        resolvedBalanceDue,    // ₹0 for full pay, = amount for 50-50

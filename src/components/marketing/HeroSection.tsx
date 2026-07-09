@@ -9,7 +9,7 @@ function AINode({ x, y, delay, size = 4 }: { x: number; y: number; delay: number
       style={{
         left: `${x}%`, top: `${y}%`,
         width: size, height: size,
-        background: 'rgba(139,92,246,0.8)',
+        background: 'var(--os-node)',
         animationDelay: `${delay}s`,
         animationDuration: `${2 + delay}s`,
       }}
@@ -26,9 +26,10 @@ const NODES = [
 export function HeroSection() {
   return (
     <section
-      className="relative overflow-hidden text-white"
+      className="relative overflow-hidden"
       style={{
-        background: 'linear-gradient(135deg, #05051a 0%, #0d0b2b 30%, #1a0a3d 60%, #0d1b3e 100%)',
+        background: 'var(--os-hero-bg)',
+        color: 'var(--os-ink)',
         minHeight: '88vh',
         display: 'flex',
         alignItems: 'center',
@@ -40,17 +41,17 @@ export function HeroSection() {
           <AINode key={i} x={x as number} y={y as number} delay={delay as number} size={size as number} />
         ))}
         {/* Grid overlay */}
-        <div className="absolute inset-0 opacity-[0.03]"
+        <div className="absolute inset-0"
           style={{
-            backgroundImage: 'linear-gradient(rgba(139,92,246,1) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,1) 1px, transparent 1px)',
+            backgroundImage: 'linear-gradient(var(--os-grid) 1px, transparent 1px), linear-gradient(90deg, var(--os-grid) 1px, transparent 1px)',
             backgroundSize: '60px 60px',
           }} />
         {/* Radial glow */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #7c3aed 0%, transparent 70%)' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full"
+          style={{ background: 'radial-gradient(circle, var(--os-glow) 0%, transparent 70%)' }} />
         {/* Bottom fade */}
         <div className="absolute bottom-0 left-0 right-0 h-32"
-          style={{ background: 'linear-gradient(to bottom, transparent, #05051a)' }} />
+          style={{ background: 'linear-gradient(to bottom, transparent, var(--os-page))' }} />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 py-20 lg:py-28 w-full">
@@ -59,9 +60,10 @@ export function HeroSection() {
           {/* Eyebrow badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold mb-8 border"
             style={{
-              background: 'rgba(139,92,246,0.15)',
-              borderColor: 'rgba(139,92,246,0.4)',
-              color: '#c4b5fd',
+              background: 'var(--os-surface)',
+              borderColor: 'var(--os-pill-line)',
+              color: 'var(--os-accent-soft)',
+              boxShadow: 'var(--os-sh-3d)',
               letterSpacing: '0.08em',
             }}>
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
@@ -71,23 +73,23 @@ export function HeroSection() {
           {/* H1 — SEO optimised */}
           <h1
             className="font-extrabold leading-[1.08] mb-6 tracking-tight"
-            style={{ fontSize: 'clamp(2.5rem, 7vw, 5.5rem)' }}
+            style={{ fontSize: 'clamp(2.5rem, 7vw, 5.5rem)', color: 'var(--os-ink)' }}
           >
-            <span className="text-white">Master AI.</span>
+            <span>Master AI.</span>
             <br />
             <span style={{
-              background: 'linear-gradient(135deg, #a78bfa, #60a5fa, #34d399)',
+              background: 'var(--os-head-grad)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
             }}>
               Get Certified
             </span>
-            <span className="text-white"> This Sunday.</span>
+            <span> This Sunday.</span>
           </h1>
 
           <p className="text-lg md:text-xl leading-relaxed mb-4 max-w-2xl mx-auto"
-            style={{ color: '#94a3b8' }}>
+            style={{ color: 'var(--os-ink-2)' }}>
             90-minute live AI Certification session. Globally recognised certificate.
             Personalised for your career — not a generic course.
           </p>
@@ -95,16 +97,16 @@ export function HeroSection() {
           {/* ── Bold hype line — the three pillars of every oStaran programme ── */}
           <div className="inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 mb-6 px-5 py-3 rounded-2xl font-bold text-sm md:text-base"
             style={{
-              background: 'linear-gradient(90deg, rgba(124,58,237,0.18), rgba(79,70,229,0.18), rgba(6,182,212,0.15))',
-              border: '1px solid rgba(124,58,237,0.4)',
-              color: '#e0e7ff',
-              boxShadow: '0 0 32px rgba(124,58,237,0.15)',
+              background: 'var(--os-surface)',
+              border: '1px solid var(--os-pill-line)',
+              color: 'var(--os-ink)',
+              boxShadow: 'var(--os-sh-3d)',
             }}>
-            <span>🎥 <span className="text-white">Live Classes</span> by Industrial AI Leaders</span>
-            <span className="text-indigo-400">·</span>
-            <span>🛠️ <span className="text-white">Real Projects</span>, No Toys</span>
-            <span className="text-indigo-400">·</span>
-            <span style={{ color: '#c4b5fd' }}>🎓 <span className="text-white">Assistant Professor (AI)</span>, 24/7 in 100+ languages</span>
+            <span>🎥 <b>Live Classes</b> by Industrial AI Leaders</span>
+            <span style={{ color: 'var(--os-accent)' }}>·</span>
+            <span>🛠️ <b>Real Projects</b>, No Toys</span>
+            <span style={{ color: 'var(--os-accent)' }}>·</span>
+            <span>🎓 <b>Assistant Professor (AI)</b>, 24/7 in 100+ languages</span>
           </div>
 
           {/* Audience pills */}
@@ -122,9 +124,10 @@ export function HeroSection() {
               <span key={label as string}
                 className="px-3 py-1.5 rounded-full text-xs font-semibold border"
                 style={{
-                  background: 'rgba(255,255,255,0.05)',
-                  borderColor: 'rgba(255,255,255,0.1)',
-                  color: '#cbd5e1',
+                  background: 'var(--os-surface)',
+                  borderColor: 'var(--os-pill-line)',
+                  color: 'var(--os-ink-2)',
+                  boxShadow: 'var(--os-sh-sm)',
                 }}>
                 {emoji} {label}
               </span>
@@ -137,19 +140,21 @@ export function HeroSection() {
               href="/masterclass"
               className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-bold text-base transition-all hover:scale-105 hover:shadow-2xl"
               style={{
-                background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+                background: 'var(--os-cta-grad)',
                 color: '#fff',
-                boxShadow: '0 0 40px rgba(124,58,237,0.4)',
+                boxShadow: 'var(--os-sh-btn)',
               }}
             >
               🎓 Get Certified This Sunday
             </Link>
             <Link
               href="/courses"
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-bold text-base border transition-all hover:bg-white/10"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-bold text-base border transition-all hover:scale-105"
               style={{
-                borderColor: 'rgba(255,255,255,0.2)',
-                color: '#e2e8f0',
+                background: 'var(--os-surface)',
+                borderColor: 'var(--os-pill-line)',
+                color: 'var(--os-ink)',
+                boxShadow: 'var(--os-sh-3d)',
               }}
             >
               Explore Full Programmes →
@@ -162,10 +167,10 @@ export function HeroSection() {
               href="https://partner.ostaran.com"
               className="group inline-flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-bold text-base transition-all hover:scale-105 hover:shadow-2xl border-2"
               style={{
-                background: 'linear-gradient(135deg, #f59e0b 0%, #f97316 50%, #ef4444 100%)',
+                background: 'var(--os-gold-grad)',
                 color: '#fff',
                 borderColor: 'rgba(251,191,36,0.6)',
-                boxShadow: '0 0 40px rgba(245,158,11,0.4)',
+                boxShadow: 'var(--os-sh-gold)',
                 animation: 'pulse-gold 2.5s ease-in-out infinite',
               }}
             >
@@ -182,7 +187,7 @@ export function HeroSection() {
           <LaunchCourseCTA />
 
           {/* Mini trust line */}
-          <p className="mt-8 text-xs" style={{ color: '#475569' }}>
+          <p className="mt-8 text-xs" style={{ color: 'var(--os-faint)' }}>
             🔒 Secured by Razorpay · GST Invoice Issued · Certificate within 24 hours
           </p>
 

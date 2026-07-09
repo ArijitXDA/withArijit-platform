@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { Menu, X, ChevronDown, GraduationCap, Briefcase, Rocket, Crown, BookOpen, Heart, Code2, Atom } from 'lucide-react'
+import { ThemeToggle } from '@/components/shared/ThemeToggle'
 
 const COURSES_BY_AUDIENCE = [
   { href: '/courses/ai-mastery-for-working-professionals', label: 'Working Professionals', icon: Briefcase,     color: 'text-indigo-600'  },
@@ -177,6 +178,8 @@ export function Navbar() {
 
           {/* Desktop CTAs */}
           <div className="hidden lg:flex items-center gap-2.5 shrink-0">
+            {/* Colour theme toggle (light / dark) */}
+            <ThemeToggle />
             {/* Student Sign In — neon green */}
             <Link href="/signin"
               className="px-3.5 py-2 text-sm font-bold rounded-xl transition-all hover:opacity-90 whitespace-nowrap"
@@ -244,11 +247,14 @@ export function Navbar() {
               <Image src="/ostaran-logo.png" alt="oStaran" width={92} height={30} className="h-6 w-auto object-contain" />
             </div>
           </Link>
-          <button onClick={() => setMobileOpen(false)} aria-label="Close menu"
-            className="p-2 -mr-1 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
-            style={{ touchAction: 'manipulation' }}>
-            <X size={22} />
-          </button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button onClick={() => setMobileOpen(false)} aria-label="Close menu"
+              className="p-2 -mr-1 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+              style={{ touchAction: 'manipulation' }}>
+              <X size={22} />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable nav content */}

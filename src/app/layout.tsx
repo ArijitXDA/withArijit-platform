@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { CookieConsent } from "@/components/shared/CookieConsent";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -80,7 +81,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script
           type="application/ld+json"
@@ -91,8 +92,10 @@ export default function RootLayout({
         <meta name="ai-topics" content="artificial intelligence, machine learning, AI certification, generative AI, agentic AI, quantum computing, professional upskilling, India AI education" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {children}
-        <CookieConsent />
+        <ThemeProvider>
+          {children}
+          <CookieConsent />
+        </ThemeProvider>
         <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
       </body>
     </html>

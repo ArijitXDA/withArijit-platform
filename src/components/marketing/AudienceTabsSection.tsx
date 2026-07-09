@@ -146,18 +146,21 @@ export function AudienceTabsSection() {
   const tab = TABS.find(t => t.id === active)!
 
   return (
-    <section className="py-20 px-4 bg-white">
+    <section className="py-20 px-4" style={{ background: 'var(--os-page)' }}>
       <div className="max-w-6xl mx-auto">
 
         {/* Header */}
         <div className="text-center mb-12">
-          <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest bg-indigo-50 text-indigo-700 border border-indigo-100 mb-4">
+          <span
+            className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border mb-4"
+            style={{ background: 'var(--os-surface)', color: 'var(--os-accent-soft)', borderColor: 'var(--os-pill-line)', boxShadow: 'var(--os-sh-sm)' }}
+          >
             Personalised for You
           </span>
-          <h2 className="text-3xl md:text-5xl font-extrabold text-gray-900 mb-3">
+          <h2 className="text-3xl md:text-5xl font-extrabold mb-3" style={{ color: 'var(--os-ink)' }}>
             Who is oStaran for?
           </h2>
-          <p className="text-gray-500 text-lg">
+          <p className="text-lg" style={{ color: 'var(--os-muted)' }}>
             Every session is built for a specific audience — not a one-size-fits-all course.
           </p>
         </div>
@@ -172,7 +175,7 @@ export function AudienceTabsSection() {
               style={
                 active === t.id
                   ? { background: t.color, color: '#fff', borderColor: t.color, boxShadow: `0 4px 20px ${t.color}40` }
-                  : { background: '#fff', color: '#6b7280', borderColor: '#e5e7eb' }
+                  : { background: 'var(--os-surface)', color: 'var(--os-muted)', borderColor: 'var(--os-pill-line)' }
               }
             >
               <span className="text-base">{t.emoji}</span>
@@ -187,7 +190,7 @@ export function AudienceTabsSection() {
           className="grid md:grid-cols-2 gap-8 p-8 rounded-3xl border animate-fade-in"
           style={{
             borderColor: `${tab.color}20`,
-            background: `linear-gradient(135deg, ${tab.color}06 0%, white 100%)`,
+            background: `linear-gradient(135deg, ${tab.color}06 0%, var(--os-surface) 100%)`,
           }}
         >
           {/* Left — content */}
@@ -195,13 +198,13 @@ export function AudienceTabsSection() {
             <div className="flex items-center gap-3 mb-4">
               <span className="text-4xl">{tab.emoji}</span>
               <div>
-                <h3 className="text-xl font-extrabold text-gray-900">{tab.heading}</h3>
+                <h3 className="text-xl font-extrabold" style={{ color: 'var(--os-ink)' }}>{tab.heading}</h3>
                 <p className="text-xs font-semibold mt-0.5" style={{ color: tab.color }}>
                   Age group: {tab.age}
                 </p>
               </div>
             </div>
-            <p className="text-gray-600 leading-relaxed mb-6">{tab.desc}</p>
+            <p className="leading-relaxed mb-6" style={{ color: 'var(--os-ink-2)' }}>{tab.desc}</p>
 
             {/* Outcomes */}
             <div className="space-y-2 mb-8">
@@ -213,7 +216,7 @@ export function AudienceTabsSection() {
                       <path d="M1 5l3 3 5-6" stroke={tab.color} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </div>
-                  <p className="text-sm text-gray-700">{o}</p>
+                  <p className="text-sm" style={{ color: 'var(--os-ink-2)' }}>{o}</p>
                 </div>
               ))}
             </div>
@@ -221,14 +224,14 @@ export function AudienceTabsSection() {
             <div className="flex flex-wrap gap-3">
               <Link
                 href={`/masterclass?utm_content=${tab.utm}&utm_source=homepage&utm_medium=audience_tab`}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 hover:shadow-lg"
-                style={{ background: tab.color }}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90 hover:shadow-lg"
+                style={{ background: tab.color, color: '#fff' }}
               >
                 Get Certified as {tab.label} →
               </Link>
               <Link
                 href={tab.courseHref}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold border transition-all hover:bg-gray-50"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold border transition-all"
                 style={{ borderColor: `${tab.color}30`, color: tab.color }}
               >
                 Full Course →
@@ -239,7 +242,7 @@ export function AudienceTabsSection() {
           {/* Right — visual info card */}
           <div className="space-y-4">
             {/* Session info */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+            <div className="rounded-2xl border p-5" style={{ background: 'var(--os-surface)', borderColor: 'var(--os-pill-line)', boxShadow: 'var(--os-sh-3d)' }}>
               <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: tab.color }}>
                 Your Certification Session
               </p>
@@ -250,11 +253,11 @@ export function AudienceTabsSection() {
                 ['📧', 'Delivery', 'Issued within 24 hours of attending'],
                 ['💳', 'Investment', 'Starting ₹499 — one-time'],
               ].map(([icon, key, val]) => (
-                <div key={key as string} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
+                <div key={key as string} className="flex items-start gap-3 py-2 border-b last:border-0" style={{ borderColor: 'var(--os-line)' }}>
                   <span className="text-base mt-0.5">{icon}</span>
                   <div>
-                    <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{key}</p>
-                    <p className="text-sm text-gray-800 font-medium">{val}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--os-muted)' }}>{key}</p>
+                    <p className="text-sm font-medium" style={{ color: 'var(--os-ink)' }}>{val}</p>
                   </div>
                 </div>
               ))}
@@ -266,7 +269,7 @@ export function AudienceTabsSection() {
               <p className="text-xs font-bold mb-1" style={{ color: tab.color }}>
                 ⭐ Most Popular in India
               </p>
-              <p className="text-sm text-gray-700">
+              <p className="text-sm" style={{ color: 'var(--os-ink-2)' }}>
                 The <strong>{tab.label}</strong> session is one of oStaran&apos;s most attended sessions,
                 with learners from across India, USA and Canada.
               </p>

@@ -16,22 +16,22 @@ interface CoursesSectionProps {
 
 export function CoursesSection({ courses }: CoursesSectionProps) {
   return (
-    <section className="py-20 px-4" style={{ background: '#f8fafc' }}>
+    <section className="py-20 px-4" style={{ background: 'var(--os-page)' }}>
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-12">
-          <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest bg-indigo-50 text-indigo-700 border border-indigo-100 mb-4">
+          <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border mb-4" style={{ background: 'var(--os-surface)', color: 'var(--os-accent-soft)', borderColor: 'var(--os-pill-line)' }}>
             {courses.length} Programmes Available
           </span>
-          <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-4">
+          <h2 className="text-4xl md:text-5xl font-extrabold mb-4" style={{ color: 'var(--os-ink)' }}>
             AI Programmes & Certifications
           </h2>
-          <p className="text-gray-500 text-lg max-w-2xl mx-auto">
+          <p className="text-lg max-w-2xl mx-auto" style={{ color: 'var(--os-muted)' }}>
             From foundational skills to advanced certifications — live classes, global certificates, lifetime access.
           </p>
         </div>
 
         {courses.length === 0 ? (
-          <p className="text-center text-gray-500 py-12">Courses coming soon.</p>
+          <p className="text-center py-12" style={{ color: 'var(--os-muted)' }}>Courses coming soon.</p>
         ) : (
           <>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -42,7 +42,8 @@ export function CoursesSection({ courses }: CoursesSectionProps) {
             <div className="text-center mt-12 flex flex-wrap gap-4 justify-center">
               <Link
                 href="/courses"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold border border-indigo-200 text-indigo-700 bg-white hover:bg-indigo-50 transition-colors shadow-sm"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold border transition-colors"
+                style={{ background: 'var(--os-surface)', color: 'var(--os-accent)', borderColor: 'var(--os-pill-line)', boxShadow: 'var(--os-sh-sm)' }}
               >
                 View All {courses.length} Programmes
               </Link>

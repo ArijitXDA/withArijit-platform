@@ -34,24 +34,24 @@ function TestimonialCard({ t }: { t: Testimonial }) {
   return (
     <div
       className="shrink-0 w-80 p-5 rounded-2xl border"
-      style={{ background: '#fff', borderColor: '#e5e7eb' }}
+      style={{ background: 'var(--os-surface)', borderColor: 'var(--os-pill-line)', boxShadow: 'var(--os-sh-3d)' }}
     >
       {/* Stars */}
       <div className="flex gap-0.5 mb-3">
         {Array.from({ length: 5 }).map((_, i) => (
-          <span key={i} style={{ color: i < t.rating ? '#f59e0b' : '#d1d5db', fontSize: 14 }}>★</span>
+          <span key={i} style={{ color: i < t.rating ? '#f59e0b' : 'var(--os-faint)', fontSize: 14 }}>★</span>
         ))}
       </div>
       {/* Quote */}
-      <p className="text-sm text-gray-700 leading-relaxed mb-4 line-clamp-4">
+      <p className="text-sm leading-relaxed mb-4 line-clamp-4" style={{ color: 'var(--os-ink-2)' }}>
         &ldquo;{t.feedback}&rdquo;
       </p>
       {/* Author */}
       <div className="flex items-center gap-3">
         <Avatar name={t.full_name} />
         <div>
-          <p className="text-sm font-bold text-gray-900 capitalize">{t.full_name}</p>
-          <p className="text-xs text-indigo-600 font-medium">{shortCourse(t.course_name)}</p>
+          <p className="text-sm font-bold capitalize" style={{ color: 'var(--os-ink)' }}>{t.full_name}</p>
+          <p className="text-xs font-medium" style={{ color: 'var(--os-accent)' }}>{shortCourse(t.course_name)}</p>
         </div>
       </div>
     </div>
@@ -110,15 +110,15 @@ export function TestimonialsMarquee({ testimonials }: { testimonials: Testimonia
   const doubled = [...items, ...items]
 
   return (
-    <section className="py-20 overflow-hidden" style={{ background: '#f8fafc' }}>
+    <section className="py-20 overflow-hidden" style={{ background: 'var(--os-page-2)' }}>
       <div className="max-w-7xl mx-auto px-4 mb-10 text-center">
-        <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest bg-amber-50 text-amber-700 border border-amber-100 mb-4">
+        <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border mb-4" style={{ background: 'var(--os-surface)', color: '#b45309', borderColor: 'var(--os-pill-line)', boxShadow: 'var(--os-sh-3d)' }}>
           ⭐ Real Learner Reviews
         </span>
-        <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-3">
+        <h2 className="text-3xl md:text-4xl font-extrabold mb-3" style={{ color: 'var(--os-ink)' }}>
           What Our Students Say
         </h2>
-        <p className="text-gray-500">
+        <p style={{ color: 'var(--os-muted)' }}>
           Verified 5-star ratings from students who attended and rated their session
         </p>
       </div>

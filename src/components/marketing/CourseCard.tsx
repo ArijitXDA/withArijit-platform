@@ -64,8 +64,8 @@ export function CourseCard({ course }: CourseCardProps) {
   return (
     <Link
       href={`/courses/${course.slug}`}
-      className="group relative flex flex-col rounded-2xl border border-gray-100 overflow-hidden transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:border-transparent bg-white"
-      style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}
+      className="group relative flex flex-col rounded-2xl border overflow-hidden transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:border-transparent"
+      style={{ background: 'var(--os-surface)', borderColor: 'var(--os-pill-line)', boxShadow: 'var(--os-sh-3d)' }}
     >
       {/* ── Accent top bar ─────────────────────────────────────────── */}
       <div className="h-1.5 w-full transition-all duration-300 group-hover:h-2"
@@ -83,40 +83,40 @@ export function CourseCard({ course }: CourseCardProps) {
             {badge}
           </span>
         </div>
-        <p className="mt-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{audience}</p>
+        <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--os-muted)' }}>{audience}</p>
       </div>
 
       {/* ── Card body ──────────────────────────────────────────────── */}
       <div className="flex flex-col flex-1 p-5 pt-3">
-        <h3 className="font-bold text-gray-900 text-base leading-snug mb-2 group-hover:text-indigo-700 transition-colors">
+        <h3 className="font-bold text-base leading-snug mb-2 group-hover:text-indigo-700 transition-colors" style={{ color: 'var(--os-ink)' }}>
           {course.name}
         </h3>
 
         {course.description && (
-          <p className="text-sm text-gray-500 leading-relaxed line-clamp-2 mb-4">{course.description}</p>
+          <p className="text-sm leading-relaxed line-clamp-2 mb-4" style={{ color: 'var(--os-muted)' }}>{course.description}</p>
         )}
 
         {/* ── Session info pills ─────────────────────────────────── */}
         <div className="flex items-center gap-2 flex-wrap mb-4 mt-auto">
-          <span className="flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
-            <Layers size={11} className="text-gray-400" /> {structureLabel}
+          <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border" style={{ color: 'var(--os-ink-2)', background: 'var(--os-surface)', borderColor: 'var(--os-pill-line)' }}>
+            <Layers size={11} style={{ color: 'var(--os-faint)' }} /> {structureLabel}
           </span>
           {duration && (
-            <span className="flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
-              <Clock size={11} className="text-gray-400" /> {duration} min each
+            <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border" style={{ color: 'var(--os-ink-2)', background: 'var(--os-surface)', borderColor: 'var(--os-pill-line)' }}>
+              <Clock size={11} style={{ color: 'var(--os-faint)' }} /> {duration} min each
             </span>
           )}
-          <span className="flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
+          <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border" style={{ color: 'var(--os-ink-2)', background: 'var(--os-surface)', borderColor: 'var(--os-pill-line)' }}>
             <Star size={11} className="text-amber-400 fill-amber-400" /> 4.9 rated
           </span>
         </div>
 
         {/* ── Footer: Price + CTA ────────────────────────────────── */}
-        <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+        <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: 'var(--os-line)' }}>
           <div>
-            <p className="text-xs text-gray-400 leading-none mb-0.5">{isMembership ? 'Monthly membership' : 'Starting from'}</p>
+            <p className="text-xs leading-none mb-0.5" style={{ color: 'var(--os-faint)' }}>{isMembership ? 'Monthly membership' : 'Starting from'}</p>
             <p className="text-xl font-extrabold" style={{ color: accent }}>
-              {course.mrp ? formatPrice(course.mrp) : 'Free'}{isMembership && <span className="text-xs font-medium text-gray-400">/mo</span>}
+              {course.mrp ? formatPrice(course.mrp) : 'Free'}{isMembership && <span className="text-xs font-medium" style={{ color: 'var(--os-faint)' }}>/mo</span>}
             </p>
           </div>
           <div className="flex items-center gap-1 text-sm font-semibold transition-all duration-200 group-hover:gap-2"

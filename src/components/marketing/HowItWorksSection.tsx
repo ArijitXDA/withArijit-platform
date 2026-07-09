@@ -42,18 +42,19 @@ const STEPS = [
 
 export function HowItWorksSection() {
   return (
-    <section className="py-20 px-4" style={{ background: '#f8fafc' }}>
+    <section className="py-20 px-4" style={{ background: 'var(--os-page-2)' }}>
       <div className="max-w-7xl mx-auto">
 
         {/* Header */}
         <div className="text-center mb-14">
-          <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest bg-indigo-50 text-indigo-700 border border-indigo-100 mb-4">
+          <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border mb-4"
+            style={{ background: 'var(--os-surface)', color: 'var(--os-accent-soft)', borderColor: 'var(--os-pill-line)', boxShadow: 'var(--os-sh-sm)' }}>
             Simple 4-Step Journey
           </span>
-          <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-4">
+          <h2 className="text-4xl md:text-5xl font-extrabold mb-4" style={{ color: 'var(--os-ink)' }}>
             How It Works
           </h2>
-          <p className="text-gray-500 text-lg max-w-xl mx-auto">
+          <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--os-muted)' }}>
             From registration to globally recognised AI certificate — in just 90 minutes.
           </p>
         </div>
@@ -62,19 +63,19 @@ export function HowItWorksSection() {
         <div className="grid md:grid-cols-4 gap-6 relative">
           {/* Connector line */}
           <div className="hidden md:block absolute top-10 left-[12.5%] right-[12.5%] h-px"
-            style={{ background: 'linear-gradient(90deg, #4f46e5, #7c3aed)' }} />
+            style={{ background: 'var(--os-cta-grad)' }} />
 
           {STEPS.map(({ step, icon: Icon, title, desc, color, bg, cta }) => (
             <div key={step} className="relative flex flex-col items-center text-center">
               {/* Step bubble */}
-              <div className="relative w-20 h-20 rounded-2xl flex flex-col items-center justify-center mb-6 border-2 bg-white transition-all duration-300 hover:scale-105"
-                style={{ borderColor: color, boxShadow: `0 8px 24px ${color}20` }}>
+              <div className="relative w-20 h-20 rounded-2xl flex flex-col items-center justify-center mb-6 border-2 transition-all duration-300 hover:scale-105"
+                style={{ background: 'var(--os-surface)', borderColor: color, boxShadow: `0 8px 24px ${color}20` }}>
                 <Icon size={24} style={{ color }} />
                 <span className="text-[10px] font-black mt-0.5" style={{ color }}>{step}</span>
               </div>
 
-              <h3 className="font-bold text-gray-900 text-base mb-2">{title}</h3>
-              <p className="text-sm text-gray-500 leading-relaxed mb-4">{desc}</p>
+              <h3 className="font-bold text-base mb-2" style={{ color: 'var(--os-ink)' }}>{title}</h3>
+              <p className="text-sm leading-relaxed mb-4" style={{ color: 'var(--os-muted)' }}>{desc}</p>
 
               {cta && (
                 <Link href={cta.href}

@@ -10,18 +10,18 @@ import { Target, Search, ArrowRight, CheckCircle } from 'lucide-react'
  */
 export function GetHiredSection() {
   return (
-    <section className="py-20 px-4 bg-white">
+    <section className="py-20 px-4" style={{ background: 'var(--os-page-2)' }}>
       <div className="max-w-7xl mx-auto">
         <div
           className="rounded-3xl overflow-hidden p-10 md:p-14"
-          style={{ background: 'linear-gradient(135deg, #04111a, #06251f, #0a2233)' }}
+          style={{ background: 'var(--os-page)' }}
         >
           {/* Header */}
           <div className="text-center max-w-3xl mx-auto mb-10">
             <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 mb-5">
               Placement &amp; Hiring
             </span>
-            <h2 className="text-3xl md:text-5xl font-extrabold text-white mb-4 tracking-tight">
+            <h2 className="text-3xl md:text-5xl font-extrabold mb-4 tracking-tight" style={{ color: 'var(--os-ink)' }}>
               Get Certified. Get Discovered.{' '}
               <span style={{
                 background: 'linear-gradient(135deg, #34d399, #22d3ee)',
@@ -32,8 +32,8 @@ export function GetHiredSection() {
                 Get Hired.
               </span>
             </h2>
-            <p className="text-emerald-100/80 text-lg leading-relaxed">
-              <strong className="text-white">95% of our learners are placement-ready.</strong> Submit your
+            <p className="text-lg leading-relaxed" style={{ color: 'var(--os-ink-2)' }}>
+              <strong style={{ color: 'var(--os-ink)' }}>95% of our learners are placement-ready.</strong> Submit your
               resume once and get matched to AI, agentic-AI &amp; quantum roles across our hiring-partner
               network — or, if you&apos;re hiring, search certified AI talent directly.
             </p>
@@ -43,18 +43,18 @@ export function GetHiredSection() {
           <div className="grid md:grid-cols-2 gap-5 max-w-4xl mx-auto">
 
             {/* For learners */}
-            <div className="rounded-2xl bg-white/5 border border-white/10 p-7 flex flex-col">
+            <div className="rounded-2xl border p-7 flex flex-col" style={{ background: 'var(--os-surface)', borderColor: 'var(--os-line)', boxShadow: 'var(--os-sh-3d)' }}>
               <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center mb-5">
                 <Target size={22} className="text-emerald-300" />
               </div>
-              <h3 className="text-white font-bold text-xl mb-2">Looking for an AI role?</h3>
-              <p className="text-slate-300 text-sm leading-relaxed mb-5">
+              <h3 className="font-bold text-xl mb-2" style={{ color: 'var(--os-ink)' }}>Looking for an AI role?</h3>
+              <p className="text-sm leading-relaxed mb-5" style={{ color: 'var(--os-ink-2)' }}>
                 Submit your resume once — we match you to AI roles opening across our hiring-partner network
                 and point you to the programme that bridges any gap.
               </p>
               <ul className="space-y-2 mb-7">
                 {['One resume, many opportunities', 'Free — no payment needed', 'Your data stays private'].map(t => (
-                  <li key={t} className="flex items-center gap-2 text-sm text-slate-200">
+                  <li key={t} className="flex items-center gap-2 text-sm" style={{ color: 'var(--os-ink-2)' }}>
                     <CheckCircle size={15} className="text-emerald-400 shrink-0" /> {t}
                   </li>
                 ))}
@@ -68,18 +68,18 @@ export function GetHiredSection() {
             </div>
 
             {/* For recruiters */}
-            <div className="rounded-2xl bg-white/5 border border-white/10 p-7 flex flex-col">
+            <div className="rounded-2xl border p-7 flex flex-col" style={{ background: 'var(--os-surface)', borderColor: 'var(--os-line)', boxShadow: 'var(--os-sh-3d)' }}>
               <div className="w-12 h-12 rounded-xl bg-cyan-500/20 flex items-center justify-center mb-5">
                 <Search size={22} className="text-cyan-300" />
               </div>
-              <h3 className="text-white font-bold text-xl mb-2">Hiring AI-ready talent?</h3>
-              <p className="text-slate-300 text-sm leading-relaxed mb-5">
+              <h3 className="font-bold text-xl mb-2" style={{ color: 'var(--os-ink)' }}>Hiring AI-ready talent?</h3>
+              <p className="text-sm leading-relaxed mb-5" style={{ color: 'var(--os-ink-2)' }}>
                 Search certified AI candidates by skill, location, experience, education and compensation —
                 straight from our pool of trained, job-ready learners.
               </p>
               <ul className="space-y-2 mb-7">
                 {['50,000+ certified candidates', 'Filter by skill, location & experience', 'Post roles, get matched applicants'].map(t => (
-                  <li key={t} className="flex items-center gap-2 text-sm text-slate-200">
+                  <li key={t} className="flex items-center gap-2 text-sm" style={{ color: 'var(--os-ink-2)' }}>
                     <CheckCircle size={15} className="text-cyan-400 shrink-0" /> {t}
                   </li>
                 ))}

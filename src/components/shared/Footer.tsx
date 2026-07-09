@@ -53,11 +53,11 @@ const TRUST_BADGES = [
 
 export function Footer() {
   return (
-    <footer className="bg-gray-950 text-gray-400 pt-16 pb-8 mt-20">
+    <footer className="pt-16 pb-8 mt-20" style={{ background: 'var(--os-page)', color: 'var(--os-muted)' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* ── Top: Brand + Contact + Social ──────────────────────────── */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10 pb-12 border-b border-gray-800 mb-12">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10 pb-12 border-b mb-12" style={{ borderColor: 'var(--os-line)' }}>
 
           {/* Brand block */}
           <div className="space-y-4">
@@ -66,7 +66,7 @@ export function Footer() {
                 <Image src="/ostaran-logo.png" alt="oStaran" width={120} height={40} className="h-9 w-auto object-contain" />
               </div>
             </Link>
-            <p className="text-sm text-gray-400 leading-relaxed max-w-xs">
+            <p className="text-sm leading-relaxed max-w-xs" style={{ color: 'var(--os-muted)' }}>
               India&apos;s enterprise-grade AI education platform. Globally recognised certifications,
               live classes, and career-transforming programmes for every stage of your journey.
             </p>
@@ -74,7 +74,8 @@ export function Footer() {
               {SOCIAL_LINKS.map(({ href, Icon, label }) => (
                 <a key={label} href={href} target="_blank" rel="noopener noreferrer"
                   aria-label={label}
-                  className="w-9 h-9 rounded-lg flex items-center justify-center bg-gray-800 hover:bg-indigo-600 text-gray-400 hover:text-white transition-all">
+                  className="w-9 h-9 rounded-lg flex items-center justify-center border bg-[var(--os-surface)] text-[color:var(--os-muted)] hover:bg-indigo-600 hover:text-white transition-all"
+                  style={{ borderColor: 'var(--os-pill-line)', boxShadow: 'var(--os-sh-sm)' }}>
                   <Icon size={16} />
                 </a>
               ))}
@@ -83,45 +84,45 @@ export function Footer() {
 
           {/* Contact block */}
           <div className="space-y-4">
-            <h3 className="text-white font-semibold text-sm">Contact & Support</h3>
+            <h3 className="font-semibold text-sm" style={{ color: 'var(--os-ink)' }}>Contact & Support</h3>
             <div className="space-y-3">
-              <a href="mailto:ai@ostaran.com" className="flex items-center gap-2.5 text-sm text-gray-400 hover:text-white transition-colors group">
-                <Mail size={14} className="text-indigo-400 shrink-0" />
+              <a href="mailto:ai@ostaran.com" className="flex items-center gap-2.5 text-sm text-[color:var(--os-muted)] hover:text-[color:var(--os-ink)] transition-colors group">
+                <Mail size={14} className="shrink-0" style={{ color: 'var(--os-accent)' }} />
                 <span>ai@ostaran.com</span>
               </a>
               <a href="https://wa.me/919930051053" target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2.5 text-sm text-gray-400 hover:text-white transition-colors group">
+                className="flex items-center gap-2.5 text-sm text-[color:var(--os-muted)] hover:text-[color:var(--os-ink)] transition-colors group">
                 <Phone size={14} className="text-green-400 shrink-0" />
                 <span>+91 99300 51053 — Mon–Sat, 10am–6pm IST</span>
               </a>
-              <div className="flex items-start gap-2.5 text-sm text-gray-500">
-                <MapPin size={14} className="text-gray-500 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2.5 text-sm" style={{ color: 'var(--os-faint)' }}>
+                <MapPin size={14} className="shrink-0 mt-0.5" style={{ color: 'var(--os-faint)' }} />
                 <div>
-                  <p className="text-gray-400 font-medium">Star Analytix Pvt Ltd</p>
+                  <p className="font-medium" style={{ color: 'var(--os-muted)' }}>Star Analytix Pvt Ltd</p>
                   <p>Mira Road East, Mumbai</p>
                   <p>Maharashtra, India — 401107</p>
                 </div>
               </div>
-              <p className="text-xs text-gray-600 pt-1">
-                Grievance Officer · <a href="mailto:grievance@ostaran.com" className="hover:text-gray-400 underline">grievance@ostaran.com</a>
+              <p className="text-xs pt-1" style={{ color: 'var(--os-faint)' }}>
+                Grievance Officer · <a href="mailto:grievance@ostaran.com" className="hover:text-[color:var(--os-muted)] underline">grievance@ostaran.com</a>
               </p>
             </div>
           </div>
 
           {/* Trust badges */}
           <div className="space-y-4">
-            <h3 className="text-white font-semibold text-sm">Trusted & Recognised</h3>
+            <h3 className="font-semibold text-sm" style={{ color: 'var(--os-ink)' }}>Trusted & Recognised</h3>
             <div className="grid grid-cols-2 gap-2.5">
               {TRUST_BADGES.map(({ label, emoji }) => (
-                <div key={label} className="flex items-center gap-2 bg-gray-900 rounded-xl px-3 py-2.5 border border-gray-800">
+                <div key={label} className="flex items-center gap-2 rounded-xl px-3 py-2.5 border" style={{ background: 'var(--os-surface)', borderColor: 'var(--os-pill-line)', boxShadow: 'var(--os-sh-3d)' }}>
                   <span className="text-base">{emoji}</span>
-                  <span className="text-xs text-gray-400 leading-tight">{label}</span>
+                  <span className="text-xs leading-tight" style={{ color: 'var(--os-muted)' }}>{label}</span>
                 </div>
               ))}
             </div>
             <Link href="/contact?type=corporate"
-              className="inline-flex items-center gap-1.5 mt-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
+              className="inline-flex items-center gap-1.5 mt-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+              style={{ background: 'var(--os-cta-grad)', color: '#fff', boxShadow: 'var(--os-sh-btn)' }}>
               Enterprise Enquiry →
             </Link>
           </div>
@@ -131,11 +132,11 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
           {Object.entries(FOOTER_LINKS).map(([section, links]) => (
             <div key={section}>
-              <p className="text-white font-semibold text-sm mb-4">{section}</p>
+              <p className="font-semibold text-sm mb-4" style={{ color: 'var(--os-ink)' }}>{section}</p>
               <ul className="space-y-2">
                 {links.map(link => (
                   <li key={link.href + link.label}>
-                    <Link href={link.href} className="text-sm text-gray-500 hover:text-gray-200 transition-colors">
+                    <Link href={link.href} className="text-sm text-[color:var(--os-faint)] hover:text-[color:var(--os-ink)] transition-colors">
                       {link.label}
                     </Link>
                   </li>
@@ -146,17 +147,17 @@ export function Footer() {
         </div>
 
         {/* ── Bottom bar ──────────────────────────────────────────────── */}
-        <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4" style={{ borderColor: 'var(--os-line)' }}>
           <div className="flex items-center gap-4">
             <div className="rounded overflow-hidden opacity-40" style={{ background: '#000', padding: '1px 6px' }}>
               <Image src="/ostaran-logo.png" alt="oStaran" width={70} height={23} className="h-4 w-auto object-contain" />
             </div>
-            <p className="text-xs text-gray-600">
+            <p className="text-xs" style={{ color: 'var(--os-faint)' }}>
               © {new Date().getFullYear()} Star Analytix Pvt Ltd. All rights reserved.
             </p>
           </div>
-          <p className="text-xs text-gray-700">
-            Empowering India with AI · <a href="mailto:ai@ostaran.com" className="hover:text-gray-500 transition-colors">ai@ostaran.com</a>
+          <p className="text-xs" style={{ color: 'var(--os-faint)' }}>
+            Empowering India with AI · <a href="mailto:ai@ostaran.com" className="hover:text-[color:var(--os-muted)] transition-colors">ai@ostaran.com</a>
           </p>
         </div>
 

@@ -11,15 +11,15 @@ export function TrustBar() {
   return (
     <section
       className="py-6 px-4 border-b"
-      style={{ background: '#05051a', borderColor: 'rgba(255,255,255,0.06)' }}
+      style={{ background: 'var(--os-page)', borderColor: 'var(--os-line)' }}
     >
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-wrap items-center justify-center gap-6 md:gap-10">
           {STATS.map(({ emoji, value, label }) => (
             <div key={label} className="flex items-center gap-2 text-sm whitespace-nowrap">
               <span className="text-base">{emoji}</span>
-              <span className="font-black" style={{ color: '#a78bfa' }}>{value}</span>
-              <span style={{ color: '#475569' }}>{label}</span>
+              <span className="font-black" style={{ color: 'var(--os-accent)' }}>{value}</span>
+              <span style={{ color: 'var(--os-faint)' }}>{label}</span>
             </div>
           ))}
         </div>

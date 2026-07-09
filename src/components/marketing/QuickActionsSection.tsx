@@ -66,14 +66,14 @@ const ACTIONS = [
 
 export function QuickActionsSection() {
   return (
-    <section className="py-16 px-4" style={{ background: '#070718' }}>
+    <section className="py-16 px-4" style={{ background: 'var(--os-page)' }}>
       <div className="max-w-7xl mx-auto">
 
         <div className="text-center mb-10">
-          <h2 className="text-2xl md:text-3xl font-extrabold text-white mb-2">
+          <h2 className="text-2xl md:text-3xl font-extrabold mb-2" style={{ color: 'var(--os-ink)' }}>
             What would you like to do?
           </h2>
-          <p style={{ color: '#64748b' }} className="text-sm">
+          <p style={{ color: 'var(--os-faint)' }} className="text-sm">
             Quick access to everything oStaran offers
           </p>
         </div>
@@ -107,8 +107,9 @@ function ActionCard({ action, featured = false }: { action: typeof ACTIONS[0]; f
       {...linkProps as any}
       className="group relative flex flex-col p-6 rounded-3xl border overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl block"
       style={{
-        background: 'rgba(255,255,255,0.03)',
+        background: 'var(--os-surface)',
         borderColor: `${action.color}30`,
+        boxShadow: 'var(--os-sh-3d)',
         minHeight: featured ? 280 : 160,
       }}
     >
@@ -125,7 +126,7 @@ function ActionCard({ action, featured = false }: { action: typeof ACTIONS[0]; f
         <div className="text-3xl mb-3">{action.emoji}</div>
 
         {/* Label */}
-        <h3 className={`font-extrabold text-white mb-1 ${featured ? 'text-2xl' : 'text-base'}`}>
+        <h3 className={`font-extrabold mb-1 ${featured ? 'text-2xl' : 'text-base'}`} style={{ color: 'var(--os-ink)' }}>
           {action.label}
         </h3>
 
@@ -135,7 +136,7 @@ function ActionCard({ action, featured = false }: { action: typeof ACTIONS[0]; f
         </p>
 
         {/* Detail */}
-        <p className="text-xs leading-relaxed flex-1" style={{ color: '#64748b' }}>
+        <p className="text-xs leading-relaxed flex-1" style={{ color: 'var(--os-faint)' }}>
           {action.detail}
         </p>
 

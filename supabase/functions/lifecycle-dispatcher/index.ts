@@ -191,6 +191,11 @@ function resolveCtaTarget(templateKey: string, ctx: Record<string, unknown>): st
     case 'wa_e5_contact_reply':     return `${SITE_BASE}/courses/${slug}${partnerQ}`;
     case 'wa_s4_programme_welcome': return `${SITE_BASE}/dashboard`;
     case 'wa_s4_welcome_wa_v1':     return `${SITE_BASE}/dashboard`;
+    case 'wa_s10_seat_held_v1':     return `${SITE_BASE}/courses/${slug}${partnerQ}`;
+    case 'wa_s10_last_reminder_v1': return `${SITE_BASE}/courses/${slug}${partnerQ}`;
+    case 'wa_s9_referral_wa_v1':    return `${SITE_BASE}/become-a-partner`;
+    case 'wa_m1_keep_edge_v1':      return `${SITE_BASE}/courses/quantum-ai-continued${partnerQ}`;
+    case 'wa_m1_alumni_rate_v1':    return `${SITE_BASE}/courses/quantum-ai-continued${partnerQ}`;
     case 'wa_s9_alumni_referral':   return `${SITE_BASE}/become-a-partner`;
     case 'wa_p1_welcome_tour':      return 'https://partner.ostaran.com/watch/partner-tutorial';
     case 'wa_p4_weekly_pulse':      return 'https://partner.ostaran.com/dashboard';
@@ -414,19 +419,19 @@ async function buildVars(supabase: SupabaseClient, enrolment: { id: string; emai
       }
     }
   }
-  if (sequenceKey.startsWith('e2_') || sequenceKey.startsWith('e3_') || sequenceKey.startsWith('e5_') || sequenceKey.startsWith('e6_') || sequenceKey.startsWith('x1_')) {
+  if (sequenceKey.startsWith('e1_') || sequenceKey.startsWith('e2_') || sequenceKey.startsWith('e3_') || sequenceKey.startsWith('e5_') || sequenceKey.startsWith('e6_') || sequenceKey.startsWith('x1_')) {
     vars.webinar_register_url = await resolveWebinarRegisterUrl(supabase, ctx, enrolment.email, sequenceKey);
   }
   if (templateKey === 'wa_e4_resume_pathway' || templateKey === 'wa_e5_contact_reply' || templateKey === 'wa_s9_alumni_referral') {
     vars.audience_label = AUDIENCE_LABEL[(ctx.profession_choice as string) || ''] || 'AI learner';
   }
-  if (templateKey === 'wa_s4_programme_welcome' && (!vars.course_name || vars.course_name.trim() === '')) {
+  if ((templateKey === 'wa_s4_programme_welcome' || templateKey === 'wa_s10_seat_held_v1') && (!vars.course_name || vars.course_name.trim() === '')) {
     vars.course_name = 'your AI programme';
   }
   if (sequenceKey === 's3_paidmc_noshow_reengage') await resolveNoShowVars(supabase, enrolment.email, 'masterclass', vars);
   else if (sequenceKey === 's7_free_webinar_noshow_recovery') await resolveNoShowVars(supabase, enrolment.email, 'webinar', vars);
   if (templateKey === 'wa_s2_complete_payment_v1') vars.masterclass_payment_url = await resolveMasterclassPaymentUrl(supabase, ctx, enrolment.email);
-  if (sequenceKey === 'p1_partner_welcome_onboarding' || sequenceKey === 'p2_partner_first_student_referral' || sequenceKey === 'p3_partner_first_commission' || sequenceKey === 'p4_partner_weekly_pulse' || sequenceKey === 'p5_subpartner_added' || sequenceKey === 'p6_partner_dormancy_recovery') {
+  if (sequenceKey === 'p1_partner_welcome_onboarding' || sequenceKey === 'p2_partner_first_student_referral' || sequenceKey === 'p3_partner_first_commission' || sequenceKey === 'p4_partner_weekly_pulse' || sequenceKey === 'p5_subpartner_added' || sequenceKey === 'p6_partner_dormancy_recovery' || sequenceKey === 'p7_first_referral_activation') {
     await resolvePartnerProfileVars(supabase, enrolment.email, ctx, vars);
     if (webinarDate && !vars.webinar_date_display) vars.webinar_date_display = fmtDate(webinarDate);
   }

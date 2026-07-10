@@ -2,31 +2,24 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 /**
- * lifecycle-dispatcher v10 (S6/S8 conversion-drip vars)
+ * lifecycle-dispatcher v16 (body-link bite campaigns live: BITE_BY_PROFESSION -> *_link)
  *
- * v10: buildVars resolves student_type_label, enrol_button_suffix and
- *      partner_name for the S6/S8 sequences only — needed by the ported
- *      conversion-nudge steps (AiSensy nudge_1..5 campaigns + nudge emails).
- *      Additive: no existing template declares these vars, so behaviour for
- *      every other step is unchanged.
- *
- * v8: From-line standardised to brand/department senders (no individual name).
- *     Student-track sequences send from 'oStaran AI Education'; partner-track
- *     (sequence.track === 'partner') from 'oStaran Partner Support'. Logic and
- *     templates otherwise unchanged.
- *
- * v7 (Phase N — partner track support):
- *   - ctx → vars fallback: any primitive value in enrolment.context auto-populates vars.
- *   - resolvePartnerProfileVars() for partner-track sequences (P1-P6).
- *   - resolveNextPartnerWebinar() for em_p1_week1_checkin_v1.
- *   - Partner-track unsubscribe URL points to partner.ostaran.com.
- *   - Dual-write to partner_comms_log on partner-track sends.
- *
- * v6: Phase K — no-show + S2 payment URL resolvers.
- * v5: Phase F bug — resolveWebinarRegisterUrl direct to webinar.ostaran.com.
- * v4: Phase F — webinar_register_url with partner-code priority chain.
- * v3: Phase C — S6 partner-aware branched vars.
- * v2: correctness pass — strict variables_declared validation.
+ * v16: the 6 audience bite campaigns + general now point at the Meta-approved BODY-LINK
+ *      templates (wa_bite_*_link) — the tracked /l/ short link rides as the LAST body
+ *      variable (comms_url) instead of a button. wa_e4/wa_e5 switched to *_link via their
+ *      template rows (aisensy_campaign_name + comms_url appended to aisensy_param_order).
+ *      IMPORTANT: comms_url is minted AFTER validateRequiredVars, so it must NEVER be
+ *      declared in variables_declared (only in aisensy_param_order) or the enrolment exits.
+ * v15: shortToken() -> 8 chars (6 random bytes). Tokenised links are now offered as
+ *      BOTH comms_token (raw token) AND comms_url (the full https://ostaran.com/l/<token>,
+ *      apex = shortest visible URL) so a WhatsApp BODY variable can carry the tracked link.
+ *      Minting fires when EITHER comms_token OR comms_url is in the template param order.
+ *      resolveCtaTarget appends ?partner=<code> to the /watch and /courses targets.
+ * v14: resolveEnrolUrl / resolveEnrolUrlS6 / the warm /videos link also carry &partner=.
+ * v12.1: token minting gated on comms_token in aisensy_param_order; bite step always
+ *      selects the audience campaign; audience_label also resolved for wa_s9.
+ * v12:  tokenised /l/<token> CTA support + audience bite selection (wa_video_bite).
+ * v11:  resolveWebinarRegisterUrl warm-aware (already-registered -> /videos).
  */
 
 const CORS = {
@@ -37,13 +30,13 @@ const CORS = {
 
 const AISENSY_API_URL = 'https://backend.aisensy.com/campaign/t1/api/v2';
 const RESEND_API_URL  = 'https://api.resend.com/emails';
-// Canonical brand/department senders (never an individual person's name).
 const SENDERS = {
   student: 'oStaran AI Education <ai@ostaran.com>',
   partner: 'oStaran Partner Support <ai@ostaran.com>',
 };
 const BCC_EMAIL       = 'star.analytix.ai@gmail.com';
 const SITE_BASE       = 'https://www.ostaran.com';
+const LINK_BASE       = 'https://ostaran.com';
 const JOIN_BASE       = 'https://partner.ostaran.com/join';
 const MAX_FAILURES    = 3;
 const BACKOFF_MINUTES = [5, 30, 120];
@@ -59,7 +52,6 @@ const AUDIENCE_TO_SLUG: Record<string, string> = {
 };
 const DEFAULT_SLUG = 'ai-mastery-programme';
 
-// v10 — human labels for the nudge campaigns' {{2}} param
 const PROFESSION_TO_LABEL: Record<string, string> = {
   working_professional:    'Working Professional',
   college_student:         'College Student',
@@ -69,6 +61,30 @@ const PROFESSION_TO_LABEL: Record<string, string> = {
   data_engineer_scientist: 'Tech Developer',
   home_maker:              'Working Professional',
 };
+
+const AUDIENCE_LABEL: Record<string, string> = {
+  working_professional:    'Working Professional',
+  college_student:         'Student',
+  job_seeker:              'Job Seeker',
+  school_student:          'School Student',
+  tech_developer:          'Developer',
+  data_engineer_scientist: 'Data Scientist',
+  home_maker:              'Career Returner',
+};
+
+const BITE_BY_PROFESSION: Record<string, { campaign: string; slug: string | null }> = {
+  working_professional:    { campaign: 'wa_bite_working_pro_link', slug: 'ai-mastery-for-working-professionals' },
+  college_student:         { campaign: 'wa_bite_student_link',     slug: 'ai-mastery-for-students' },
+  job_seeker:              { campaign: 'wa_bite_student_link',     slug: 'ai-mastery-for-students' },
+  school_student:          { campaign: 'wa_bite_school_link',      slug: 'ai-mastery-for-school-students' },
+  tech_developer:          { campaign: 'wa_bite_developer_link',   slug: 'agentic-ai-development' },
+  data_engineer_scientist: { campaign: 'wa_bite_developer_link',   slug: 'agentic-ai-development' },
+  home_maker:              { campaign: 'wa_bite_homemaker_link',   slug: 'ai-mastery-for-homemakers' },
+};
+const BITE_DEFAULT = { campaign: 'wa_bite_general_link', slug: null as string | null };
+function biteFor(profession: string | undefined | null): { campaign: string; slug: string | null } {
+  return (profession && BITE_BY_PROFESSION[profession]) || BITE_DEFAULT;
+}
 
 function fmtDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '';
@@ -162,26 +178,88 @@ function audienceSlug(ctx: Record<string, unknown>): string {
   return (profession && AUDIENCE_TO_SLUG[profession]) || DEFAULT_SLUG;
 }
 
+function resolveCtaTarget(templateKey: string, ctx: Record<string, unknown>): string | null {
+  const code = ((ctx.partner_code as string) || '').trim();
+  const partnerQ = code ? `?partner=${encodeURIComponent(code)}` : '';
+  if (templateKey === 'wa_video_bite') {
+    const b = biteFor(ctx.profession_choice as string | undefined);
+    return b.slug ? `${SITE_BASE}/watch/${b.slug}${partnerQ}` : `${SITE_BASE}/videos${partnerQ}`;
+  }
+  const slug = audienceSlug(ctx);
+  switch (templateKey) {
+    case 'wa_e4_resume_pathway':    return `${SITE_BASE}/courses/${slug}${partnerQ}`;
+    case 'wa_e5_contact_reply':     return `${SITE_BASE}/courses/${slug}${partnerQ}`;
+    case 'wa_s4_programme_welcome': return `${SITE_BASE}/dashboard`;
+    case 'wa_s4_welcome_wa_v1':     return `${SITE_BASE}/dashboard`;
+    case 'wa_s9_alumni_referral':   return `${SITE_BASE}/become-a-partner`;
+    case 'wa_p1_welcome_tour':      return 'https://partner.ostaran.com/watch/partner-tutorial';
+    case 'wa_p4_weekly_pulse':      return 'https://partner.ostaran.com/dashboard';
+    case 'wa_r1_recruiter_welcome': return 'https://partner.ostaran.com/recruit/jobs';
+    case 'wa_r2_recruiter_live':    return 'https://partner.ostaran.com/recruit/dashboard';
+    default: return null;
+  }
+}
+
+function shortToken(): string {
+  const b = new Uint8Array(6);
+  crypto.getRandomValues(b);
+  let s = '';
+  for (const x of b) s += String.fromCharCode(x);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function mintCommsLink(supabase: SupabaseClient, row: { target_url: string; channel: string; template_key: string; sequence_key: string; enrolment_id: string; contact_email: string; contact_mobile: string | null; audience: string | null }): Promise<string> {
+  const token = shortToken();
+  try {
+    await supabase.from('comms_link').insert({ token, ...row });
+  } catch (err) {
+    console.warn('[lifecycle-dispatcher] comms_link mint failed:', (err as Error).message);
+  }
+  return token;
+}
+
+// v14 — course enrol link carries &partner=<code> (sets ost_partner cookie -> discount banner).
 function resolveEnrolUrl(ctx: Record<string, unknown>): string {
   const slug = audienceSlug(ctx);
-  const partner = ctx.partner_code ? `&utm_medium=${encodeURIComponent(String(ctx.partner_code))}` : '';
+  const code = ((ctx.partner_code as string) || '').trim();
+  const partner = code ? `&utm_medium=${encodeURIComponent(code)}&partner=${encodeURIComponent(code)}` : '';
   return `${SITE_BASE}/courses/${slug}?utm_source=lifecycle_s8&utm_campaign=post_masterclass${partner}`;
 }
 
 function resolveEnrolUrlS6(ctx: Record<string, unknown>): string {
   const slug = audienceSlug(ctx);
-  const partner = ctx.partner_code ? `&utm_medium=${encodeURIComponent(String(ctx.partner_code))}` : '';
+  const code = ((ctx.partner_code as string) || '').trim();
+  const partner = code ? `&utm_medium=${encodeURIComponent(code)}&partner=${encodeURIComponent(code)}` : '';
   return `${SITE_BASE}/courses/${slug}?utm_source=lifecycle_s6&utm_campaign=post_webinar_upsell${partner}`;
 }
 
+async function isWarmContact(supabase: SupabaseClient, email: string): Promise<boolean> {
+  const e = email.toLowerCase();
+  const { data: reg } = await supabase.from('qr_landing_registrations').select('id').eq('email', e).limit(1).maybeSingle();
+  if (reg) return true;
+  const { data: enr } = await supabase.from('student_enrolments').select('id').eq('student_email', e).limit(1).maybeSingle();
+  return !!enr;
+}
+
+function code_free(ctx: Record<string, unknown>): string {
+  const c = ((ctx.partner_code as string) || '').trim();
+  return c || 'organic';
+}
+
 async function resolveWebinarRegisterUrl(supabase: SupabaseClient, ctx: Record<string, unknown>, email: string, sequenceKey: string): Promise<string> {
+  const seqShort = sequenceKey.split('_')[0];
+  if (await isWarmContact(supabase, email)) {
+    const code = ((ctx.partner_code as string) || '').trim();
+    const vp = new URLSearchParams({ utm_source: code_free(ctx), utm_medium: 'email', utm_campaign: `lifecycle_${seqShort}_warm` });
+    if (code) vp.set('partner', code);
+    return `${SITE_BASE}/videos?${vp.toString()}`;
+  }
   let code = ((ctx.partner_code as string) || '').trim();
   if (!code) {
     const { data } = await supabase.from('qr_landing_registrations').select('utm_source').eq('email', email.toLowerCase()).not('utm_source', 'is', null).neq('utm_source', '').order('created_at', { ascending: false }).limit(1).maybeSingle();
     if (data?.utm_source) code = String(data.utm_source).trim();
   }
   if (!code) code = 'ARIBOMBAY-0326';
-  const seqShort = sequenceKey.split('_')[0];
   const params = new URLSearchParams({ utm_source: code, utm_medium: 'email', utm_campaign: `lifecycle_${seqShort}` });
   return `https://webinar.ostaran.com/?${params.toString()}`;
 }
@@ -285,7 +363,6 @@ async function buildVars(supabase: SupabaseClient, enrolment: { id: string; emai
   const fullName = (ctx.full_name as string) || '';
   const webinarDate = (ctx.webinar_date as string) || '';
   const webinarTime = (ctx.webinar_time as string) || '';
-  // Phase N — ctx → vars fallback
   const vars: Record<string, string> = {};
   for (const [k, v] of Object.entries(ctx)) {
     if (v === null || v === undefined) continue;
@@ -319,7 +396,6 @@ async function buildVars(supabase: SupabaseClient, enrolment: { id: string; emai
     vars.enrol_url = resolveEnrolUrlS6(ctx);
     await buildS6PartnerVars(supabase, ctx, vars);
   }
-  // v10 — conversion-drip vars (nudge_1..5 campaigns + ported nudge emails), S6/S8 only.
   if (sequenceKey === 's6_post_free_webinar_upsell' || sequenceKey === 's8_post_paid_masterclass_enrol') {
     vars.student_type_label = PROFESSION_TO_LABEL[(ctx.profession_choice as string) || ''] || 'Professional';
     const sp = new URLSearchParams();
@@ -341,10 +417,15 @@ async function buildVars(supabase: SupabaseClient, enrolment: { id: string; emai
   if (sequenceKey.startsWith('e2_') || sequenceKey.startsWith('e3_') || sequenceKey.startsWith('e5_') || sequenceKey.startsWith('e6_') || sequenceKey.startsWith('x1_')) {
     vars.webinar_register_url = await resolveWebinarRegisterUrl(supabase, ctx, enrolment.email, sequenceKey);
   }
+  if (templateKey === 'wa_e4_resume_pathway' || templateKey === 'wa_e5_contact_reply' || templateKey === 'wa_s9_alumni_referral') {
+    vars.audience_label = AUDIENCE_LABEL[(ctx.profession_choice as string) || ''] || 'AI learner';
+  }
+  if (templateKey === 'wa_s4_programme_welcome' && (!vars.course_name || vars.course_name.trim() === '')) {
+    vars.course_name = 'your AI programme';
+  }
   if (sequenceKey === 's3_paidmc_noshow_reengage') await resolveNoShowVars(supabase, enrolment.email, 'masterclass', vars);
   else if (sequenceKey === 's7_free_webinar_noshow_recovery') await resolveNoShowVars(supabase, enrolment.email, 'webinar', vars);
   if (templateKey === 'wa_s2_complete_payment_v1') vars.masterclass_payment_url = await resolveMasterclassPaymentUrl(supabase, ctx, enrolment.email);
-  // Phase N — Partner-track sequences
   if (sequenceKey === 'p1_partner_welcome_onboarding' || sequenceKey === 'p2_partner_first_student_referral' || sequenceKey === 'p3_partner_first_commission' || sequenceKey === 'p4_partner_weekly_pulse' || sequenceKey === 'p5_subpartner_added' || sequenceKey === 'p6_partner_dormancy_recovery') {
     await resolvePartnerProfileVars(supabase, enrolment.email, ctx, vars);
     if (webinarDate && !vars.webinar_date_display) vars.webinar_date_display = fmtDate(webinarDate);
@@ -486,7 +567,7 @@ async function processEnrolment(supabase: SupabaseClient, resendKey: string, aiS
     }
     return { enrolment_id: enrolmentId, outcome: 'exited', detail: reason };
   }
-  if (dryRun) return { enrolment_id: enrolmentId, outcome: 'sent', detail: `DRY_RUN ${template.channel} -> ${enrolment.email} via ${template.template_key} (vars OK)` };
+  if (dryRun) return { enrolment_id: enrolmentId, outcome: 'sent', detail: `DRY_RUN ${template.channel} -> ${enrolment.email} via ${template.template_key} (campaign ${template.template_key === 'wa_video_bite' ? biteFor((enrolment.context as Record<string, unknown>)?.profession_choice as string | undefined).campaign : (template.aisensy_campaign_name || 'n/a')}) (vars OK) params=[${((template.aisensy_param_order as string[]) || []).join(',')}]` };
   let result: SendResult;
   if (template.channel === 'email') {
     if (idemSent) result = { ok: true, provider_id: 'idempotent_skip' };
@@ -504,13 +585,23 @@ async function processEnrolment(supabase: SupabaseClient, resendKey: string, aiS
       return advanceStep(supabase, enrolment, sequence, step.step_index, dryRun, 'no_mobile');
     } else if (idemSent) result = { ok: true, provider_id: 'idempotent_skip' };
     else {
-      const params = (template.aisensy_param_order as string[] | null || []).map(k => vars[k] ?? '');
+      let campaignName = template.aisensy_campaign_name as string;
+      const paramOrder = (template.aisensy_param_order as string[] | null) || [];
+      if (template.template_key === 'wa_video_bite') campaignName = biteFor((enrolment.context as Record<string, unknown>)?.profession_choice as string | undefined).campaign;
+      if (paramOrder.includes('comms_token') || paramOrder.includes('comms_url')) {
+        const ctaTarget = resolveCtaTarget(template.template_key, enrolment.context || {});
+        if (ctaTarget) {
+          const token = await mintCommsLink(supabase, { target_url: ctaTarget, channel: 'whatsapp', template_key: template.template_key, sequence_key: sequence.sequence_key, enrolment_id: enrolmentId, contact_email: enrolment.email, contact_mobile: enrolment.mobile, audience: ((enrolment.context as Record<string, unknown>)?.profession_choice as string) || null });
+          vars.comms_token = token;
+          vars.comms_url   = `${LINK_BASE}/l/${token}`;
+        }
+      }
+      const params = paramOrder.map(k => vars[k] ?? '');
       const destination = normalisePhone(enrolment.mobile);
-      result = await sendWhatsApp(aiSensyKey, destination, vars.full_name, template.aisensy_campaign_name as string, params);
+      result = await sendWhatsApp(aiSensyKey, destination, vars.full_name, campaignName, params);
     }
   }
   await supabase.from('lifecycle_dispatch_log').insert({ enrolment_id: enrolmentId, sequence_id: sequence.id, step_index: step.step_index, channel: template.channel, template_key: template.template_key, recipient_email: enrolment.email, recipient_mobile: enrolment.mobile, status: result.ok ? 'sent' : 'failed', provider: template.channel === 'email' ? 'resend' : 'aisensy', provider_message_id: result.provider_id || null, error_message: result.error || null, duration_ms: Date.now() - startTs });
-  // Phase N — dual-write to partner_comms_log
   if (sequence.track === 'partner') {
     try {
       await supabase.from('partner_comms_log').insert({ channel: template.channel, send_mode: 'lifecycle', template_slug: template.template_key, partner_code: vars.partner_code || null, aisensy_campaign: template.aisensy_campaign_name || null, triggered_by: 'lifecycle_dispatcher', triggered_at: new Date().toISOString(), status: result.ok ? 'sent' : 'failed', ref_id: enrolmentId, ref_type: 'lifecycle_enrolment', notes: result.error || null }); } catch (err) { console.warn('[lifecycle-dispatcher] partner_comms_log dual-write failed:', (err as Error).message); }

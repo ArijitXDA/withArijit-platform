@@ -594,7 +594,7 @@ async function processEnrolment(supabase: SupabaseClient, resendKey: string, aiS
       const paramOrder = (template.aisensy_param_order as string[] | null) || [];
       if (template.template_key === 'wa_video_bite') campaignName = biteFor((enrolment.context as Record<string, unknown>)?.profession_choice as string | undefined).campaign;
       if (paramOrder.includes('comms_token') || paramOrder.includes('comms_url')) {
-        const ctaTarget = resolveCtaTarget(template.template_key, enrolment.context || {});
+        const ctaTarget = resolveCtaTarget(template.template_key, enrolment.context || {}) || ((enrolment.context as Record<string, unknown>)?.cta_target as string) || null;
         if (ctaTarget) {
           const token = await mintCommsLink(supabase, { target_url: ctaTarget, channel: 'whatsapp', template_key: template.template_key, sequence_key: sequence.sequence_key, enrolment_id: enrolmentId, contact_email: enrolment.email, contact_mobile: enrolment.mobile, audience: ((enrolment.context as Record<string, unknown>)?.profession_choice as string) || null });
           vars.comms_token = token;
@@ -672,3 +672,4 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: (err as Error).message }), { status: 500, headers: CORS });
   }
 });
+

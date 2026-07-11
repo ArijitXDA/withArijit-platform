@@ -2,7 +2,13 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 /**
- * lifecycle-dispatcher v16 (body-link bite campaigns live: BITE_BY_PROFESSION -> *_link)
+ * lifecycle-dispatcher v20 (+ read-only PREVIEW mode)
+ *
+ * v20: POST { preview:true, enrolment_id, template_key? } renders the message exactly as it
+ *      would be sent (buildVars + renderTemplate + resolveCtaTarget) WITHOUT sending, minting,
+ *      logging, or advancing — powers the admin Comms Analytics "view message" modal. For WA
+ *      it returns the ordered params (incl. the resolved link target) + best-effort body_text.
+ * v16 (body-link bite campaigns live: BITE_BY_PROFESSION -> *_link)
  *
  * v16: the 6 audience bite campaigns + general now point at the Meta-approved BODY-LINK
  *      templates (wa_bite_*_link) — the tracked /l/ short link rides as the LAST body
@@ -27,6 +33,10 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey',
 };
+
+function jsonResponse(obj: unknown, status = 200): Response {
+  return new Response(JSON.stringify(obj), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+}
 
 const AISENSY_API_URL = 'https://backend.aisensy.com/campaign/t1/api/v2';
 const RESEND_API_URL  = 'https://api.resend.com/emails';
@@ -641,6 +651,54 @@ async function advanceStep(supabase: SupabaseClient, enrolment: any, sequence: a
   return { enrolment_id: enrolment.id, outcome: reason === 'sent' ? 'sent' : 'skipped', detail: `advanced_to_step_${nextIndex}_${reason}`, next_send_at: nextSendAt?.toISOString() ?? null };
 }
 
+// Read-only render of a message for a given enrolment (admin preview). Reuses the exact
+// send-path resolution (buildVars/renderTemplate/resolveCtaTarget) but never sends, mints,
+// logs, or advances — so it faithfully shows the personalised body + the real link target.
+async function handlePreview(supabase: SupabaseClient, enrolmentId: string | undefined, templateKeyOverride: string | undefined): Promise<Response> {
+  if (!enrolmentId) return jsonResponse({ error: 'enrolment_id required' }, 400);
+  const { data: enrolment } = await supabase.from('lifecycle_sequence_enrolments').select('*').eq('id', enrolmentId).maybeSingle();
+  if (!enrolment) return jsonResponse({ error: 'enrolment_not_found' }, 404);
+  const { data: sequence } = await supabase.from('lifecycle_sequences').select('*').eq('id', enrolment.sequence_id).maybeSingle();
+  let templateKey = templateKeyOverride;
+  if (!templateKey) {
+    const { data: step } = await supabase.from('lifecycle_sequence_steps').select('template_key').eq('sequence_id', enrolment.sequence_id).eq('step_index', enrolment.current_step_index).maybeSingle();
+    templateKey = step?.template_key as string | undefined;
+  }
+  if (!templateKey) return jsonResponse({ error: 'template_not_resolved' }, 400);
+  const { data: template } = await supabase.from('lifecycle_templates').select('*').eq('template_key', templateKey).order('version', { ascending: false }).limit(1).maybeSingle();
+  if (!template) return jsonResponse({ error: 'template_not_found', template_key: templateKey }, 404);
+  const seqKey = (sequence?.sequence_key as string) || '';
+  const vars = await buildVars(supabase, enrolment, template.template_key, seqKey);
+  const paramOrder = (template.aisensy_param_order as string[] | null) || [];
+  let ctaTarget: string | null = null;
+  if (template.channel !== 'email' && (paramOrder.includes('comms_token') || paramOrder.includes('comms_url'))) {
+    ctaTarget = resolveCtaTarget(template.template_key, enrolment.context || {}) || ((enrolment.context as Record<string, unknown>)?.cta_target as string) || null;
+    if (ctaTarget) { vars.comms_url = ctaTarget; vars.comms_token = '(tracked link minted at send time)'; }
+  }
+  const missing = validateRequiredVars(template.variables_declared as Record<string, unknown>, vars);
+  const resp: Record<string, unknown> = {
+    preview: true,
+    channel: template.channel,
+    template_key: template.template_key,
+    sequence_key: seqKey,
+    recipient: { email: enrolment.email, mobile: enrolment.mobile, name: vars.full_name || '' },
+    missing_vars: missing,
+  };
+  if (template.channel === 'email') {
+    resp.subject   = renderTemplate(template.subject as string, vars);
+    resp.body_html = renderTemplate(template.body_html as string, vars);
+    resp.body_text = renderTemplate(template.body_text as string, vars);
+  } else {
+    let campaignName = template.aisensy_campaign_name as string;
+    if (template.template_key === 'wa_video_bite') campaignName = biteFor((enrolment.context as Record<string, unknown>)?.profession_choice as string | undefined).campaign;
+    resp.aisensy_campaign_name = campaignName;
+    resp.body_text = renderTemplate(template.body_text as string, vars);
+    resp.params = paramOrder.map(k => ({ name: k, value: vars[k] ?? '' }));
+    resp.cta_target = ctaTarget;
+  }
+  return jsonResponse(resp, 200);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 200, headers: CORS });
   const startedAt = Date.now();
@@ -650,6 +708,7 @@ Deno.serve(async (req: Request) => {
     const aiSensyKey = Deno.env.get('AISENSY_API_KEY') || null;
     if (!resendKey) return new Response(JSON.stringify({ error: 'RESEND_API_KEY not set' }), { status: 500, headers: CORS });
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+    if (body.preview === true) return await handlePreview(supabase, body.enrolment_id, body.template_key);
     const dryRun: boolean = body.dry_run === true;
     const limit: number = Math.min(Number(body.limit) || 50, 200);
     const onlyEnrolmentId: string | undefined = body.enrolment_id;

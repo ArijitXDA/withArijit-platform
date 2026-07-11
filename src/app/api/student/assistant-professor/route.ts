@@ -61,20 +61,30 @@ async function executeTool(
       const s = ctx.schedule[n - 1]
       if (!s) return `Session ${n} isn't part of this cohort (it runs ${ctx.schedule.length} sessions).`
 
-      // Prefer a real uploaded transcript, if one exists for this batch + session.
+      // Prefer a real transcript. The automated Teams pipeline (cron/process-transcripts)
+      // writes it to awa_session_links.transcript_text (+ transcript_summary); manual admin
+      // uploads land in session_transcripts (with key_topics). Read both, prefer the automated.
       if (ctx.batchUuid) {
-        const { data: t } = await service
-          .from('session_transcripts')
-          .select('summary, key_topics, transcript_text')
-          .eq('batch_id', ctx.batchUuid)
-          .eq('session_number', n)
-          .maybeSingle()
-        if (t && (t.summary || t.key_topics?.length)) {
+        const [{ data: link }, { data: up }] = await Promise.all([
+          service.from('awa_session_links')
+            .select('transcript_text, transcript_summary')
+            .eq('batch_id', ctx.batchUuid).eq('session_number', n).maybeSingle(),
+          service.from('session_transcripts')
+            .select('summary, key_topics, transcript_text')
+            .eq('batch_id', ctx.batchUuid).eq('session_number', n).maybeSingle(),
+        ])
+        const summary   = (link?.transcript_summary as string) || (up?.summary as string) || ''
+        const fullText  = (link?.transcript_text   as string) || (up?.transcript_text as string) || ''
+        const keyTopics = (up?.key_topics as string[] | null) ?? []
+        if (summary || fullText || keyTopics.length) {
           let r = `**Session ${n}: ${s.title}** — ${s.dateLabel}\n\n`
-          if (t.summary) r += `**Summary:** ${t.summary}\n\n`
-          if (t.key_topics?.length) r += `**Key topics:** ${(t.key_topics as string[]).join(', ')}\n\n`
-          if (t.transcript_text && t.transcript_text.length < 4000) r += `**Content:**\n${t.transcript_text}`
-          else if (t.transcript_text) r += `*(Full transcript available — ask me about any specific topic from this session.)*`
+          if (summary)          r += `**Summary:** ${summary}\n\n`
+          if (keyTopics.length) r += `**Key topics:** ${keyTopics.join(', ')}\n\n`
+          if (fullText) {
+            const clip = fullText.length > 90000 ? fullText.slice(0, 90000) : fullText
+            r += `**Full session transcript** (answer the student's question strictly from this — quote what was actually said where useful):\n${clip}`
+            if (clip.length < fullText.length) r += `\n\n_(Transcript truncated here — ask me about a specific part of the session for more.)_`
+          }
           return r
         }
       }

@@ -23,10 +23,13 @@ export const ASSISTANT_PROFESSOR_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'get_session_transcript',
-    description: 'Get what was covered in a specific session by its number (1-based, as the student sees it on their dashboard). Returns the transcript summary if uploaded, otherwise the curriculum topics for that session.',
+    description: 'Get what was actually covered in a specific session (1-based number, as the student sees it on their dashboard). When a real transcript exists it retrieves the passages most relevant to `query`, so ALWAYS pass the student\'s question/topic in `query`. Returns transcript excerpts (answer strictly from them), otherwise the curriculum topics for that session.',
     input_schema: {
       type: 'object' as const,
-      properties: { session_number: { type: 'number', description: 'The session number, e.g. 3 for the student\'s 3rd session' } },
+      properties: {
+        session_number: { type: 'number', description: 'The session number, e.g. 3 for the student\'s 3rd session' },
+        query:          { type: 'string', description: 'What the student is asking about, in a few words — used to retrieve the most relevant transcript passages. Pass their question or topic verbatim where possible.' },
+      },
       required: ['session_number'],
     },
   },

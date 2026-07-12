@@ -8,6 +8,7 @@ import {
 } from '@/lib/sessionSchedule'
 import { getPlatformFacts, platformFactsBlock } from '@/lib/platformFacts'
 import { ASSISTANT_PROFESSOR_TOOLS, buildSystemPrompt } from '@/lib/assistantProfessorPrompt'
+import { embedQuery, toVectorLiteral } from '@/lib/embeddings'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
@@ -81,9 +82,36 @@ async function executeTool(
           if (summary)          r += `**Summary:** ${summary}\n\n`
           if (keyTopics.length) r += `**Key topics:** ${keyTopics.join(', ')}\n\n`
           if (fullText) {
-            const clip = fullText.length > 90000 ? fullText.slice(0, 90000) : fullText
-            r += `**Full session transcript** (answer the student's question strictly from this — quote what was actually said where useful):\n${clip}`
-            if (clip.length < fullText.length) r += `\n\n_(Transcript truncated here — ask me about a specific part of the session for more.)_`
+            // RAG: retrieve the passages most relevant to the student's question from the
+            // embedded chunks (session_transcript_chunks). Any miss — no query, no chunks,
+            // no OPENAI_API_KEY, or an error — falls through to the full-transcript path.
+            const q = typeof input.query === 'string' ? input.query.trim() : ''
+            let excerpts = ''
+            if (q) {
+              try {
+                const emb = await embedQuery(q)
+                const { data: matches } = await service.rpc('match_session_chunks', {
+                  p_batch_id:        ctx.batchUuid,
+                  p_session_number:  n,
+                  p_query_embedding: toVectorLiteral(emb),
+                  p_match_count:     8,
+                })
+                if (Array.isArray(matches) && matches.length) {
+                  excerpts = [...matches]
+                    .sort((a: any, b: any) => a.chunk_index - b.chunk_index)
+                    .map((m: any) => m.content)
+                    .join('\n\n…\n\n')
+                }
+              } catch { /* fall through to full transcript */ }
+            }
+
+            if (excerpts) {
+              r += `**Relevant transcript excerpts** (answer strictly from these — quote what was actually said where useful; if they don't cover what the student asked, say so and point them to the recording):\n${excerpts}`
+            } else {
+              const clip = fullText.length > 90000 ? fullText.slice(0, 90000) : fullText
+              r += `**Full session transcript** (answer the student's question strictly from this — quote what was actually said where useful):\n${clip}`
+              if (clip.length < fullText.length) r += `\n\n_(Transcript truncated here — ask me about a specific part of the session for more.)_`
+            }
           }
           return r
         }

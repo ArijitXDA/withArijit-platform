@@ -114,11 +114,14 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
     )
   }
 
-  // Show most recent 3 past + next 3 upcoming by default, all when expanded
-  const visiblePast   = showAll ? past   : past.slice(-3)
+  // Past: always list every past session — this is where students review recordings +
+  // study guides, so none should be hidden. Future: cap to the next 3 (the rest are locked,
+  // and a rolling membership would otherwise render dozens of greyed-out future rows); the
+  // toggle expands upcoming only.
+  const visiblePast   = past
   const visibleFuture = showAll ? future : future.slice(0, 3)
   const firstJoinIdx  = visibleFuture.findIndex(s => s.status !== 'skipped')  // first joinable (skips cancelled)
-  const hiddenCount   = sessions.length - visiblePast.length - visibleFuture.length
+  const hiddenFuture  = future.length - visibleFuture.length
 
   return (
     <div className="border-t" style={{ borderColor: T.borderLight }}>
@@ -289,8 +292,8 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
         </div>
       )}
 
-      {/* Show all / collapse toggle */}
-      {hiddenCount > 0 && (
+      {/* Upcoming expander — past sessions are always fully listed above */}
+      {hiddenFuture > 0 && (
         <div className="px-5 py-3 border-t" style={{ borderColor: T.borderLight }}>
           <button
             onClick={() => setShowAll(v => !v)}
@@ -298,8 +301,8 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
             style={{ color: T.blue, background: T.blueLight, border: `1px solid ${T.bluePale}` }}
           >
             {showAll
-              ? '↑ Show fewer sessions'
-              : `↓ Show all ${sessions.length} sessions (${hiddenCount} more)`}
+              ? '↑ Show fewer upcoming sessions'
+              : `↓ Show all ${future.length} upcoming sessions (${hiddenFuture} more)`}
           </button>
         </div>
       )}

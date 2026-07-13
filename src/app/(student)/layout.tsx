@@ -1,6 +1,7 @@
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar'
 import { DashboardTopNav } from '@/components/dashboard/DashboardTopNav'
 import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav'
+import PushRegistrar from '@/components/PushRegistrar'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { cookies } from 'next/headers'
@@ -74,6 +75,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
 
   return (
     <div className="flex min-h-screen" style={{ background: '#eef3fb' }}>
+      {user?.email && <PushRegistrar />}
       <DashboardSidebar />
       <div className="flex-1 flex flex-col min-w-0">
         {impersonation && (

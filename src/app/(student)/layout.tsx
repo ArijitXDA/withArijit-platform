@@ -2,6 +2,7 @@ import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar'
 import { DashboardTopNav } from '@/components/dashboard/DashboardTopNav'
 import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav'
 import PushRegistrar from '@/components/PushRegistrar'
+import EnableNotifications from '@/components/EnableNotifications'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { cookies } from 'next/headers'
@@ -91,6 +92,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
           fullName={fullName}
           email={user?.email ?? null}
         />
+        {user?.email && <EnableNotifications />}
         {/* pb-20 reserves space for mobile bottom nav */}
         <main className="flex-1 p-4 md:p-6 overflow-auto pb-24 md:pb-6">{children}</main>
       </div>

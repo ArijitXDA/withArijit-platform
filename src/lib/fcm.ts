@@ -14,11 +14,30 @@ interface ServiceAccount { project_id: string; client_email: string; private_key
 let saCache: ServiceAccount | null = null
 function serviceAccount(): ServiceAccount {
   if (saCache) return saCache
-  const b64 = process.env.FCM_SERVICE_ACCOUNT_B64
-  if (!b64) throw new Error('FCM_SERVICE_ACCOUNT_B64 is not set')
-  const json = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'))
+  const raw = (process.env.FCM_SERVICE_ACCOUNT_B64 ?? '').trim()
+  if (!raw) throw new Error('FCM_SERVICE_ACCOUNT_B64 is not set')
+
+  // Accept EITHER the raw service-account JSON or its base64 encoding. Pasting the wrong
+  // one is the classic setup mistake, and base64-decoding raw JSON yields binary garbage
+  // with a useless "Unexpected token '�'" error. Whitespace/newlines are stripped so a
+  // line-wrapped base64 also works.
+  const text = raw.startsWith('{')
+    ? raw
+    : Buffer.from(raw.replace(/\s+/g, ''), 'base64').toString('utf8')
+
+  let json: any
+  try {
+    json = JSON.parse(text)
+  } catch {
+    // Diagnostic (safe: reveals only length + the first few chars, never the private key).
+    throw new Error(
+      `FCM_SERVICE_ACCOUNT_B64 is neither valid JSON nor base64-encoded JSON ` +
+      `(length ${raw.length}, starts with "${raw.slice(0, 8)}"). Set it to the service-account ` +
+      `JSON itself, or to the output of: base64 -i <service-account>.json`,
+    )
+  }
   if (!json.project_id || !json.client_email || !json.private_key) {
-    throw new Error('FCM_SERVICE_ACCOUNT_B64 is malformed (missing project_id/client_email/private_key)')
+    throw new Error('FCM service account is missing project_id/client_email/private_key')
   }
   saCache = json
   return json

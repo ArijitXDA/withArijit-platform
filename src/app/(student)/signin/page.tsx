@@ -12,9 +12,11 @@ function SignInForm() {
   const nextPath     = searchParams.get('next') ?? '/dashboard'
 
   const supabase = createClient()
-  const [email,   setEmail]   = useState('')
-  const [otp,     setOtp]     = useState('')
-  const [step,    setStep]    = useState<'auth' | 'otp'>('auth')
+  const [email,    setEmail]    = useState('')
+  const [otp,      setOtp]      = useState('')
+  const [password, setPassword] = useState('')
+  const [showPw,   setShowPw]   = useState(false)
+  const [step,     setStep]     = useState<'auth' | 'otp'>('auth')
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState('')
   const [sent,    setSent]    = useState(false)
@@ -73,6 +75,14 @@ function SignInForm() {
     // Successfully authenticated — go to next (select-batch or dashboard)
     router.push(nextPath)
     router.refresh()
+  }
+
+  async function signInWithPassword() {
+    if (!email.trim() || !password) { setError('Enter your email and password.'); return }
+    setLoading(true); setError('')
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password })
+    if (error) { setError('Incorrect email or password.'); setLoading(false); return }
+    router.push(nextPath); router.refresh()
   }
 
   async function signInWithOAuth(provider: 'google' | 'linkedin_oidc' | 'github') {
@@ -202,6 +212,34 @@ function SignInForm() {
                   : <Mail className="w-4 h-4" />}
                 Send verification code
               </button>
+
+              {/* Optional password sign-in (OTP/OAuth remain the default). */}
+              {!showPw ? (
+                <button onClick={() => { setShowPw(true); setError('') }}
+                  className="w-full text-center text-slate-500 text-xs mt-3 hover:text-slate-300 transition-colors">
+                  Have a password? Sign in with password
+                </button>
+              ) : (
+                <div className="mt-3">
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && signInWithPassword()}
+                    placeholder="Password"
+                    autoComplete="current-password"
+                    className="w-full px-4 py-3 rounded-xl text-white text-sm focus:outline-none focus:border-indigo-500/50 transition-colors mb-2"
+                    style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}
+                  />
+                  <button
+                    onClick={signInWithPassword}
+                    disabled={loading || !email.trim() || !password}
+                    className="w-full py-3 rounded-xl font-semibold text-sm text-white disabled:opacity-40 transition-all"
+                    style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)' }}>
+                    Sign in with password
+                  </button>
+                </div>
+              )}
 
               <p className="text-center text-slate-600 text-xs mt-3 leading-relaxed">
                 By continuing (including with Google, LinkedIn or GitHub) you agree to our{' '}

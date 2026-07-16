@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { attributeBroadcast } from '@/lib/broadcastAttribution'
+import { notifyPartner } from '@/lib/notifyPartner'
+import { formatCurrency } from '@/lib/utils'
 
 // ── Commission cascade ────────────────────────────────────────────────────────
 async function creditPartnerCommission(
@@ -51,6 +53,14 @@ async function creditPartnerCommission(
     p_count_enrolment: true,
   })
 
+  await notifyPartner({
+    partnerId: enroller.id,
+    kind:      'enrolment_commission',
+    title:     '🎓 New enrolment — commission earned',
+    body:      `You earned ${formatCurrency(enrollerAmount)} on a new enrolment.`,
+    link:      '/dashboard/income',
+  })
+
   let parentId: string | null = enroller.parent_partner_id as string | null
   let level = 2
   let remaining = upstreamPool
@@ -81,6 +91,16 @@ async function creditPartnerCommission(
       total_upstream_count:   level - 1,
       course_id:              courseId,
       status:                 'pending',
+    })
+
+    // Upstream partners earn on their downline's work without ever seeing it happen —
+    // this is the notification that makes the network visible to them.
+    await notifyPartner({
+      partnerId: ancestor.id,
+      kind:      'enrolment_commission',
+      title:     '📈 Your network earned you a commission',
+      body:      `${enroller.full_name} closed an enrolment — ${formatCurrency(thisLevel)} credited to you.`,
+      link:      '/dashboard/income',
     })
 
     parentId = ancestor.parent_partner_id as string | null

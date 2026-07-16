@@ -44,8 +44,10 @@ export async function POST(req: NextRequest) {
   const kind   = String(b.kind || 'broadcast').slice(0, 40)
   if (!target || !body) return NextResponse.json({ error: 'target and body are required' }, { status: 400 })
 
-  // Resolve device tokens (+ the distinct recipient emails).
-  let q = admin.from('device_tokens').select('student_email, token')
+  // Resolve device tokens (+ the distinct recipient emails). device_tokens is shared with the
+  // partner (and later mentor) apps, so scope to students — without this, target:'all' would
+  // blast student announcements to every partner's phone and file them in the student inbox.
+  let q = admin.from('device_tokens').select('student_email, token').eq('user_type', 'student')
   if (target !== 'all') q = q.eq('student_email', target)
   const { data: rows } = await q
   const tokens = (rows ?? []).map((r: any) => r.token)

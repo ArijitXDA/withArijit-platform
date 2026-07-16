@@ -33,11 +33,15 @@ export async function notifyPartner(n: PartnerNotice): Promise<void> {
     if (!partner?.email) return
 
     // student_email is the generic email column (legacy name) — user_type is what scopes it.
+    // Exact match on the lowercased address, never ilike: some partner emails contain '_', which
+    // ilike treats as a single-character wildcard — a_b@x.com would also match axb@x.com and push
+    // this partner's earnings to a stranger's phone. Tokens are always written from the Supabase
+    // auth email, which is already lowercase.
     const { data: devices } = await s
       .from('device_tokens')
       .select('token')
       .eq('user_type', 'partner')
-      .ilike('student_email', partner.email)
+      .eq('student_email', partner.email.toLowerCase())
     const tokens = (devices ?? []).map((d: any) => d.token as string)
     if (!tokens.length) return
 

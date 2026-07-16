@@ -26,7 +26,10 @@ export function NotificationBell() {
   async function openNotif(n: any) {
     setOpen(false)
     fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: n.id }) }).then(load)
+    // Tickets open in the ticket view; broadcasts and other pushes carry their own destination.
+    // Internal paths only — never follow a link out of the app.
     if (n.ticket_id) router.push(`/dashboard/tickets?open=${n.ticket_id}`)
+    else if (typeof n.link === 'string' && n.link.startsWith('/')) router.push(n.link)
   }
   async function markAll() { await fetch('/api/notifications', { method: 'POST' }); load() }
 

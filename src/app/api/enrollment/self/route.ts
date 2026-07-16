@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { attributeBroadcast } from '@/lib/broadcastAttribution'
-import { notifyPartner } from '@/lib/notifyPartner'
-import { formatCurrency } from '@/lib/utils'
+import { notifyPartner, type PartnerNotice } from '@/lib/notifyPartner'
+
+// Commission amounts are unrounded fractions of the net, so they are shown to the paisa. The
+// shared formatCurrency() fixes 0 decimals, which would tell a partner they earned 4,408 when
+// the ledger credits 4,407.60 — a number they can check against their own income page.
+const money = (n: number) =>
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 
 // ── Commission cascade ────────────────────────────────────────────────────────
 async function creditPartnerCommission(
@@ -53,13 +58,18 @@ async function creditPartnerCommission(
     p_count_enrolment: true,
   })
 
-  await notifyPartner({
+  // Queued, not sent inline: each notifyPartner is a Supabase round-trip plus an FCM OAuth
+  // exchange and one HTTP call per device. Awaiting those between ledger inserts would stretch the
+  // cascade by seconds per layer inside a background task that is not awaited by the response —
+  // the longer it runs, the more chance the lambda is frozen mid-chain, leaving upstream layers
+  // uncredited. Money first, then notify.
+  const notices: PartnerNotice[] = [{
     partnerId: enroller.id,
     kind:      'enrolment_commission',
     title:     '🎓 New enrolment — commission earned',
-    body:      `You earned ${formatCurrency(enrollerAmount)} on a new enrolment.`,
+    body:      `You earned ${money(enrollerAmount)} on a new enrolment.`,
     link:      '/dashboard/income',
-  })
+  }]
 
   let parentId: string | null = enroller.parent_partner_id as string | null
   let level = 2
@@ -95,17 +105,21 @@ async function creditPartnerCommission(
 
     // Upstream partners earn on their downline's work without ever seeing it happen —
     // this is the notification that makes the network visible to them.
-    await notifyPartner({
+    notices.push({
       partnerId: ancestor.id,
       kind:      'enrolment_commission',
       title:     '📈 Your network earned you a commission',
-      body:      `${enroller.full_name} closed an enrolment — ${formatCurrency(thisLevel)} credited to you.`,
+      body:      `${enroller.full_name} closed an enrolment — ${money(thisLevel)} credited to you.`,
       link:      '/dashboard/income',
     })
 
     parentId = ancestor.parent_partner_id as string | null
     level++
   }
+
+  // Every ledger row is durable by now, so a slow or failing notification can no longer cost
+  // anyone their commission.
+  await Promise.all(notices.map(n => notifyPartner(n)))
 }
 
 // ── Background work (non-blocking, fires after response is sent) ──────────────

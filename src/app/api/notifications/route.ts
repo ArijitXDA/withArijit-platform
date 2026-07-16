@@ -10,7 +10,7 @@ export async function GET() {
   if (!me) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
   const svc = createServiceClient()
   const { data } = await svc.from('notifications')
-    .select('id, kind, title, body, ticket_id, read_at, created_at')
+    .select('id, kind, title, body, link, ticket_id, read_at, created_at')
     .eq('recipient_type', me.type).eq('recipient_id', me.id)
     .order('created_at', { ascending: false }).limit(50)
   const notifications = data ?? []

@@ -15,7 +15,12 @@ export async function POST() {
   if (!user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const service = createServiceClient()
-  const { data: rows } = await service.from('device_tokens').select('token').eq('student_email', user.email)
+  // Scope to student tokens: device_tokens is shared with the partner app, and someone who is both
+  // a partner and a student would otherwise get this test push on their partner device too.
+  const { data: rows } = await service.from('device_tokens')
+    .select('token')
+    .eq('user_type', 'student')
+    .eq('student_email', user.email)
   const tokens = (rows ?? []).map((r: any) => r.token)
   if (!tokens.length) {
     return NextResponse.json({ error: 'No devices registered for this account yet' }, { status: 400 })

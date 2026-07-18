@@ -2,7 +2,11 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 /**
- * lifecycle-dispatcher v22 (+ in-app inbox mirror)
+ * lifecycle-dispatcher v23 (+ in-app inbox mirror)
+ *
+ * v23: WhatsApp inbox rows resolve the POSITIONAL {{1}}..{{n}} placeholders via
+ *      aisensy_param_order. renderTemplate only matches named vars, so v22 filed WhatsApp rows
+ *      with every placeholder literal. Caught before any real WhatsApp send hit the new code.
  *
  * v22: every student-track send now also files a row in `notifications`, so the app's bell is a
  *      record of EVERY comm rather than just pushes and support tickets. Rendered here because
@@ -553,7 +557,7 @@ async function sendPush(
   } catch (err) { return { ok: false, error: (err as Error).message }; }
 }
 
-// ── in-app inbox mirror ──────────────────────────────────────────────────────────────────────
+// ── in-app inbox mirror ────────────────────────────────────
 // The app's notification bell used to be a push-and-tickets inbox: email and WhatsApp sends wrote
 // only to lifecycle_dispatch_log, so a student who had received 72 comms saw 4 rows. Every send on
 // the student track now also files an inbox row, making the bell a real record of what we sent.
@@ -576,6 +580,22 @@ function htmlToText(html: string): string {
     .trim();
 }
 
+// WhatsApp bodies are Meta templates: they use POSITIONAL {{1}}..{{n}} placeholders whose values are
+// supplied at send time in aisensy_param_order. renderTemplate only matches named {{like_this}} (its
+// pattern requires a leading letter), so a WhatsApp body left every placeholder literal — the inbox
+// would have read "{{1}}, your *{{2}}* class is live now! Join here: {{3}}". Resolve them the same
+// way the send path does. Asterisks are WhatsApp's bold syntax and are meaningless in the app.
+function renderWhatsAppBody(template: any, vars: Record<string, string>): string {
+  const order = (template.aisensy_param_order as string[] | null) || [];
+  return renderTemplate(template.body_text, vars)
+    .replace(/\{\{\s*(\d+)\s*\}\}/g, (_m, d) => {
+      const key = order[Number(d) - 1];
+      return key ? (vars[key] ?? '') : '';
+    })
+    .replace(/\*([^*\n]+)\*/g, '$1')
+    .replace(/[ \t]{2,}/g, ' ');
+}
+
 // Email templates all carry a subject (82/82) but almost never body_text (3/82), so the body comes
 // from the HTML. WhatsApp templates are the mirror image: always body_text, never a subject — so the
 // first line becomes the title and the remainder the body.
@@ -586,7 +606,7 @@ function inboxContent(template: any, vars: Record<string, string>): { title: str
                   || htmlToText(renderTemplate(template.body_html, vars));
     return { title: title.slice(0, 160), body: text.slice(0, 400) };
   }
-  const text  = renderTemplate(template.body_text, vars).trim();
+  const text  = renderWhatsAppBody(template, vars).trim();
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const first = lines[0] || 'oStaran';
   const rest  = lines.slice(1).join(' ').trim();
@@ -875,4 +895,3 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: (err as Error).message }), { status: 500, headers: CORS });
   }
 });
-

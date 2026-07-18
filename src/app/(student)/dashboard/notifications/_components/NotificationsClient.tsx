@@ -111,7 +111,7 @@ export default function NotificationsClient({ initial }: { initial: Row[] }) {
                         style={{ background: n.read_at ? 'transparent' : T.blue }} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold leading-snug" style={{ color: T.navy }}>{n.title}</p>
-                    {n.body && (
+                    {n.body && n.body !== n.title && (
                       <p className="text-xs mt-1 leading-relaxed" style={{ color: T.textSec }}>{n.body}</p>
                     )}
                     <p className="text-[11px] mt-1.5" style={{ color: T.textMuted }}>{when(n.created_at)}</p>

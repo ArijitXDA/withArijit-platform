@@ -79,7 +79,7 @@ export function NotificationBell() {
                 {!n.read_at && <span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#2563eb' }} />}
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate" style={{ color: '#1e293b' }}>{n.title}</p>
-                  {n.body && <p className="text-xs truncate" style={{ color: '#94a3b8' }}>{n.body}</p>}
+                  {n.body && n.body !== n.title && <p className="text-xs truncate" style={{ color: '#94a3b8' }}>{n.body}</p>}
                   <p className="text-[10px] mt-0.5" style={{ color: '#cbd5e1' }}>{fmt(n.created_at)}</p>
                 </div>
               </div>

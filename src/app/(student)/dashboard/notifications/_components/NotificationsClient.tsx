@@ -30,6 +30,14 @@ function when(iso: string) {
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' })
 }
 
+// Class reminders carry a Teams join link, so the row's destination is often off-site. Restricted to
+// https so a malformed or hostile link can't smuggle in javascript:/data:. Internal paths still route
+// in-app; without this branch a "your class is live" tap silently did nothing.
+function isExternal(link: string | null): boolean {
+  if (!link) return false
+  try { return new URL(link).protocol === 'https:' } catch { return false }
+}
+
 export default function NotificationsClient({ initial }: { initial: Row[] }) {
   const [rows, setRows] = useState<Row[]>(initial)
   const [busy, setBusy] = useState(false)
@@ -47,7 +55,8 @@ export default function NotificationsClient({ initial }: { initial: Row[] }) {
       }).catch(() => {})
     }
     if (n.ticket_id) router.push(`/dashboard/tickets?open=${n.ticket_id}`)
-    else if (n.link && n.link.startsWith('/')) router.push(n.link)   // internal paths only
+    else if (n.link && n.link.startsWith('/')) router.push(n.link)
+    else if (isExternal(n.link)) window.open(n.link!, '_blank', 'noopener,noreferrer')
   }
 
   async function markAll() {
@@ -92,7 +101,7 @@ export default function NotificationsClient({ initial }: { initial: Row[] }) {
       ) : (
         <div className="rounded-2xl overflow-hidden bg-white" style={{ border: `1px solid ${T.border}` }}>
           {rows.map(n => {
-            const tappable = !!(n.ticket_id || (n.link && n.link.startsWith('/')))
+            const tappable = !!(n.ticket_id || (n.link && n.link.startsWith('/')) || isExternal(n.link))
             return (
               <button key={n.id} onClick={() => open(n)} disabled={!tappable && !!n.read_at}
                       className="w-full text-left px-4 py-3.5 border-b last:border-b-0 transition-colors hover:bg-blue-50/40 disabled:cursor-default"

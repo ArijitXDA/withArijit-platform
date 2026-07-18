@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation'
 
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })
 
+function isExternalLink(link: string): boolean {
+  try { return new URL(link).protocol === 'https:' } catch { return false }
+}
+
 export function NotificationBell() {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<any[]>([])
@@ -27,9 +31,11 @@ export function NotificationBell() {
     setOpen(false)
     fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: n.id }) }).then(load)
     // Tickets open in the ticket view; broadcasts and other pushes carry their own destination.
-    // Internal paths only — never follow a link out of the app.
+    // Class reminders point at a Teams join link, so off-site destinations open in a new tab —
+    // restricted to https so a malformed link can't smuggle in javascript:/data:.
     if (n.ticket_id) router.push(`/dashboard/tickets?open=${n.ticket_id}`)
     else if (typeof n.link === 'string' && n.link.startsWith('/')) router.push(n.link)
+    else if (typeof n.link === 'string' && isExternalLink(n.link)) window.open(n.link, '_blank', 'noopener,noreferrer')
   }
   async function markAll() { await fetch('/api/notifications', { method: 'POST' }); load() }
 

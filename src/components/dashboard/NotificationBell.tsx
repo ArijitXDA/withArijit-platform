@@ -49,7 +49,13 @@ export function NotificationBell() {
         <div className="absolute right-0 mt-2 w-80 max-h-[70vh] overflow-y-auto rounded-xl z-50" style={{ background: '#fff', border: '1px solid #dce6f5', boxShadow: '0 8px 28px rgba(15,31,61,0.14)' }}>
           <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: '#eef3fb' }}>
             <p className="text-sm font-semibold" style={{ color: '#0f1f3d' }}>Notifications</p>
-            {unread > 0 && <button onClick={markAll} className="text-xs font-semibold" style={{ color: '#2563eb' }}>Mark all read</button>}
+            <div className="flex items-center gap-3">
+              {unread > 0 && <button onClick={markAll} className="text-xs font-semibold" style={{ color: '#2563eb' }}>Mark all read</button>}
+              {/* The dropdown only ever shows the newest 50 and is cramped on a phone — the full
+                  screen is where a tapped push lands, so always offer the way through to it. */}
+              <button onClick={() => { setOpen(false); router.push('/dashboard/notifications') }}
+                      className="text-xs font-semibold" style={{ color: '#475569' }}>View all</button>
+            </div>
           </div>
           {items.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm" style={{ color: '#94a3b8' }}>You&apos;re all caught up.</p>

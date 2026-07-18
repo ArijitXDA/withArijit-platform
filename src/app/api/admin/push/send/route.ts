@@ -42,13 +42,25 @@ export async function POST(req: NextRequest) {
   const body   = String(b.body  || '').slice(0, 300)
   const link   = b.link ? String(b.link).slice(0, 300) : '/dashboard'
   const kind   = String(b.kind || 'broadcast').slice(0, 40)
-  if (!target || !body) return NextResponse.json({ error: 'target and body are required' }, { status: 400 })
+
+  // An explicit recipient list, used by the admin console's cohort send. Cohort resolution lives
+  // in the admin app (where the segment definitions already are) rather than being reimplemented
+  // here, so this endpoint stays a dumb, auditable "send to exactly these people".
+  const emailList: string[] = Array.isArray(b.emails)
+    ? b.emails.map((e: unknown) => String(e).trim().toLowerCase()).filter(Boolean).slice(0, 2000)
+    : []
+
+  if (!body) return NextResponse.json({ error: 'body is required' }, { status: 400 })
+  if (!target && emailList.length === 0) {
+    return NextResponse.json({ error: 'target or emails is required' }, { status: 400 })
+  }
 
   // Resolve device tokens (+ the distinct recipient emails). device_tokens is shared with the
   // partner (and later mentor) apps, so scope to students — without this, target:'all' would
   // blast student announcements to every partner's phone and file them in the student inbox.
   let q = admin.from('device_tokens').select('student_email, token').eq('user_type', 'student')
-  if (target !== 'all') q = q.eq('student_email', target)
+  if (emailList.length > 0)      q = q.in('student_email', emailList)
+  else if (target !== 'all')     q = q.eq('student_email', target)
   const { data: rows } = await q
   const tokens = (rows ?? []).map((r: any) => r.token)
   const emails = [...new Set((rows ?? []).map((r: any) => r.student_email))]

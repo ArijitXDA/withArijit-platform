@@ -76,6 +76,7 @@ async function accessToken(): Promise<string> {
 export interface PushPayload {
   title: string
   body:  string
+  link?: string                 // where a tap goes; internal path or absolute URL
   data?: Record<string, string> // FCM data values must be strings
 }
 export interface PushResult {
@@ -84,6 +85,20 @@ export interface PushResult {
   invalidTokens: string[]       // unregistered/invalid — caller should delete these
 }
 
+// DATA-ONLY on purpose — do not add a `notification` block back.
+//
+// These pushes are delivered to a web service worker (the Android app is a TWA). When the message
+// carries a `notification` block, the Firebase SW SDK takes over: it displays the notification
+// ITSELF (tagging it FCM_MSG) and then ALSO invokes onBackgroundMessage, so the user got two
+// notifications for one push. Worse, the SDK's own notificationclick listener runs first, calls
+// stopImmediatePropagation() so our handler never sees the event, and then looks for
+// fcmOptions.link / click_action to decide where to go — and drops any destination whose host
+// differs from ours. Net effect: tapping "your class is live" did nothing at all, because the
+// Teams join link is neither of those fields and is cross-host anyway.
+//
+// With data-only, the SDK does not display or intercept anything: onBackgroundMessage fires once,
+// our SW renders the notification, and our own notificationclick handler owns the destination and
+// can open an off-site join link. Verified against firebase-messaging-compat 10.14.1.
 async function sendOne(projectId: string, bearer: string, token: string, p: PushPayload): Promise<'ok' | 'invalid' | 'error'> {
   const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
     method:  'POST',
@@ -91,10 +106,10 @@ async function sendOne(projectId: string, bearer: string, token: string, p: Push
     body: JSON.stringify({
       message: {
         token,
-        notification: { title: p.title, body: p.body },
-        data: p.data ?? {},
-        android: { priority: 'HIGH', notification: { sound: 'default' } },
-        apns:    { payload: { aps: { sound: 'default' } } },
+        // FCM data values must all be strings.
+        data: { ...(p.data ?? {}), title: p.title, body: p.body, link: p.link || '/dashboard' },
+        android: { priority: 'HIGH' },
+        webpush: { headers: { Urgency: 'high', TTL: '3600' } },
       },
     }),
   })

@@ -30,6 +30,7 @@ export async function POST() {
     const result = await sendPushToTokens(tokens, {
       title: 'oStaran',
       body:  'Push notifications are working 🎉',
+      link:  '/dashboard',
       data:  { kind: 'test' },
     })
     if (result.invalidTokens.length) {

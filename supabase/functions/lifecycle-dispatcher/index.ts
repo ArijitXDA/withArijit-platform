@@ -2,7 +2,13 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 /**
- * lifecycle-dispatcher v21 (+ PUSH channel)
+ * lifecycle-dispatcher v22 (+ in-app inbox mirror)
+ *
+ * v22: every student-track send now also files a row in `notifications`, so the app's bell is a
+ *      record of EVERY comm rather than just pushes and support tickets. Rendered here because
+ *      this is the only place the personalised text exists. Push is excluded (its own endpoint
+ *      already writes the row) as is the partner track (UUID-keyed, written by notifyPartner).
+ *      Failure to mirror never fails the send.
  *
  * v21: `push` is a first-class lifecycle_channel alongside email/whatsapp. A push step
  *      sends via the www app's /api/admin/push/send (which owns the proven FCM HTTP v1
@@ -547,6 +553,69 @@ async function sendPush(
   } catch (err) { return { ok: false, error: (err as Error).message }; }
 }
 
+// ── in-app inbox mirror ──────────────────────────────────────────────────────────────────────
+// The app's notification bell used to be a push-and-tickets inbox: email and WhatsApp sends wrote
+// only to lifecycle_dispatch_log, so a student who had received 72 comms saw 4 rows. Every send on
+// the student track now also files an inbox row, making the bell a real record of what we sent.
+//
+// It has to happen HERE rather than in a DB trigger on the dispatch log, because this is the only
+// place the RENDERED text exists — the log stores template_key, and re-rendering from the template
+// later would show raw {{first_name}} placeholders for anything not held in the enrolment context.
+
+function htmlToText(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|tr|h[1-6]|li)>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;|&rsquo;/gi, "'")
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n[ \t]*(\n[ \t]*)+/g, '\n')
+    .trim();
+}
+
+// Email templates all carry a subject (82/82) but almost never body_text (3/82), so the body comes
+// from the HTML. WhatsApp templates are the mirror image: always body_text, never a subject — so the
+// first line becomes the title and the remainder the body.
+function inboxContent(template: any, vars: Record<string, string>): { title: string; body: string } {
+  if (template.channel === 'email') {
+    const title = renderTemplate(template.subject, vars).trim() || 'oStaran';
+    const text  = renderTemplate(template.body_text, vars).trim()
+                  || htmlToText(renderTemplate(template.body_html, vars));
+    return { title: title.slice(0, 160), body: text.slice(0, 400) };
+  }
+  const text  = renderTemplate(template.body_text, vars).trim();
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const first = lines[0] || 'oStaran';
+  const rest  = lines.slice(1).join(' ').trim();
+  return { title: first.slice(0, 160), body: (rest || text).slice(0, 400) };
+}
+
+async function mirrorToInbox(supabase: SupabaseClient, template: any, vars: Record<string, string>, enrolment: any, sequence: any): Promise<void> {
+  // Push already files its own row via /api/admin/push/send — mirroring it here would double it.
+  // Partner-track notifications are UUID-keyed and written by the partner app's own notifyPartner.
+  if (template.channel === 'push') return;
+  if ((sequence.track || 'student') !== 'student') return;
+  try {
+    const { title, body } = inboxContent(template, vars);
+    if (!title && !body) return;
+    const link = resolveCtaTarget(template.template_key, enrolment.context || {})
+                 || ((enrolment.context as Record<string, unknown>)?.cta_target as string)
+                 || `${SITE_BASE}/dashboard`;
+    await supabase.from('notifications').insert({
+      recipient_type: 'student',
+      recipient_id: enrolment.email.toLowerCase(),
+      kind: String(sequence.sequence_key || 'lifecycle').slice(0, 40),
+      title, body, link,
+    });
+  } catch (err) {
+    // An inbox row is a convenience; the message itself already went out. Never fail the send.
+    console.warn('[lifecycle-dispatcher] inbox mirror failed:', (err as Error).message);
+  }
+}
+
 interface ProcessResult { enrolment_id: string; outcome: 'sent' | 'skipped' | 'exited' | 'completed' | 'failed' | 'deferred'; detail?: string; next_send_at?: string | null; }
 
 async function computeNextSendAt(supabase: SupabaseClient, sequenceId: string, newStepIndex: number, enrolledAt: string, context: Record<string, unknown>): Promise<{ nextStep: any | null; nextSendAt: Date | null }> {
@@ -684,6 +753,7 @@ async function processEnrolment(supabase: SupabaseClient, resendKey: string, aiS
   }
   if (result.ok) {
     await supabase.from('lifecycle_events').insert({ email: enrolment.email.toLowerCase(), mobile: enrolment.mobile, event_type: template.channel === 'email' ? 'email_sent' : template.channel === 'push' ? 'push_sent' : 'whatsapp_sent', event_source_table: 'lifecycle_dispatch_log', source_row_id: null, track: sequence.track || 'student', metadata: { sequence_key: sequence.sequence_key, step_index: step.step_index, template_key: template.template_key, provider_id: result.provider_id }, backfilled: false });
+    if (result.provider_id !== 'idempotent_skip') await mirrorToInbox(supabase, template, vars, enrolment, sequence);
   }
   if (!result.ok) {
     const newFailureCount = (enrolment.failure_count || 0) + 1;

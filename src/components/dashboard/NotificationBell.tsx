@@ -20,7 +20,15 @@ export function NotificationBell() {
     const d = await fetch('/api/notifications').then(r => r.json()).catch(() => ({ notifications: [], unread: 0 }))
     setItems(d.notifications ?? []); setUnread(d.unread ?? 0)
   }
-  useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t) }, [])
+  // Poll as a baseline, but refresh immediately when a foreground push lands — waiting up to 60s to
+  // show a "class is live" row defeats the point.
+  useEffect(() => {
+    load()
+    const t = setInterval(load, 60000)
+    const onRefresh = () => load()
+    window.addEventListener('ostaran:refresh-notifications', onRefresh)
+    return () => { clearInterval(t); window.removeEventListener('ostaran:refresh-notifications', onRefresh) }
+  }, [])
   useEffect(() => {
     if (!open) return
     const onClick = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }

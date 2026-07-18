@@ -48,7 +48,8 @@ export async function notifyPartner(n: PartnerNotice): Promise<void> {
     const res = await sendPushToTokens(tokens, {
       title: n.title,
       body:  n.body ?? '',
-      data:  { link: n.link ?? '/dashboard', kind: n.kind },
+      link:  n.link ?? '/dashboard',
+      data:  { kind: n.kind },
     })
     if (res.invalidTokens.length) {
       await s.from('device_tokens').delete().in('token', res.invalidTokens)

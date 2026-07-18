@@ -63,20 +63,28 @@ export async function POST(req: NextRequest) {
   else if (target !== 'all')     q = q.eq('student_email', target)
   const { data: rows } = await q
   const tokens = (rows ?? []).map((r: any) => r.token)
-  const emails = [...new Set((rows ?? []).map((r: any) => r.student_email))]
+  const deviceEmails = [...new Set((rows ?? []).map((r: any) => String(r.student_email).toLowerCase()))]
 
-  // In-app inbox row per recipient (works even for devices without push permission).
-  if (emails.length) {
+  // Inbox recipients come from who we were ASKED to reach, not from who happens to own a device.
+  // Deriving them from the device_tokens result meant a student without a registered device (or one
+  // whose token had just been pruned as invalid) got no inbox row at all — the opposite of what the
+  // row is for, since it is the fallback for exactly those people. Only target:'all' has to fall
+  // back to devices, because there is no recipient list to expand.
+  const inboxEmails = emailList.length > 0 ? emailList
+                    : target !== 'all'     ? [target.toLowerCase()]
+                    : deviceEmails
+  if (inboxEmails.length) {
     await admin.from('notifications').insert(
-      emails.map((e) => ({ recipient_type: 'student', recipient_id: e, kind, title, body, link })),
+      inboxEmails.map((e) => ({ recipient_type: 'student', recipient_id: e, kind, title, body, link })),
     )
   }
+  const emails = inboxEmails
 
   if (!tokens.length) {
     return NextResponse.json({ ok: true, target, recipients: emails.length, devices: 0, sent: 0, note: 'no registered devices for target' })
   }
 
-  const result = await sendPushToTokens(tokens, { title, body, data: { kind, link } })
+  const result = await sendPushToTokens(tokens, { title, body, link, data: { kind } })
   if (result.invalidTokens?.length) {
     await admin.from('device_tokens').delete().in('token', result.invalidTokens)
   }

@@ -16,7 +16,20 @@ async function report(status: string, reason?: string): Promise<void> {
   } catch { /* diagnostics only */ }
 }
 
-export async function registerPushForStudent(): Promise<{ ok: boolean; reason?: string }> {
+// Single-flight. PushRegistrar fires on a 2.5s timer and EnableNotifications fires on tap, so both
+// can run at once — and two concurrent getToken() calls against a just-registered service worker can
+// mint two DIFFERENT tokens for the same browser. Observed live: one student ended up with 3 tokens
+// created within 2.5 minutes, which would deliver the same push to that browser three times.
+// Sharing one in-flight promise means one registration attempt, one token.
+let inflight: Promise<{ ok: boolean; reason?: string }> | null = null
+
+export function registerPushForStudent(): Promise<{ ok: boolean; reason?: string }> {
+  if (inflight) return inflight
+  inflight = doRegister().finally(() => { inflight = null })
+  return inflight
+}
+
+async function doRegister(): Promise<{ ok: boolean; reason?: string }> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('Notification' in window)) {
     void report('unsupported', 'no serviceWorker/Notification')
     return { ok: false, reason: 'unsupported' }

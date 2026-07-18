@@ -5,8 +5,20 @@ import { firebaseConfig } from './firebaseConfig'
 // never break the dashboard. Registers the FCM service worker, obtains this device's
 // push token, and saves it via /api/student/push/register (the server-side sender
 // then reaches this phone for reminders + announcements).
+// Reports why no token was produced, so an admin can tell "denied" from "never opened the app".
+// Best-effort and non-blocking: a failed report must never change what the student sees.
+async function report(status: string, reason?: string): Promise<void> {
+  try {
+    await fetch('/api/student/push/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, reason }),
+    })
+  } catch { /* diagnostics only */ }
+}
+
 export async function registerPushForStudent(): Promise<{ ok: boolean; reason?: string }> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('Notification' in window)) {
+    void report('unsupported', 'no serviceWorker/Notification')
     return { ok: false, reason: 'unsupported' }
   }
   const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
@@ -18,17 +30,17 @@ export async function registerPushForStudent(): Promise<{ ok: boolean; reason?: 
       import('firebase/messaging'),
     ])
     const { isSupported, getMessaging, getToken, onMessage } = messagingMod
-    if (!(await isSupported())) return { ok: false, reason: 'unsupported' }
+    if (!(await isSupported())) { void report('unsupported', 'firebase isSupported() false'); return { ok: false, reason: 'unsupported' } }
 
     let permission = Notification.permission
     if (permission === 'default') permission = await Notification.requestPermission()
-    if (permission !== 'granted') return { ok: false, reason: 'denied' }
+    if (permission !== 'granted') { void report('denied', `permission=${permission}`); return { ok: false, reason: 'denied' } }
 
     const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
     const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js')
     const messaging = getMessaging(app)
     const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration })
-    if (!token) return { ok: false, reason: 'no-token' }
+    if (!token) { void report('no_token', 'getToken returned empty'); return { ok: false, reason: 'no-token' } }
 
     await fetch('/api/student/push/register', {
       method:  'POST',
@@ -42,6 +54,7 @@ export async function registerPushForStudent(): Promise<{ ok: boolean; reason?: 
     })
     return { ok: true }
   } catch (e: any) {
+    void report('error', e?.message)
     return { ok: false, reason: e?.message || 'error' }
   }
 }

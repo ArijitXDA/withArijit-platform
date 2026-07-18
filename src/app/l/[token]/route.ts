@@ -5,10 +5,24 @@ export const dynamic = 'force-dynamic'
 
 const FALLBACK = 'https://www.ostaran.com/videos'
 
+// Non-ostaran hosts we deliberately send students to. Live classes run on Teams, so a class
+// reminder's CTA is by definition off-site — without this the host check below rejected every
+// join link and silently dropped the student on FALLBACK (/videos) instead of their class.
+//
+// Safe to allowlist here, unlike /api/bx/c: that route takes its destination from a query
+// param a stranger can craft, whereas this one resolves it from a comms_link row we minted
+// ourselves under an unguessable token. Anything not matched still falls back, so this can
+// never become a general-purpose open redirector.
+const ALLOWED_EXTERNAL_HOSTS = [
+  /^teams\.microsoft\.com$/i,
+  /^[a-z0-9-]+\.teams\.microsoft\.com$/i,
+  /^teams\.live\.com$/i,
+]
+
 // GET /l/<token> — tokenised comms CTA redirect (mirrors /api/bx/c for warm comms).
-// Looks up the per-send comms_link, logs the click, and 302s to the resolved
-// destination (guarded to *.ostaran.com). Unknown tokens — including Meta's sample
-// value at template-approval time — fall back to /videos so links never 404.
+// Looks up the per-send comms_link, logs the click, and 302s to the resolved destination —
+// *.ostaran.com, or one of ALLOWED_EXTERNAL_HOSTS above. Unknown tokens — including Meta's
+// sample value at template-approval time — fall back to /videos so links never 404.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
   let dest = FALLBACK
@@ -22,9 +36,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
       if (link?.target_url) {
         try {
           const u = new URL(link.target_url)
-          if (/(^|\.)ostaran\.com$/i.test(u.hostname) && /^https?:$/.test(u.protocol)) {
-            u.searchParams.set('s', token) // carry token so downstream watch beacons attribute
-            dest = u.toString()
+          if (/^https?:$/.test(u.protocol)) {
+            if (/(^|\.)ostaran\.com$/i.test(u.hostname)) {
+              u.searchParams.set('s', token) // carry token so downstream watch beacons attribute
+              dest = u.toString()
+            } else if (ALLOWED_EXTERNAL_HOSTS.some(re => re.test(u.hostname))) {
+              // Pass the stored URL through byte-for-byte. A Teams join link carries its
+              // meeting id and context as percent-encoded values, and re-serialising via
+              // URL/searchParams can rewrite that encoding and break the deep link. Our
+              // ?s= tracking param is meaningless off-site anyway.
+              dest = link.target_url
+            }
           }
         } catch { /* bad target → safe fallback */ }
         await recordClick(svc, link, req) // await so the click logs before the serverless response ends

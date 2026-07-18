@@ -2,7 +2,15 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 /**
- * lifecycle-dispatcher v20 (+ read-only PREVIEW mode)
+ * lifecycle-dispatcher v21 (+ PUSH channel)
+ *
+ * v21: `push` is a first-class lifecycle_channel alongside email/whatsapp. A push step
+ *      sends via the www app's /api/admin/push/send (which owns the proven FCM HTTP v1
+ *      sender AND writes the in-app notifications row, so the bell stays in sync).
+ *      channelKey is now a real 3-way — it used to be `email ? email : whatsapp`, which
+ *      would have consent-checked push against the WhatsApp opt-out and then sent it down
+ *      the AiSensy path. A recipient with no registered device logs skip_reason
+ *      'no_device' rather than failing, so it never burns a retry or trips MAX_FAILURES.
  *
  * v20: POST { preview:true, enrolment_id, template_key? } renders the message exactly as it
  *      would be sent (buildVars + renderTemplate + resolveCtaTarget) WITHOUT sending, minting,
@@ -509,6 +517,36 @@ async function sendWhatsApp(apiKey: string, destination: string, userName: strin
   } catch (err) { return { ok: false, error: (err as Error).message }; }
 }
 
+// Push is sent by delegating to the www app's /api/admin/push/send rather than talking to FCM from
+// here. That endpoint already holds the working, dependency-free FCM HTTP v1 sender (service-account
+// JWT -> OAuth -> per-token POST) and already writes the in-app `notifications` row alongside the
+// push, so the bell and the notification screen stay in sync for free. Porting the RSA-SHA256 JWT
+// signing into the Deno runtime would duplicate proven code for no gain.
+//
+// `devices: 0` is a real, expected outcome — most students have not installed the app — and is
+// reported back so the caller can log it as a skip rather than a false success.
+interface PushResult extends SendResult { devices?: number }
+
+async function sendPush(
+  cronKey: string,
+  email: string,
+  title: string,
+  body: string,
+  link: string | null,
+  kind: string,
+): Promise<PushResult> {
+  try {
+    const res = await fetch(`${SITE_BASE}/api/admin/push/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cronKey}` },
+      body: JSON.stringify({ target: email, title, body, link: link || '/dashboard', kind }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: `push ${res.status}: ${JSON.stringify(data)}` };
+    return { ok: true, provider_id: `fcm:${data?.sent ?? 0}/${data?.devices ?? 0}`, devices: data?.devices ?? 0 };
+  } catch (err) { return { ok: false, error: (err as Error).message }; }
+}
+
 interface ProcessResult { enrolment_id: string; outcome: 'sent' | 'skipped' | 'exited' | 'completed' | 'failed' | 'deferred'; detail?: string; next_send_at?: string | null; }
 
 async function computeNextSendAt(supabase: SupabaseClient, sequenceId: string, newStepIndex: number, enrolledAt: string, context: Record<string, unknown>): Promise<{ nextStep: any | null; nextSendAt: Date | null }> {
@@ -531,7 +569,7 @@ async function exitEnrolment(supabase: SupabaseClient, enrolmentId: string, reas
   await supabase.from('lifecycle_sequence_enrolments').update({ status: 'exited', exit_reason: reason.slice(0, 200), next_send_at: null, updated_at: new Date().toISOString() }).eq('id', enrolmentId);
 }
 
-async function processEnrolment(supabase: SupabaseClient, resendKey: string, aiSensyKey: string | null, enrolmentId: string, dryRun: boolean): Promise<ProcessResult> {
+async function processEnrolment(supabase: SupabaseClient, resendKey: string, aiSensyKey: string | null, pushKey: string, enrolmentId: string, dryRun: boolean): Promise<ProcessResult> {
   const startTs = Date.now();
   const { data: enrolment } = await supabase.from('lifecycle_sequence_enrolments').select('*').eq('id', enrolmentId).maybeSingle();
   if (!enrolment) return { enrolment_id: enrolmentId, outcome: 'failed', detail: 'enrolment_not_found' };
@@ -559,7 +597,11 @@ async function processEnrolment(supabase: SupabaseClient, resendKey: string, aiS
     if (!dryRun) await supabase.from('lifecycle_dispatch_log').insert({ enrolment_id: enrolmentId, sequence_id: sequence.id, step_index: step.step_index, channel: 'whatsapp', template_key: template.template_key, recipient_email: enrolment.email, recipient_mobile: enrolment.mobile, status: 'skipped', skip_reason: 'template_inactive_aisensy_pending', duration_ms: Date.now() - startTs });
     return advanceStep(supabase, enrolment, sequence, step.step_index, dryRun, 'wa_template_inactive');
   }
-  const channelKey = template.channel === 'email' ? 'email' : 'whatsapp';
+  // Three-way, not `email ? email : whatsapp`. The old binary meant any non-email channel was
+  // treated as WhatsApp, so a push step would have been consent/suppression-checked against the
+  // WhatsApp opt-out and then sent down the AiSensy path with a null campaign.
+  const channelKey: 'email' | 'whatsapp' | 'push' =
+    template.channel === 'email' ? 'email' : template.channel === 'push' ? 'push' : 'whatsapp';
   if (await isSuppressed(supabase, enrolment.email, channelKey)) {
     if (!dryRun) {
       await supabase.from('lifecycle_dispatch_log').insert({ enrolment_id: enrolmentId, sequence_id: sequence.id, step_index: step.step_index, channel: channelKey, template_key: template.template_key, recipient_email: enrolment.email, recipient_mobile: enrolment.mobile, status: 'skipped', skip_reason: 'suppressed', duration_ms: Date.now() - startTs });
@@ -593,6 +635,25 @@ async function processEnrolment(supabase: SupabaseClient, resendKey: string, aiS
       const from    = sequence.track === 'partner' ? SENDERS.partner : SENDERS.student;
       result = await sendEmail(resendKey, from, enrolment.email, subject, html, text);
     }
+  } else if (template.channel === 'push') {
+    // A push carries: subject -> notification title, body_text -> body, and the step's CTA as the
+    // deep link the tap opens. No template approval anywhere in this path, unlike WhatsApp.
+    if (idemSent) result = { ok: true, provider_id: 'idempotent_skip' };
+    else {
+      const title = renderTemplate(template.subject, vars) || 'oStaran';
+      const bodyT = renderTemplate(template.body_text, vars) || '';
+      const link  = resolveCtaTarget(template.template_key, enrolment.context || {})
+                    || ((enrolment.context as Record<string, unknown>)?.cta_target as string)
+                    || `${SITE_BASE}/dashboard`;
+      const push = await sendPush(pushKey, enrolment.email, title, bodyT, link, sequence.sequence_key);
+      // No registered device is not a failure — it must not burn a retry or trip MAX_FAILURES.
+      // Log it honestly as a skip so push coverage is measurable per sequence.
+      if (push.ok && (push.devices ?? 0) === 0) {
+        await supabase.from('lifecycle_dispatch_log').insert({ enrolment_id: enrolmentId, sequence_id: sequence.id, step_index: step.step_index, channel: 'push', template_key: template.template_key, recipient_email: enrolment.email, recipient_mobile: enrolment.mobile, status: 'skipped', skip_reason: 'no_device', duration_ms: Date.now() - startTs });
+        return advanceStep(supabase, enrolment, sequence, step.step_index, dryRun, 'no_device');
+      }
+      result = push;
+    }
   } else {
     if (!aiSensyKey) result = { ok: false, error: 'AISENSY_API_KEY not configured' };
     else if (!enrolment.mobile) {
@@ -616,13 +677,13 @@ async function processEnrolment(supabase: SupabaseClient, resendKey: string, aiS
       result = await sendWhatsApp(aiSensyKey, destination, vars.full_name, campaignName, params);
     }
   }
-  await supabase.from('lifecycle_dispatch_log').insert({ enrolment_id: enrolmentId, sequence_id: sequence.id, step_index: step.step_index, channel: template.channel, template_key: template.template_key, recipient_email: enrolment.email, recipient_mobile: enrolment.mobile, status: result.ok ? 'sent' : 'failed', provider: template.channel === 'email' ? 'resend' : 'aisensy', provider_message_id: result.provider_id || null, error_message: result.error || null, duration_ms: Date.now() - startTs });
+  await supabase.from('lifecycle_dispatch_log').insert({ enrolment_id: enrolmentId, sequence_id: sequence.id, step_index: step.step_index, channel: template.channel, template_key: template.template_key, recipient_email: enrolment.email, recipient_mobile: enrolment.mobile, status: result.ok ? 'sent' : 'failed', provider: template.channel === 'email' ? 'resend' : template.channel === 'push' ? 'fcm' : 'aisensy', provider_message_id: result.provider_id || null, error_message: result.error || null, duration_ms: Date.now() - startTs });
   if (sequence.track === 'partner') {
     try {
       await supabase.from('partner_comms_log').insert({ channel: template.channel, send_mode: 'lifecycle', template_slug: template.template_key, partner_code: vars.partner_code || null, aisensy_campaign: template.aisensy_campaign_name || null, triggered_by: 'lifecycle_dispatcher', triggered_at: new Date().toISOString(), status: result.ok ? 'sent' : 'failed', ref_id: enrolmentId, ref_type: 'lifecycle_enrolment', notes: result.error || null }); } catch (err) { console.warn('[lifecycle-dispatcher] partner_comms_log dual-write failed:', (err as Error).message); }
   }
   if (result.ok) {
-    await supabase.from('lifecycle_events').insert({ email: enrolment.email.toLowerCase(), mobile: enrolment.mobile, event_type: template.channel === 'email' ? 'email_sent' : 'whatsapp_sent', event_source_table: 'lifecycle_dispatch_log', source_row_id: null, track: sequence.track || 'student', metadata: { sequence_key: sequence.sequence_key, step_index: step.step_index, template_key: template.template_key, provider_id: result.provider_id }, backfilled: false });
+    await supabase.from('lifecycle_events').insert({ email: enrolment.email.toLowerCase(), mobile: enrolment.mobile, event_type: template.channel === 'email' ? 'email_sent' : template.channel === 'push' ? 'push_sent' : 'whatsapp_sent', event_source_table: 'lifecycle_dispatch_log', source_row_id: null, track: sequence.track || 'student', metadata: { sequence_key: sequence.sequence_key, step_index: step.step_index, template_key: template.template_key, provider_id: result.provider_id }, backfilled: false });
   }
   if (!result.ok) {
     const newFailureCount = (enrolment.failure_count || 0) + 1;
@@ -688,6 +749,15 @@ async function handlePreview(supabase: SupabaseClient, enrolmentId: string | und
     resp.subject   = renderTemplate(template.subject as string, vars);
     resp.body_html = renderTemplate(template.body_html as string, vars);
     resp.body_text = renderTemplate(template.body_text as string, vars);
+  } else if (template.channel === 'push') {
+    // Preview a push the way it actually appears on the device: title, body, and the deep link a
+    // tap opens. Without this branch a push template fell into the WhatsApp arm and rendered a
+    // meaningless null campaign with an empty param list.
+    resp.push_title = renderTemplate(template.subject as string, vars) || 'oStaran';
+    resp.body_text  = renderTemplate(template.body_text as string, vars);
+    resp.cta_target = resolveCtaTarget(template.template_key, enrolment.context || {})
+                      || ((enrolment.context as Record<string, unknown>)?.cta_target as string)
+                      || `${SITE_BASE}/dashboard`;
   } else {
     let campaignName = template.aisensy_campaign_name as string;
     if (template.template_key === 'wa_video_bite') campaignName = biteFor((enrolment.context as Record<string, unknown>)?.profession_choice as string | undefined).campaign;
@@ -706,6 +776,10 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const resendKey = Deno.env.get('RESEND_API_KEY');
     const aiSensyKey = Deno.env.get('AISENSY_API_KEY') || null;
+    // /api/admin/push/send accepts CRON_SECRET or the shared transcript_fetch_config.cron_key.
+    // Reading the DB key means push needs no new edge-function secret.
+    const { data: pcfg } = await supabase.from('transcript_fetch_config').select('cron_key').eq('id', 1).maybeSingle();
+    const pushKey = (pcfg?.cron_key as string | undefined) || Deno.env.get('CRON_SECRET') || '';
     if (!resendKey) return new Response(JSON.stringify({ error: 'RESEND_API_KEY not set' }), { status: 500, headers: CORS });
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
     if (body.preview === true) return await handlePreview(supabase, body.enrolment_id, body.template_key);
@@ -720,7 +794,7 @@ Deno.serve(async (req: Request) => {
     }
     const results: ProcessResult[] = [];
     for (const id of dueIds) {
-      try { results.push(await processEnrolment(supabase, resendKey, aiSensyKey, id, dryRun)); }
+      try { results.push(await processEnrolment(supabase, resendKey, aiSensyKey, pushKey, id, dryRun)); }
       catch (err) { console.error('[lifecycle-dispatcher]', id, (err as Error).message); results.push({ enrolment_id: id, outcome: 'failed', detail: (err as Error).message }); }
     }
     const summary = { processed: results.length, sent: results.filter(r => r.outcome === 'sent').length, skipped: results.filter(r => r.outcome === 'skipped').length, exited: results.filter(r => r.outcome === 'exited').length, completed: results.filter(r => r.outcome === 'completed').length, deferred: results.filter(r => r.outcome === 'deferred').length, failed: results.filter(r => r.outcome === 'failed').length };

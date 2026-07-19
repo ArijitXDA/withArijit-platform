@@ -5,6 +5,40 @@ import { firebaseConfig } from './firebaseConfig'
 // never break the dashboard. Registers the FCM service worker, obtains this device's
 // push token, and saves it via /api/student/push/register (the server-side sender
 // then reaches this phone for reminders + announcements).
+
+// navigator.serviceWorker.register() resolves as soon as the REGISTRATION exists — the worker
+// itself may still be 'installing'. PushManager.subscribe() (called inside getToken) requires an
+// ACTIVE worker and otherwise throws:
+//   "Failed to execute 'subscribe' on 'PushManager': Subscription failed - no active Service Worker"
+// Only bites on a device's FIRST registration, so it hides once anyone has enabled notifications
+// once. Hit for real on the partner app's first enable; fixed here too rather than waiting for a
+// student to lose their notifications to the same race.
+async function activeRegistration(path: string, timeoutMs = 12_000): Promise<ServiceWorkerRegistration> {
+  const reg = await navigator.serviceWorker.register(path)
+  if (reg.active) return reg
+
+  const pending = reg.installing || reg.waiting
+  if (!pending) { await navigator.serviceWorker.ready; return reg }
+
+  await new Promise<void>((resolve, reject) => {
+    const finish = (fn: () => void) => {
+      clearTimeout(timer)
+      pending.removeEventListener('statechange', onState)
+      fn()
+    }
+    const onState = () => {
+      if (pending.state === 'activated') finish(resolve)
+      else if (pending.state === 'redundant') finish(() => reject(new Error('service worker became redundant')))
+    }
+    const timer = setTimeout(
+      () => finish(() => reject(new Error('service worker did not activate within 12s'))),
+      timeoutMs,
+    )
+    pending.addEventListener('statechange', onState)
+  })
+  return reg
+}
+
 // Reports why no token was produced, so an admin can tell "denied" from "never opened the app".
 // Best-effort and non-blocking: a failed report must never change what the student sees.
 async function report(status: string, reason?: string): Promise<void> {
@@ -50,7 +84,7 @@ async function doRegister(): Promise<{ ok: boolean; reason?: string }> {
     if (permission !== 'granted') { void report('denied', `permission=${permission}`); return { ok: false, reason: 'denied' } }
 
     const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js')
+    const registration = await activeRegistration('/firebase-messaging-sw.js')
     const messaging = getMessaging(app)
     const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration })
     if (!token) { void report('no_token', 'getToken returned empty'); return { ok: false, reason: 'no-token' } }

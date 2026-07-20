@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { todayISO } from '@/lib/sessionSchedule'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getStudentSessions } from '@/lib/studentSessions'
 import { joinUrl } from '@/lib/joinToken'
@@ -165,7 +166,9 @@ export default async function DashboardPage({
   // Surfaced as a hero alert so a student never silently loses access. "Due soon" =
   // within 7 days; "overdue" = the access window already lapsed. Runs on ALL rows
   // (not just is_active) so a paused membership still shows up here.
-  const dueToday  = new Date(new Date().toISOString().split('T')[0] + 'T00:00:00')
+  // IST business day: this is a server component, and on Vercel local time is UTC —
+  // so the UTC day would mark a renewal overdue 5.5 hours early, or late by a day.
+  const dueToday  = new Date(todayISO() + 'T00:00:00')
   const dueCutoff = new Date(dueToday); dueCutoff.setDate(dueCutoff.getDate() + 7)
   const dueMobile = profile?.mobile ?? (enrolment as any)?.student_mobile ?? ''
 

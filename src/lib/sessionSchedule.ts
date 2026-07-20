@@ -71,7 +71,35 @@ export interface ScheduleSession {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function pad(n: number) { return String(n).padStart(2, '0') }
-function ymd(d: Date) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` }
+/**
+ * Local-calendar YYYY-MM-DD. NOT toISOString().split('T')[0] — that converts to UTC,
+ * so a Date built at LOCAL midnight formats as the PREVIOUS day anywhere east of UTC.
+ * In IST it shifted every computed session date one day earlier. Exported so the
+ * copies of this date math elsewhere can share it instead of re-introducing the bug.
+ */
+export function ymd(d: Date) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` }
+
+/**
+ * Today as an IST calendar day — NOT the runtime's local day.
+ *
+ * This must be explicit about the zone, not merely avoid toISOString(): these helpers
+ * run BOTH in the student's browser (IST) and in server components on Vercel, where the
+ * Node process runs in UTC and no TZ is pinned. Deriving "today" from local time there
+ * is exactly the UTC day the old toISOString() returned, so the bug would have survived
+ * on every server-rendered path — sessions read as "upcoming" until 05:30 IST.
+ * Every class runs on IST wall-clock, so the business day is IST everywhere.
+ */
+const IST_DAY = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+})
+export function todayISO() { return IST_DAY.format(new Date()) }   // en-CA → YYYY-MM-DD
+
+/** startDate + weeks*7, as a local-calendar YYYY-MM-DD. */
+export function addWeeksISO(startDate: string, weeks: number) {
+  const d = new Date(startDate + 'T00:00:00')
+  d.setDate(d.getDate() + weeks * 7)
+  return ymd(d)
+}
 
 export function fmtTime(t: string | null | undefined): string {
   if (!t) return ''
@@ -120,7 +148,7 @@ export function generateSchedule(
   const isRolling  = batch.variant === 'rolling'
   const linkMap    = new Map(links.map(l => [l.session_number, l]))
   const curMap     = new Map(curriculum.map(c => [c.session_num, c]))
-  const todayISO   = ymd(new Date())
+  const todayStr   = todayISO()   // IST business day; see todayISO above
 
   // Rolling (endless monthly membership): there is no fixed curriculum or session
   // count. Show every weekly session up to the next upcoming one, plus any session
@@ -128,7 +156,7 @@ export function generateSchedule(
   let total = batch.total_sessions ?? 26
   if (isRolling) {
     const startMs      = new Date(batch.start_date + 'T00:00:00').getTime()
-    const todayMs      = new Date(todayISO + 'T00:00:00').getTime()
+    const todayMs      = new Date(todayStr + 'T00:00:00').getTime()
     const weeksElapsed = Math.max(0, Math.floor((todayMs - startMs) / (7 * 86400000)))
     const highestLink  = links.reduce((m, l) => Math.max(m, l.session_number), 0)
     total = Math.max(weeksElapsed + 1, highestLink, 1)
@@ -193,8 +221,8 @@ export function generateSchedule(
       originalDateISO: dateISO,
       originalDateLabel: d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }),
       changeReason: link?.change_reason ?? null,
-      isPast: effISO < todayISO,
-      isToday: effISO === todayISO,
+      isPast: effISO < todayStr,
+      isToday: effISO === todayStr,
     })
   }
   return out

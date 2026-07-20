@@ -1,5 +1,6 @@
 'use client'
 import { useState, useCallback, useMemo } from 'react'
+import { addWeeksISO, todayISO } from '@/lib/sessionSchedule'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Batch {
@@ -16,6 +17,11 @@ interface Batch {
 interface SessionRow {
   session_number: number
   session_title: string
+  // Per-session reschedule/skip. Without these the row rendered at its ORIGINAL
+  // computed date, so a session an admin had already moved still showed the old day.
+  status: string | null
+  override_date: string | null
+  override_time: string | null
   recording_link: string
   study_material_link: string
   meeting_link: string
@@ -37,20 +43,21 @@ function fmtDate(d: string) {
   })
 }
 
-function addWeeks(startDate: string, weeks: number): string {
-  const d = new Date(startDate + 'T00:00:00')
-  d.setDate(d.getDate() + weeks * 7)
-  return d.toISOString().split('T')[0]
-}
+// addWeeks/today come from lib/sessionSchedule: both used to format via toISOString(),
+// which converts a LOCAL-midnight Date to UTC and so returned the previous day in IST.
+// This is a 'use client' component, so it ran in the admin's IST browser and really did
+// render every session one day early.
+const addWeeks = addWeeksISO
 
-function isDatePast(dateStr: string) { return dateStr < new Date().toISOString().split('T')[0] }
-function isDateToday(dateStr: string) { return dateStr === new Date().toISOString().split('T')[0] }
+function isDatePast(dateStr: string) { return dateStr < todayISO() }
+function isDateToday(dateStr: string) { return dateStr === todayISO() }
 
 function blankSessions(): SessionRow[] {
   return Array.from({ length: 26 }, (_, i) => ({
     session_number: i + 1,
     session_title: '', recording_link: '',
     study_material_link: '', meeting_link: '', notes: '',
+    status: null, override_date: null, override_time: null,
     saveState: 'idle', saveError: '', dirty: false,
   }))
 }
@@ -84,6 +91,9 @@ export default function SessionsAdminClient({ batches }: { batches: Batch[] }) {
           study_material_link: found.study_material_link ?? '',
           meeting_link:        found.meeting_link        ?? '',
           notes:               found.notes               ?? '',
+          status:              found.status              ?? null,
+          override_date:       found.override_date       ?? null,
+          override_time:       found.override_time       ?? null,
           dirty: false,
         }
       }))
@@ -238,7 +248,12 @@ export default function SessionsAdminClient({ batches }: { batches: Batch[] }) {
           <div className="divide-y divide-gray-50">
             {visible.map(r => {
               if (!batch) return null
-              const date  = addWeeks(batch.start_date, r.session_number - 1)
+              // override_date is absolute — a rescheduled session is NOT start_date + n*7.
+              const moved = r.status === 'rescheduled' && !!r.override_date
+              const date  = moved ? r.override_date! : addWeeks(batch.start_date, r.session_number - 1)
+              // A reschedule can move the TIME as well as the date; showing the new date
+              // beside the batch's usual time would be a half-truth.
+              const time  = (moved && r.override_time) ? r.override_time : batch.start_time
               const past  = isDatePast(date)
               const today = isDateToday(date)
               const open  = expanded.has(r.session_number)
@@ -273,7 +288,7 @@ export default function SessionsAdminClient({ batches }: { batches: Batch[] }) {
                         {r.saveState === 'error' && <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-500">{r.saveError}</span>}
                       </div>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        {fmtDate(date)} · {fmtTime(batch.start_time)} IST
+                        {fmtDate(date)} · {fmtTime(time)} IST
                         {past && !today && <span className="ml-1 text-purple-400">· Completed</span>}
                         {!past && !today && <span className="ml-1 text-blue-400">· Upcoming</span>}
                       </p>

@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import CoursesClient from './CoursesClient'
 import { joinUrl } from '@/lib/joinToken'
+import { addWeeksISO, todayISO } from '@/lib/sessionSchedule'
 
 // ── Generate 26 weekly session dates from batch start ─────────────────────────
 // Each session is 1 week after the previous, starting from batch.start_date.
@@ -15,9 +16,9 @@ function generateSessionSchedule(
   if (!batch.start_date) return []
 
   return Array.from({ length: totalSessions }, (_, i) => {
-    const d = new Date(batch.start_date! + 'T00:00:00')
-    d.setDate(d.getDate() + i * 7)
-    const computedISO = d.toISOString().split('T')[0]
+    // addWeeksISO formats from LOCAL components; toISOString() here returned the
+    // previous day in IST, shifting every session date back by one.
+    const computedISO = addWeeksISO(batch.start_date!, i)
     const saved = savedLinks[i + 1] ?? {}
     // Per-session reschedule/skip override (admin sets these on awa_session_links).
     const status: 'scheduled' | 'rescheduled' | 'skipped' =
@@ -101,7 +102,9 @@ export default async function CoursesPage() {
     let totalSessions = batch?.total_sessions ?? e.course?.total_sessions ?? 26
     if (batch?.variant === 'rolling' && batch.start_date) {
       const startMs      = new Date(batch.start_date + 'T00:00:00').getTime()
-      const todayMs      = new Date(new Date().toISOString().split('T')[0] + 'T00:00:00').getTime()
+      // todayISO() is the LOCAL calendar day; toISOString() gave UTC's day, which in IST
+      // is yesterday until 05:30 — sessions read as "upcoming" for the first 5.5 hours.
+      const todayMs      = new Date(todayISO() + 'T00:00:00').getTime()
       const weeksElapsed = Math.max(0, Math.floor((todayMs - startMs) / (7 * 86400000)))
       const linkNums     = Object.keys(batchLinks).map(Number)
       const highestLink  = linkNums.length ? Math.max(...linkNums) : 0

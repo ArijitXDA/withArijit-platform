@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/service'
-import { generateSchedule, type BatchLike } from '@/lib/sessionSchedule'
+import { generateSchedule, todayISO, type BatchLike } from '@/lib/sessionSchedule'
 
 /**
  * Server loader: a student's unified session list.
@@ -36,7 +36,7 @@ export interface StudentSessions {
 
 export async function getStudentSessions(email: string): Promise<StudentSessions> {
   const service = createServiceClient()
-  const today   = new Date().toISOString().split('T')[0]
+  const today   = todayISO()   // IST business day, not the server's UTC day
 
   const { data: enrolments } = await service
     .from('student_enrolments')

@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { todayISO } from '@/lib/sessionSchedule'
 import Link from 'next/link'
 import {
   BookOpen, Calendar, Clock, ExternalLink,
@@ -90,7 +91,7 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
   }
   function closePlayer() { setPlayN(null); setVidUrl(null); setVidErr('') }
 
-  const today   = new Date().toISOString().split('T')[0]
+  const today   = todayISO()   // IST business day — UTC's day is yesterday until 05:30 IST
   // A session is "available" once its recording or study guide exists. Today's
   // class becomes watchable the moment materials are attached — students should
   // not have to wait for the date to roll over. A today-session with nothing
@@ -343,7 +344,7 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
   // record always says 26, so reading it showed "26 sessions" for every variant.
   const totalSessions  = batch?.total_sessions ?? course?.total_sessions ?? null
   const sessionDuration = batch?.duration_mins ?? course?.session_duration_mins ?? 60
-  const today          = new Date().toISOString().split('T')[0]
+  const today          = todayISO()
   const isAvail        = (s: Session) => !!(s.has_recording || s.has_study_material || s.study_material_link)
   const pastCount      = sessions.filter(s => s.session_date < today || (s.session_date === today && isAvail(s))).length
   const upcomingCount  = sessions.filter(s => s.session_date > today || (s.session_date === today && !isAvail(s))).length

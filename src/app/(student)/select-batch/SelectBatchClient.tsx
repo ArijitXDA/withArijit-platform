@@ -32,38 +32,68 @@ interface Course {
 }
 
 // ── Variant presentation ──────────────────────────────────────────────────────
-// weekend9 is listed first — the weekend intensive is the format we lead with.
-const VARIANT_META: Record<string, {
-  label: string; tagline: string; emoji: string; accent: string; order: number
-}> = {
-  weekend9: {
-    label:   '9-Week Weekend Intensive',
-    tagline: 'Power-packed 2-hour sessions — finish in 9 weekends',
-    emoji:   '🔥',
-    accent:  '#f97316',
-    order:   0,
-  },
-  long26: {
-    label:   '26-Week Long Track',
-    tagline: 'A steady 1-hour weekly rhythm over ~6 months',
-    emoji:   '📅',
-    accent:  '#6366f1',
-    order:   1,
-  },
-  // Quantum & AI Continued. Renewals skip this page entirely, so this is only ever
-  // seen by a FIRST-TIME subscriber — who, without an entry here, fell through to the
-  // fallback below and was shown the raw variant string "rolling" as the format name.
-  rolling: {
-    label:   'Continued Up-skilling · Monthly',
-    tagline: 'Rolling weekly sessions — continues month to month',
-    emoji:   '♾️',
-    accent:  '#06b6d4',
-    order:   2,
-  },
+// Only the styling is static. Session count, duration and weekend-vs-weeknight are
+// DERIVED from the batches — hardcoded copy was wrong twice over: it promised
+// "2-hour sessions" while Agentic runs 105 min, and "finish in 9 weekends" after
+// Agentic Cohort B moved to Monday evenings. Anything restating the schedule as
+// prose goes stale the next time a batch moves.
+const VARIANT_STYLE: Record<string, { emoji: string; accent: string; order: number }> = {
+  weekend9: { emoji: '🔥', accent: '#f97316', order: 0 },  // led with — the intensive
+  long26:   { emoji: '📅', accent: '#6366f1', order: 1 },
+  rolling:  { emoji: '♾️', accent: '#06b6d4', order: 2 },  // Quantum & AI Continued
 }
-function variantMeta(v: string) {
-  return VARIANT_META[v] ?? {
-    label: v, tagline: '', emoji: '📘', accent: '#6366f1', order: 9,
+const FALLBACK_STYLE = { emoji: '📘', accent: '#6366f1', order: 9 }
+
+function variantOrder(v: string) {
+  return (VARIANT_STYLE[v] ?? FALLBACK_STYLE).order
+}
+
+const WEEKEND_DAYS = new Set(['Saturday', 'Sunday'])
+
+/** 120 → "2-hour" · 60 → "1-hour" · 105 → "1h 45m" · 45 → "45-minute" */
+function durationWord(mins: number): string {
+  if (mins >= 60 && mins % 60 === 0) return mins === 60 ? '1-hour' : `${mins / 60}-hour`
+  const h = Math.floor(mins / 60)
+  return h > 0 ? `${h}h ${mins % 60}m` : `${mins}-minute`
+}
+
+/**
+ * `group` is the set of batches sharing this format — or a single batch when naming
+ * one selection. Passing the batches in is what keeps the wording honest: a format
+ * whose cohorts all sit on Sat/Sun reads "Weekend", one that has moved to weeknights
+ * reads "Weeknight", and a mixed format claims neither.
+ */
+function variantMeta(variant: string, group: Batch[]) {
+  const style = VARIANT_STYLE[variant] ?? FALLBACK_STYLE
+  const n     = group[0]?.total_sessions ?? 0
+  const dur   = group[0]?.duration_mins ?? 60
+  const dw    = durationWord(dur)
+
+  if (variant === 'rolling') {
+    return {
+      ...style,
+      label:   'Continued Up-skilling · Monthly',
+      tagline: `A ${dw} session every week — continues month to month`,
+    }
+  }
+
+  const allWeekend = group.length > 0 && group.every(b => WEEKEND_DAYS.has(b.day_of_week))
+  const noWeekend  = group.length > 0 && group.every(b => !WEEKEND_DAYS.has(b.day_of_week))
+  const dayWord    = allWeekend ? 'Weekend ' : noWeekend ? 'Weeknight ' : ''
+
+  // A long track is defined by its length, not by its key, so a future 16- or
+  // 20-session format is described correctly without touching this file.
+  if (n >= 20) {
+    return {
+      ...style,
+      label:   `${n}-Week Long Track`,
+      tagline: `A steady ${dw} weekly rhythm over ~${Math.round(n / 4.345)} months`,
+    }
+  }
+  return {
+    ...style,
+    label:   `${n}-Week ${dayWord}Intensive`,
+    tagline: `One ${dw} session a week — finish in ${n} ${allWeekend ? 'weekends' : 'weeks'}`,
   }
 }
 
@@ -112,7 +142,7 @@ export default function SelectBatchClient({
       list.sort((a, b) => (DAY_ORDER[a.day_of_week] ?? 9) - (DAY_ORDER[b.day_of_week] ?? 9))
     }
     return Object.entries(groups).sort(
-      ([a], [b]) => variantMeta(a).order - variantMeta(b).order
+      ([a], [b]) => variantOrder(a) - variantOrder(b)
     )
   }, [batches])
 
@@ -140,6 +170,9 @@ export default function SelectBatchClient({
   }
 
   const selectedBatch = batches.find(b => b.id === selected)
+  // Named from the single chosen batch, so the summary says "Weeknight" when that is
+  // what they picked, even if the format as a whole also runs on weekends.
+  const selectedMeta  = selectedBatch ? variantMeta(selectedBatch.variant, [selectedBatch]) : null
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(135deg, #0a0f1e 0%, #111827 100%)' }}>
@@ -201,7 +234,7 @@ export default function SelectBatchClient({
           {/* Batch cards — grouped by variant, then day */}
           <div className="space-y-8 mb-8">
             {batchesByVariant.map(([variant, variantBatches]) => {
-              const meta  = variantMeta(variant)
+              const meta  = variantMeta(variant, variantBatches)
               const nSess = variantBatches[0]?.total_sessions ?? 0
               const dur   = variantBatches[0]?.duration_mins ?? 60
               return (
@@ -308,18 +341,18 @@ export default function SelectBatchClient({
           </div>
 
           {/* Selected batch summary */}
-          {selectedBatch && (
+          {selectedBatch && selectedMeta && (
             <div className="rounded-2xl border mb-4 px-5 py-4"
               style={{
-                background: `${variantMeta(selectedBatch.variant).accent}12`,
-                borderColor: `${variantMeta(selectedBatch.variant).accent}4d`,
+                background: `${selectedMeta.accent}12`,
+                borderColor: `${selectedMeta.accent}4d`,
               }}>
               <p className="text-xs font-bold uppercase tracking-widest mb-1"
-                style={{ color: variantMeta(selectedBatch.variant).accent }}>
+                style={{ color: selectedMeta.accent }}>
                 Your Selection
               </p>
               <p className="text-white font-semibold">
-                {variantMeta(selectedBatch.variant).emoji} {variantMeta(selectedBatch.variant).label}
+                {selectedMeta.emoji} {selectedMeta.label}
                 {' · '}
                 {selectedBatch.day_of_week} {formatTime(selectedBatch.start_time)} IST
               </p>

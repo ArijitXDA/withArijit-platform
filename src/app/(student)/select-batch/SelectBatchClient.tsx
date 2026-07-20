@@ -50,6 +50,16 @@ const VARIANT_META: Record<string, {
     accent:  '#6366f1',
     order:   1,
   },
+  // Quantum & AI Continued. Renewals skip this page entirely, so this is only ever
+  // seen by a FIRST-TIME subscriber — who, without an entry here, fell through to the
+  // fallback below and was shown the raw variant string "rolling" as the format name.
+  rolling: {
+    label:   'Continued Up-skilling · Monthly',
+    tagline: 'Rolling weekly sessions — continues month to month',
+    emoji:   '♾️',
+    accent:  '#06b6d4',
+    order:   2,
+  },
 }
 function variantMeta(v: string) {
   return VARIANT_META[v] ?? {
@@ -204,7 +214,11 @@ export default function SelectBatchClient({
                       <span className="text-white font-bold text-sm">{meta.label}</span>
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
                         style={{ background: `${meta.accent}26`, color: meta.accent }}>
-                        {nSess} sessions · {dur} min each
+                        {/* A monthly subscription isn't a fixed-length course — quoting its
+                            rolling 52-week horizon as "52 sessions" reads as what you've bought. */}
+                        {variant === 'rolling'
+                          ? `${dur} min · every week`
+                          : `${nSess} sessions · ${dur} min each`}
                       </span>
                     </div>
                     <p className="text-slate-400 text-xs mt-1">{meta.tagline}</p>
@@ -310,7 +324,11 @@ export default function SelectBatchClient({
                 {selectedBatch.day_of_week} {formatTime(selectedBatch.start_time)} IST
               </p>
               <p className="text-slate-400 text-sm mt-0.5">
-                {course.name} · {selectedBatch.total_sessions} sessions ·{' '}
+                {course.name} ·{' '}
+                {selectedBatch.variant === 'rolling'
+                  ? 'weekly · continues monthly'
+                  : `${selectedBatch.total_sessions} sessions`} ·{' '}
+                {selectedBatch.variant === 'rolling' ? 'from ' : ''}
                 {formatDate(selectedBatch.start_date)}
                 {selectedBatch.end_date ? ` – ${formatDate(selectedBatch.end_date)}` : ''}
               </p>

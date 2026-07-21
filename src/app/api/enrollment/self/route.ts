@@ -20,6 +20,11 @@ async function creditPartnerCommission(
   enrollerShare: number,
   upstreamShare: number,
 ) {
+  // No partner pool → no commission. Products with partner_pool_percent = 0 (e.g. the Expert
+  // Consultation product, which pays no partner commission) never book a ledger row. This also
+  // avoids writing meaningless zero-amount rows for any future non-commissionable product.
+  if (!(partnerPoolPct > 0)) return
+
   const { data: enroller } = await supabase
     .from('partners')
     .select('id, partner_code, full_name, parent_partner_id')

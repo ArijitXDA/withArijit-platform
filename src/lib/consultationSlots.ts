@@ -8,7 +8,7 @@
 // AFTER mount (see ConsultationSlots.tsx), so there is no SSR/hydration exposure and
 // none of the toISOString()/UTC-runtime day-shift landmines apply.
 
-import { HOME_TZ } from '@/lib/timezone-config'
+import { HOME_TZ, isHomeZone } from '@/lib/timezone-config'
 
 export type SlotWindow = {
   dow: number // ISO weekday: 1=Mon … 7=Sun
@@ -111,7 +111,7 @@ export function localizeSlot(win: SlotWindow, tz: string, now: Date): LocalSlot 
     localRange: crossesDay
       ? `${s.time} – ${e.time} (${e.weekday} ${e.date}) ${e.tzName}`
       : `${s.time} – ${e.time} ${s.tzName}`,
-    isIST: tz === HOME_TZ,
+    isIST: isHomeZone(tz),
   }
 }
 

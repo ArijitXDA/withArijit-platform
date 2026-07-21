@@ -8,6 +8,17 @@
 
 export const HOME_TZ = 'Asia/Kolkata'
 
+// V8/Chrome report India's zone as the legacy alias 'Asia/Calcutta' on many builds,
+// so a real Indian visitor's browser often does NOT return 'Asia/Kolkata'. Treat both
+// as home so we show the clean "India Standard Time" framing rather than a redundant
+// "GMT+5:30 + also-IST" double line and the outdated city name "Calcutta".
+const HOME_TZ_ALIASES = new Set(['Asia/Kolkata', 'Asia/Calcutta'])
+
+/** True if the zone is India Standard Time under any of its IANA IDs. */
+export function isHomeZone(tz: string | null | undefined): boolean {
+  return !!tz && HOME_TZ_ALIASES.has(tz)
+}
+
 // One representative IANA zone per country. Multi-zone countries (US, AU, RU, …)
 // pick the most populous business zone; the browser zone (preferred source) is
 // exact, so this coarse map only ever bites when the browser zone is unavailable.

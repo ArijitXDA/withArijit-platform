@@ -2,10 +2,10 @@
 
 import { Globe2, Clock } from 'lucide-react'
 import { SLOT_WINDOWS, localizeSlot, istWindowLabel, tzCityLabel } from '@/lib/consultationSlots'
-import { HOME_TZ } from '@/lib/timezone-config'
+import { isHomeZone } from '@/lib/timezone-config'
 
 export function ConsultationSlots({ mounted, buyerTz }: { mounted: boolean; buyerTz: string }) {
-  const isIST = !mounted || buyerTz === HOME_TZ
+  const isIST = !mounted || isHomeZone(buyerTz)
   // `now` is only read on the client after mount, so there is no SSR/UTC exposure.
   const now = mounted ? new Date() : null
 

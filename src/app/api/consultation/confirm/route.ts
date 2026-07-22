@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
         amount_charged: usdTotal,
         fx_rate: fxRate,
         balance_due: 0,
-        payment_mode: 'card',
+        payment_mode: 'other', // Razorpay Intl (USD) — instrument not parsed; 'card' is not a valid awa_payment_mode
         payment_date: today,
         payment_reference: paymentId,
         commission_pct: 0,
@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
         p_instalment_number: 1,
         p_total_instalments: 1,
         p_amount_paid: inrAmount,
-        p_payment_mode: 'card',
+        p_payment_mode: 'other',
         p_payment_date: today,
         p_payment_reference: paymentId,
         p_razorpay_order_id: orderId,

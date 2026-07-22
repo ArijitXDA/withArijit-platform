@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { SlotPickerClient } from './_components/SlotPickerClient'
+import { InviteAttendees } from './_components/InviteAttendees'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +11,7 @@ export default async function SchedulePage({ params }: { params: Promise<{ token
 
   const { data: order } = await admin
     .from('consultation_orders')
-    .select('id, status, duration_sku, sessions, buyer_name, buyer_timezone, batch_id')
+    .select('id, status, duration_sku, sessions, attendees, buyer_name, buyer_timezone, batch_id')
     .eq('schedule_token', token)
     .maybeSingle()
 
@@ -30,13 +31,18 @@ export default async function SchedulePage({ params }: { params: Promise<{ token
       .eq('id', order.batch_id)
       .maybeSingle()
     return (
-      <div className="max-w-lg mx-auto px-4 py-24 text-center">
-        <h1 className="text-2xl font-bold text-gray-900">You&apos;re all booked ✓</h1>
-        <p className="text-gray-600 mt-3">Your consultation is scheduled. Details are in your inbox.</p>
-        {batch?.meeting_link && (
-          <a href={batch.meeting_link} className="inline-block mt-6 px-6 py-3 rounded-xl bg-indigo-600 text-white font-bold">
-            Join link
-          </a>
+      <div className="max-w-lg mx-auto px-4 py-24">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900">You&apos;re all booked ✓</h1>
+          <p className="text-gray-600 mt-3">Your consultation is scheduled. Details are in your inbox.</p>
+          {batch?.meeting_link && (
+            <a href={batch.meeting_link} className="inline-block mt-6 px-6 py-3 rounded-xl bg-indigo-600 text-white font-bold">
+              Join link
+            </a>
+          )}
+        </div>
+        {Number(order.attendees) > 1 && (
+          <InviteAttendees token={token} maxInvites={Number(order.attendees) - 1} />
         )}
       </div>
     )
@@ -59,6 +65,7 @@ export default async function SchedulePage({ params }: { params: Promise<{ token
         token={token}
         durationSku={order.duration_sku}
         sessions={Number(order.sessions) || 1}
+        attendees={Number(order.attendees) || 1}
         buyerTimezone={order.buyer_timezone}
       />
     </div>

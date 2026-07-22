@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Loader2, CheckCircle2, Calendar } from 'lucide-react'
+import { InviteAttendees } from './InviteAttendees'
 
 const IST_DAYS = [1, 2, 4] // Mon, Tue, Thu (ISO weekday)
 
@@ -32,11 +33,13 @@ export function SlotPickerClient({
   token,
   durationSku,
   sessions,
+  attendees,
   buyerTimezone,
 }: {
   token: string
   durationSku: string
   sessions: number
+  attendees: number
   buyerTimezone: string | null
 }) {
   const durationMins = durationSku === 'min30' ? 30 : 60
@@ -136,6 +139,7 @@ export function SlotPickerClient({
             Join link
           </a>
         )}
+        {attendees > 1 && <InviteAttendees token={token} maxInvites={attendees - 1} />}
       </div>
     )
   }

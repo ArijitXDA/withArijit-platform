@@ -14,21 +14,12 @@ import { SKU_SESSIONS, type DurationSku } from '@/lib/consultationCheckoutPricin
 // converge on exactly one batch + one Teams meeting.
 
 const PARTNER_ORIGIN = 'https://partner.ostaran.com'
-const IST_DAYS = new Set([1, 2, 4]) // Mon, Tue, Thu (ISO weekday)
 const MINT_TIMEOUT_MS = 6000
 
-function allowedStarts(durationMins: number): Set<string> {
-  const windows: [number, number][] = [
-    [10 * 60, 12 * 60],
-    [17 * 60, 19 * 60],
-  ]
-  const set = new Set<string>()
-  for (const [from, to] of windows) {
-    for (let m = from; m + durationMins <= to; m += durationMins) {
-      set.add(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`)
-    }
-  }
-  return set
+const hhmm = (t: string) => String(t).slice(0, 5)
+const toMin = (t: string) => {
+  const [h, m] = hhmm(t).split(':').map(Number)
+  return h * 60 + m
 }
 
 function isoWeekday(y: number, mo: number, d: number): number {
@@ -116,18 +107,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'This booking is not ready to schedule.' }, { status: 400 })
     }
 
-    // ── Validate the chosen slot ─────────────────────────────────────────────
+    // ── Validate the chosen slot (against the admin windows + the busy set) ──
     const [y, mo, d] = startDate.split('-').map(Number)
     const [hh, mm] = startTime.split(':').map(Number)
     const durationMins = order.duration_sku === 'min30' ? 30 : 60
-    if (!IST_DAYS.has(isoWeekday(y, mo, d))) {
-      return NextResponse.json({ error: 'Please pick a Monday, Tuesday or Thursday.' }, { status: 400 })
-    }
-    if (!allowedStarts(durationMins).has(startTime)) {
-      return NextResponse.json({ error: 'Please pick a time within the available windows.' }, { status: 400 })
-    }
+    const startMin = hh * 60 + mm
+
     if (istToUtcISO(y, mo, d, hh, mm) <= now) {
       return NextResponse.json({ error: 'Please pick a future slot.' }, { status: 400 })
+    }
+    const { data: windows } = await supabase
+      .from('consultation_availability')
+      .select('start_time, end_time')
+      .eq('is_active', true)
+      .eq('day_of_week', isoWeekday(y, mo, d))
+    const fits = (windows ?? []).some((w) => {
+      const ws = toMin(w.start_time)
+      const we = toMin(w.end_time)
+      return startMin >= ws && startMin + durationMins <= we && (startMin - ws) % durationMins === 0
+    })
+    if (!fits) {
+      return NextResponse.json({ error: "That time isn't available. Please pick from the offered slots." }, { status: 400 })
     }
 
     const sessions = Number(order.sessions) || SKU_SESSIONS[order.duration_sku as DurationSku] || 1
@@ -137,6 +137,17 @@ export async function POST(req: NextRequest) {
       sessionDays.push({ n, date: ymd(dd.y, dd.mo, dd.d), time: startTime, duration_mins: durationMins })
     }
     const lastDay = sessionDays[sessionDays.length - 1]
+
+    // EVERY session (not just the first) must be free — a weekly recurrence can't land on a
+    // class or another consultation.
+    const { data: busyAll } = await supabase.rpc('consultation_busy_slots', {
+      p_from: startDate,
+      p_to: lastDay.date,
+    })
+    const busySet = new Set((busyAll ?? []).map((b: any) => `${b.busy_date}|${hhmm(b.busy_time)}`))
+    if (sessionDays.some((s) => busySet.has(`${s.date}|${s.time}`))) {
+      return NextResponse.json({ error: 'One of those weekly times is taken. Please pick another slot.' }, { status: 409 })
+    }
 
     // ── Course guard (before any side effect) ────────────────────────────────
     const { data: course } = await supabase

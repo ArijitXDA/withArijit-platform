@@ -63,7 +63,6 @@ export default async function SchedulePage({ params }: { params: Promise<{ token
       </div>
       <SlotPickerClient
         token={token}
-        durationSku={order.duration_sku}
         sessions={Number(order.sessions) || 1}
         attendees={Number(order.attendees) || 1}
         buyerTimezone={order.buyer_timezone}

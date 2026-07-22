@@ -28,3 +28,26 @@ export function toOrderAmount(inrAmount: number, currency: CurrencyCode, rates: 
   const major = Math.round((inr / fxRate) * 100) / 100 // 2-decimal foreign amount
   return { amount: Math.round(major * 100), currency, chargedAmount: major, fxRate, inrAmount: inr }
 }
+
+/**
+ * NATIVE-currency order: the price is already denominated in `currency` (e.g. the Expert
+ * Consultation module is priced natively in USD). Charge that exact amount — do NOT run the
+ * lossy USD→INR→USD round-trip toOrderAmount() would, which would drift the buyer-facing
+ * figure and make the charge a function of a mutable INR base × mutable FX rate. The INR
+ * equivalent is DERIVED once (at the snapshot rate) purely for internal books/reporting.
+ */
+export function toNativeOrderAmount(majorAmount: number, currency: CurrencyCode, rates: FxRates): OrderAmount {
+  if (currency === 'INR') {
+    const inr = Math.round(majorAmount)
+    return { amount: inr * 100, currency: 'INR', chargedAmount: inr, fxRate: 1, inrAmount: inr }
+  }
+  const fxRate = inrPerUnit(currency, rates)
+  const major = Math.round(majorAmount * 100) / 100 // exact 2-decimal native charge
+  return {
+    amount: Math.round(major * 100), // EXACT cents — e.g. 17500 for $175.00
+    currency,
+    chargedAmount: major, // exactly what the buyer approved
+    fxRate, // snapshot INR per unit (books only)
+    inrAmount: Math.round(major * fxRate), // derived INR-equivalent for internal accounting
+  }
+}

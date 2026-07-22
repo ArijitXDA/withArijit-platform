@@ -5,14 +5,17 @@ import { tzForCountry, HOME_TZ } from '@/lib/timezone-config'
 import { ConsultationProjectTypes } from './ConsultationProjectTypes'
 import { ConsultationSlots } from './ConsultationSlots'
 import { ConsultationEnquiryForm } from './ConsultationEnquiryForm'
+import { ConsultationCheckout, type CheckoutType } from './ConsultationCheckout'
 import type { ConsultationType, ConsultationConfig } from '../page'
 
 export function ConsultationInteractive({
   types,
   config,
+  checkoutEnabled,
 }: {
   types: ConsultationType[]
   config: ConsultationConfig
+  checkoutEnabled: boolean
 }) {
   // SSR + first paint default to IST so server and client HTML match; the real
   // buyer zone is resolved after mount (see below), which is also when the slot
@@ -21,6 +24,21 @@ export function ConsultationInteractive({
   const [buyerTz, setBuyerTz] = useState<string>(HOME_TZ)
   const [buyerCountry, setBuyerCountry] = useState<string | null>(null)
   const [selectedType, setSelectedType] = useState<string | null>(null)
+  const [checkoutType, setCheckoutType] = useState<CheckoutType | null>(null)
+
+  const handleBookAndPay = useCallback(
+    (code: string) => {
+      const t = types.find((x) => x.code === code)
+      if (!t || t.is_dynamic || t.price_per_hour_usd == null) return
+      setCheckoutType({
+        code: t.code,
+        label: t.label,
+        rateUsd: t.price_per_hour_usd,
+        minChargeUsd: t.min_charge_usd ?? 0,
+      })
+    },
+    [types],
+  )
 
   useEffect(() => {
     // Primary source: the browser's own IANA zone (exact, DST-correct, multi-zone aware).
@@ -59,7 +77,19 @@ export function ConsultationInteractive({
         config={config}
         selectedType={selectedType}
         onEnquire={handleEnquireAbout}
+        checkoutEnabled={checkoutEnabled}
+        onBookAndPay={handleBookAndPay}
       />
+
+      {checkoutType && (
+        <ConsultationCheckout
+          type={checkoutType}
+          freeAttendees={config.free_attendees}
+          surchargePerPersonPerHour={config.group_surcharge_per_person_per_hour_usd}
+          buyerTimezone={mounted ? buyerTz : null}
+          onClose={() => setCheckoutType(null)}
+        />
+      )}
 
       <ConsultationSlots mounted={mounted} buyerTz={buyerTz} />
 

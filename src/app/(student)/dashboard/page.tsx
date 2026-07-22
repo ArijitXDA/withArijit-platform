@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { ConsultationPayCard } from './_components/ConsultationPayCard'
 import { todayISO } from '@/lib/sessionSchedule'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getStudentSessions } from '@/lib/studentSessions'
@@ -244,6 +245,9 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-5 pb-12 max-w-5xl">
+
+      {/* ── Approved consultation quote → pay ────────────────────────────── */}
+      <ConsultationPayCard email={email} />
 
       {/* ── Pending batch alert ──────────────────────────────────────────── */}
       {pendingBatch.length > 0 && (

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { isConsultationCheckoutEnabled } from '@/lib/consultationFlag'
 import { ConsultationHero } from './_components/ConsultationHero'
 import { WhoThisIsFor } from './_components/WhoThisIsFor'
 import { ConsultationServices } from './_components/ConsultationServices'
@@ -95,6 +96,7 @@ async function getConsultationData(): Promise<{
 
 export default async function ExpertConsultationPage() {
   const { types, config } = await getConsultationData()
+  const checkoutEnabled = await isConsultationCheckoutEnabled()
 
   // Lowest standard hourly rate, for the hero "from $X/hr" stat.
   const fixedRates = types
@@ -107,7 +109,7 @@ export default async function ExpertConsultationPage() {
       <ConsultationHero fromRate={fromRate} freeAttendees={config.free_attendees} />
       <WhoThisIsFor />
       <ConsultationServices config={config} />
-      <ConsultationInteractive types={types} config={config} />
+      <ConsultationInteractive types={types} config={config} checkoutEnabled={checkoutEnabled} />
     </div>
   )
 }

@@ -53,6 +53,30 @@ export async function POST(request: NextRequest) {
   const amountRaw = payment.amount   // paise
   const notes     = payment.notes ?? {}
 
+  // ── Expert Consultation orders take a different fulfilment path ────────────
+  // (USD-native; builds enrolment + batch/session, not a course enrolment). Route them to
+  // /api/consultation/confirm, authenticated by the shared webhook secret. That route is
+  // idempotent on razorpay_payment_id, so this backstop is safe alongside the client path.
+  if (notes.product === 'consultation') {
+    try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ostaran.com'
+      const res = await fetch(`${appUrl}/api/consultation/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-webhook-secret': process.env.RAZORPAY_WEBHOOK_SECRET ?? '',
+        },
+        body: JSON.stringify({ razorpay_order_id: orderId, razorpay_payment_id: paymentId }),
+      })
+      const r = await res.json().catch(() => ({}))
+      if (!res.ok) console.error('[webhook] consultation confirm failed:', r?.error)
+      return NextResponse.json({ received: true, consultation: res.ok })
+    } catch (err: any) {
+      console.error('[webhook] consultation confirm error:', err?.message)
+      return NextResponse.json({ received: true, error: err?.message }, { status: 200 })
+    }
+  }
+
   const courseId        = notes.course_id
   const name            = notes.name
   const email           = notes.email

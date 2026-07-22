@@ -12,7 +12,9 @@ import {
 
 declare global {
   interface Window {
-    Razorpay?: any
+    // Must match the other Window.Razorpay augmentations in the repo (required, not optional),
+    // or TS2687 "all declarations must have identical modifiers" fails the build.
+    Razorpay: any
   }
 }
 

@@ -72,14 +72,16 @@ export function ConsultationInteractive({
 
   return (
     <>
-      <ConsultationProjectTypes
-        types={types}
-        config={config}
-        selectedType={selectedType}
-        onEnquire={handleEnquireAbout}
-        checkoutEnabled={checkoutEnabled}
-        onBookAndPay={handleBookAndPay}
-      />
+      <div id="book" className="scroll-mt-20">
+        <ConsultationProjectTypes
+          types={types}
+          config={config}
+          selectedType={selectedType}
+          onEnquire={handleEnquireAbout}
+          checkoutEnabled={checkoutEnabled}
+          onBookAndPay={handleBookAndPay}
+        />
+      </div>
 
       {checkoutType && (
         <ConsultationCheckout
@@ -91,7 +93,7 @@ export function ConsultationInteractive({
         />
       )}
 
-      <ConsultationSlots mounted={mounted} buyerTz={buyerTz} />
+      <ConsultationSlots mounted={mounted} buyerTz={buyerTz} checkoutEnabled={checkoutEnabled} />
 
       <section id="enquiry" className="scroll-mt-20 bg-gray-50 border-t border-gray-100">
         <div className="max-w-3xl mx-auto px-4 py-16 md:py-20">
@@ -101,6 +103,7 @@ export function ConsultationInteractive({
             onSelectType={setSelectedType}
             buyerCountry={buyerCountry}
             buyerTimezone={mounted ? buyerTz : null}
+            checkoutEnabled={checkoutEnabled}
           />
         </div>
       </section>

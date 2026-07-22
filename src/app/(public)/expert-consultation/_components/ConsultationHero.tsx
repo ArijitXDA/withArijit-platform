@@ -4,9 +4,11 @@ import { formatUsd } from '@/lib/consultationUsd'
 export function ConsultationHero({
   fromRate,
   freeAttendees,
+  checkoutEnabled = false,
 }: {
   fromRate: number | null
   freeAttendees: number
+  checkoutEnabled?: boolean
 }) {
   return (
     <section
@@ -61,12 +63,26 @@ export function ConsultationHero({
               </p>
             </div>
           )}
-          <a
-            href="#enquiry"
-            className="inline-flex items-center justify-center px-7 py-4 rounded-xl bg-white text-indigo-900 text-base font-bold hover:bg-indigo-50 transition-colors shadow-lg"
-          >
-            Request your consultation →
-          </a>
+          {checkoutEnabled ? (
+            <div className="flex flex-col items-start gap-2">
+              <a
+                href="#book"
+                className="inline-flex items-center justify-center px-7 py-4 rounded-xl bg-white text-indigo-900 text-base font-bold hover:bg-indigo-50 transition-colors shadow-lg"
+              >
+                See pricing &amp; book →
+              </a>
+              <a href="#enquiry" className="text-sm font-semibold text-indigo-200 hover:text-white transition-colors">
+                Prefer to talk first? Enquire →
+              </a>
+            </div>
+          ) : (
+            <a
+              href="#enquiry"
+              className="inline-flex items-center justify-center px-7 py-4 rounded-xl bg-white text-indigo-900 text-base font-bold hover:bg-indigo-50 transition-colors shadow-lg"
+            >
+              Request your consultation →
+            </a>
+          )}
         </div>
       </div>
     </section>

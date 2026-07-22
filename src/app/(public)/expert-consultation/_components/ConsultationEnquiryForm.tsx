@@ -10,12 +10,14 @@ export function ConsultationEnquiryForm({
   onSelectType,
   buyerCountry,
   buyerTimezone,
+  checkoutEnabled = false,
 }: {
   types: ConsultationType[]
   selectedType: string | null
   onSelectType: (code: string | null) => void
   buyerCountry: string | null
   buyerTimezone: string | null
+  checkoutEnabled?: boolean
 }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -85,11 +87,12 @@ export function ConsultationEnquiryForm({
     <div>
       <div className="text-center max-w-xl mx-auto mb-8">
         <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900">
-          Request your consultation
+          {checkoutEnabled ? 'Prefer to talk first?' : 'Request your consultation'}
         </h2>
         <p className="text-gray-600 mt-3">
-          Tell us about your project and we&apos;ll get back to you within one business day to
-          confirm your expert, scope and a slot in your local time.
+          {checkoutEnabled
+            ? 'Not ready to book? Tell us about your project and we’ll get back within one business day with scope, pricing and a slot in your local time — no payment needed to enquire.'
+            : 'Tell us about your project and we’ll get back to you within one business day to confirm your expert, scope and a slot in your local time.'}
         </p>
       </div>
 

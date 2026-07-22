@@ -106,7 +106,7 @@ export default async function ExpertConsultationPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <ConsultationHero fromRate={fromRate} freeAttendees={config.free_attendees} />
+      <ConsultationHero fromRate={fromRate} freeAttendees={config.free_attendees} checkoutEnabled={checkoutEnabled} />
       <WhoThisIsFor />
       <ConsultationServices config={config} />
       <ConsultationInteractive types={types} config={config} checkoutEnabled={checkoutEnabled} />

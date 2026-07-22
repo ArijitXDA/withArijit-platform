@@ -4,7 +4,15 @@ import { Globe2, Clock } from 'lucide-react'
 import { SLOT_WINDOWS, localizeSlot, istWindowLabel, tzCityLabel } from '@/lib/consultationSlots'
 import { isHomeZone } from '@/lib/timezone-config'
 
-export function ConsultationSlots({ mounted, buyerTz }: { mounted: boolean; buyerTz: string }) {
+export function ConsultationSlots({
+  mounted,
+  buyerTz,
+  checkoutEnabled = false,
+}: {
+  mounted: boolean
+  buyerTz: string
+  checkoutEnabled?: boolean
+}) {
   const isIST = !mounted || isHomeZone(buyerTz)
   // `now` is only read on the client after mount, so there is no SSR/UTC exposure.
   const now = mounted ? new Date() : null
@@ -78,7 +86,9 @@ export function ConsultationSlots({ mounted, buyerTz }: { mounted: boolean; buye
       </div>
 
       <p className="text-center text-sm text-gray-500 mt-5">
-        These are typical windows — your exact slot is confirmed after your enquiry.
+        {checkoutEnabled
+          ? 'These are typical windows — you’ll pick your exact slot right after payment.'
+          : 'These are typical windows — your exact slot is confirmed after your enquiry.'}
       </p>
     </section>
   )

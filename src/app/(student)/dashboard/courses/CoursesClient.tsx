@@ -506,10 +506,10 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
         <div className="px-5 pb-4">
           <a
             href={`/consultation/extend/${enrolment.scheduleToken}`}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold"
-            style={{ color: T.indigo }}
+            className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl text-sm font-bold border-2 transition-colors hover:opacity-90"
+            style={{ color: T.indigo, borderColor: T.indigoBorder, background: T.indigoBg }}
           >
-            + Add more sessions
+            + Add more sessions to this engagement
           </a>
         </div>
       )}

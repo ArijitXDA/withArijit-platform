@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
           commission_pct:     0,             // no commission on group enrolments
           commission_amount:  0,
           oi_amount:          0,
-          payment_mode:       'group_enrolment',
+          payment_mode:       'other', // zero-amount group seat ('group_enrolment' is not a valid awa_payment_mode → this insert had been failing)
           payment_date:       new Date().toISOString().split('T')[0],
           payment_reference:  `group_${ge.id}`,
           batch_id:           ge.batch_id ?? null,

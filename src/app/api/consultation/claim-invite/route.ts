@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
           amount_charged: 0,
           fx_rate: 1,
           balance_due: 0,
-          payment_mode: 'group_invite',
+          payment_mode: 'other', // zero-amount group-invite seat ('group_invite' is not a valid awa_payment_mode)
           payment_date: todayISO(),
           commission_pct: 0,
           commission_amount: 0,

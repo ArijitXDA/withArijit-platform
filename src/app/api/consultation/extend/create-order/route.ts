@@ -6,6 +6,7 @@ import { getFxRates } from '@/lib/fxRates'
 import { inrPerUnit } from '@/lib/currency-config'
 import { computeConsultationCharge } from '@/lib/consultationTax'
 import { isConsultationCheckoutEnabled } from '@/lib/consultationFlag'
+import { resolveConsultationDiscount } from '@/lib/consultationDiscount'
 import { SKU_HOURS, SKU_SESSIONS, type DurationSku } from '@/lib/consultationCheckoutPricing'
 
 // POST /api/consultation/extend/create-order — top up an existing consultation with N more
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}))
     const token = String(body?.schedule_token ?? '').trim()
     const extra = Math.floor(Number(body?.extra_sessions) || 0)
+    const discountCode = String(body?.discount_code ?? '').trim().toUpperCase()
     if (!token) return NextResponse.json({ error: 'Missing booking reference.' }, { status: 400 })
     if (!(extra >= 1 && extra <= MAX_EXTRA)) {
       return NextResponse.json({ error: `Add between 1 and ${MAX_EXTRA} sessions.` }, { status: 400 })
@@ -64,7 +66,19 @@ export async function POST(req: NextRequest) {
     const extraAtt = Math.max(0, attendees - freeAttendees)
     const baseUsd = round2(rateUsd * addHours)
     const surchargeUsd = round2(surchargePerPersonPerHour * extraAtt * addHours)
-    const totalUsd = round2(baseUsd + surchargeUsd)
+
+    // Discount (optional) — applies to the base only, same rules as the main checkout.
+    const { discount, error: discErr } = await resolveConsultationDiscount(supabase, discountCode, new Date().toISOString())
+    if (discErr) return NextResponse.json({ error: discErr }, { status: 400 })
+    let discountUsd = 0
+    if (discount && discount.value > 0) {
+      discountUsd =
+        discount.kind === 'percentage'
+          ? round2((baseUsd * Math.min(100, discount.value)) / 100)
+          : Math.min(round2(discount.value), baseUsd)
+    }
+
+    const totalUsd = round2(Math.max(0, baseUsd - discountUsd) + surchargeUsd)
     if (!(totalUsd > 0)) {
       return NextResponse.json({ error: 'This extension has no payable amount.' }, { status: 400 })
     }
@@ -106,7 +120,8 @@ export async function POST(req: NextRequest) {
         rate_usd: rateUsd,
         base_usd: baseUsd,
         surcharge_usd: surchargeUsd,
-        discount_usd: 0,
+        discount_usd: discountUsd,
+        discount_code: discountCode || null,
         total_usd: totalUsd,
         currency: charge.currency,
         fx_rate: charge.fxRate,

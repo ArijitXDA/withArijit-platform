@@ -34,6 +34,7 @@ export function ExtendClient({
   fxUsdInr: number
 }) {
   const [extra, setExtra] = useState(1)
+  const [discountCode, setDiscountCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -69,7 +70,7 @@ export function ExtendClient({
       const res = await fetch('/api/consultation/extend/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ schedule_token: token, extra_sessions: extra }),
+        body: JSON.stringify({ schedule_token: token, extra_sessions: extra, discount_code: discountCode || undefined }),
       })
       const order = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -136,6 +137,16 @@ export function ExtendClient({
         </span>
       </label>
 
+      <label className="block text-sm">
+        <span className="font-medium text-gray-700">Discount code (optional)</span>
+        <input
+          className={`${inputCls} uppercase`}
+          value={discountCode}
+          onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+          placeholder="CODE"
+        />
+      </label>
+
       <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 text-sm">
         {india && !inrUnavailable ? (
           <>
@@ -161,17 +172,19 @@ export function ExtendClient({
               </>
             )}
             <div className="flex justify-between font-bold text-gray-900 mt-2 pt-2 border-t border-gray-200">
-              <span>Total payable</span>
+              <span>Total payable{discountCode ? ' (before code)' : ''}</span>
               <span>{fmtInr(charge.totalInr!)}</span>
             </div>
           </>
         ) : (
           <div className="flex justify-between font-bold text-gray-900">
-            <span>Total payable</span>
+            <span>Total payable{discountCode ? ' (before code)' : ''}</span>
             <span>{formatUsd(charge.totalUsd)}</span>
           </div>
         )}
       </div>
+
+      {discountCode && <p className="text-xs text-gray-500 -mt-2">Any valid code is applied at payment.</p>}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 

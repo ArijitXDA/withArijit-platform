@@ -143,6 +143,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Consume the discount code (once).
+    if (ext.discount_code) {
+      try {
+        await supabase.rpc('increment_discount_uses', { p_code: String(ext.discount_code) })
+      } catch (e: any) {
+        console.warn('[consultation extend confirm] discount increment:', e?.message)
+      }
+    }
+
     let invoiceNumber = (ext.invoice_number as string | null) ?? null
     if (!invoiceNumber) {
       try {

@@ -9,6 +9,8 @@ import {
   computeConsultationPrice,
   type DurationSku,
 } from '@/lib/consultationCheckoutPricing'
+import { computeConsultationCharge, isIndia, type GstMode } from '@/lib/consultationTax'
+import { COUNTRIES, INDIAN_STATES } from '@/lib/consultationGeo'
 
 declare global {
   interface Window {
@@ -25,10 +27,16 @@ export type CheckoutType = {
   minChargeUsd: number
 }
 
+const fmtInr = (n: number) => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN')
+
 export function ConsultationCheckout({
   type,
   freeAttendees,
   surchargePerPersonPerHour,
+  gstRate,
+  gstMode,
+  fxUsdInr,
+  defaultCountry,
   buyerTimezone,
   payToken,
   onClose,
@@ -36,6 +44,10 @@ export function ConsultationCheckout({
   type: CheckoutType
   freeAttendees: number
   surchargePerPersonPerHour: number
+  gstRate: number
+  gstMode: GstMode
+  fxUsdInr: number
+  defaultCountry?: string | null
   buyerTimezone: string | null
   payToken?: string | null
   onClose: () => void
@@ -47,6 +59,13 @@ export function ConsultationCheckout({
   const [email, setEmail] = useState('')
   const [mobile, setMobile] = useState('')
   const [company, setCompany] = useState('')
+  const [country, setCountry] = useState(() => {
+    const c = String(defaultCountry ?? '').toUpperCase()
+    return COUNTRIES.some((x) => x.code === c) ? c : ''
+  })
+  const [stateName, setStateName] = useState('')
+  const [gstin, setGstin] = useState('')
+  const [address, setAddress] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -65,10 +84,35 @@ export function ConsultationCheckout({
     [type, sku, attendees, freeAttendees, surchargePerPersonPerHour],
   )
 
+  const indiaSel = isIndia(country)
+  const charge = useMemo(
+    () =>
+      computeConsultationCharge({
+        usd: price,
+        billingCountry: country || 'OT',
+        billingState: stateName,
+        fxRate: fxUsdInr,
+        gstRate,
+        gstMode,
+      }),
+    [price, country, stateName, fxUsdInr, gstRate, gstMode],
+  )
+
+  const inrUnavailable = indiaSel && !(charge.totalInr && charge.totalInr > 0)
+  const gstTotalInr = (charge.cgstInr ?? 0) + (charge.sgstInr ?? 0) + (charge.igstInr ?? 0)
+
   async function bookAndPay() {
     setError('')
     if (!name.trim() || !email.trim()) {
       setError('Please add your name and work email.')
+      return
+    }
+    if (!country) {
+      setError('Please select your billing country.')
+      return
+    }
+    if (indiaSel && !stateName) {
+      setError('Please select your state (needed for the GST invoice).')
       return
     }
     setBusy(true)
@@ -87,6 +131,10 @@ export function ConsultationCheckout({
           mobile,
           company,
           timezone: buyerTimezone,
+          billing_country: country,
+          billing_state: indiaSel ? stateName : undefined,
+          billing_gstin: indiaSel ? gstin || undefined : undefined,
+          billing_address: address || undefined,
         }),
       })
       const order = await res.json().catch(() => ({}))
@@ -105,7 +153,7 @@ export function ConsultationCheckout({
         key: order.keyId,
         order_id: order.orderId,
         amount: order.amount,
-        currency: 'USD',
+        currency: order.currency, // 'INR' (domestic) or 'USD' (export) — set by the server
         name: 'oStaran — Expert Consultation',
         description: `${type.label} · ${SKU_LABEL[sku]}`,
         prefill: { name, email, contact: mobile },
@@ -125,7 +173,6 @@ export function ConsultationCheckout({
             if (verify.ok && conf.scheduleToken) {
               window.location.href = `/consultation/schedule/${conf.scheduleToken}`
             } else {
-              // Payment captured; the webhook backstop will fulfil it. Reassure the buyer.
               window.location.href = `/consultation/thank-you`
             }
           } catch {
@@ -143,6 +190,12 @@ export function ConsultationCheckout({
 
   const inputCls =
     'mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none'
+
+  const payLabel = inrUnavailable
+    ? 'Book & pay'
+    : indiaSel
+      ? `Book & pay ${fmtInr(charge.totalInr!)}`
+      : `Book & pay ${formatUsd(price.totalUsd)}`
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onClick={onClose}>
@@ -204,6 +257,55 @@ export function ConsultationCheckout({
             </label>
           </div>
 
+          {/* Billing — drives the invoice + tax (India → INR + GST, else USD export). */}
+          <div className="rounded-xl border border-gray-200 p-3 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Billing (for your invoice)</p>
+            <label className="block text-sm">
+              <span className="font-medium text-gray-700">Country *</span>
+              <select className={`${inputCls} bg-white`} value={country} onChange={(e) => setCountry(e.target.value)}>
+                <option value="">Select your country…</option>
+                {COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {indiaSel && (
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-sm">
+                  <span className="font-medium text-gray-700">State *</span>
+                  <select className={`${inputCls} bg-white`} value={stateName} onChange={(e) => setStateName(e.target.value)}>
+                    <option value="">Select…</option>
+                    {INDIAN_STATES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium text-gray-700">GSTIN (optional)</span>
+                  <input
+                    className={`${inputCls} uppercase`}
+                    value={gstin}
+                    onChange={(e) => setGstin(e.target.value.toUpperCase())}
+                    placeholder="For input credit"
+                  />
+                </label>
+              </div>
+            )}
+            <label className="block text-sm">
+              <span className="font-medium text-gray-700">Billing address {indiaSel ? '' : '(optional)'}</span>
+              <textarea
+                className={`${inputCls} resize-y min-h-[52px]`}
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="Company address as it should appear on the invoice"
+              />
+            </label>
+          </div>
+
           <label className="block text-sm">
             <span className="font-medium text-gray-700">Discount code (optional)</span>
             <input
@@ -214,6 +316,7 @@ export function ConsultationCheckout({
             />
           </label>
 
+          {/* Price summary — currency + tax follow the billing country. */}
           <div className="rounded-xl bg-gray-50 border border-gray-200 p-4 text-sm">
             <div className="flex justify-between text-gray-600">
               <span>
@@ -228,12 +331,52 @@ export function ConsultationCheckout({
                 <span className="text-gray-900">{formatUsd(price.surchargeUsd)}</span>
               </div>
             )}
-            <div className="flex justify-between font-bold text-gray-900 mt-2 pt-2 border-t border-gray-200">
-              <span>Total{discountCode ? ' (before code)' : ''}</span>
-              <span>{formatUsd(price.totalUsd)}</span>
-            </div>
-            {discountCode && (
-              <p className="text-xs text-gray-500 mt-1">Any valid code is applied at payment.</p>
+
+            {indiaSel && !inrUnavailable ? (
+              <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
+                <div className="flex justify-between text-gray-600">
+                  <span>Taxable value (INR)</span>
+                  <span className="text-gray-900">{fmtInr(charge.taxableInr!)}</span>
+                </div>
+                {charge.igstInr ? (
+                  <div className="flex justify-between text-gray-600">
+                    <span>IGST @ {charge.gstRate}%</span>
+                    <span className="text-gray-900">{fmtInr(charge.igstInr)}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between text-gray-600">
+                      <span>CGST @ {(charge.gstRate ?? 18) / 2}%</span>
+                      <span className="text-gray-900">{fmtInr(charge.cgstInr ?? 0)}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600">
+                      <span>SGST @ {(charge.gstRate ?? 18) / 2}%</span>
+                      <span className="text-gray-900">{fmtInr(charge.sgstInr ?? 0)}</span>
+                    </div>
+                  </>
+                )}
+                <div className="flex justify-between font-bold text-gray-900 pt-1">
+                  <span>Total payable{discountCode ? ' (before code)' : ''}</span>
+                  <span>{fmtInr(charge.totalInr!)}</span>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Charged in INR (domestic supply). ≈ {formatUsd(price.totalUsd)} + {charge.gstRate}% GST.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-2 pt-2 border-t border-gray-200">
+                <div className="flex justify-between font-bold text-gray-900">
+                  <span>Total{discountCode ? ' (before code)' : ''}</span>
+                  <span>{formatUsd(price.totalUsd)}</span>
+                </div>
+                {country && !indiaSel && (
+                  <p className="text-xs text-gray-500 mt-1">Charged in USD · no GST (export of services).</p>
+                )}
+              </div>
+            )}
+            {discountCode && <p className="text-xs text-gray-500 mt-1">Any valid code is applied at payment.</p>}
+            {inrUnavailable && (
+              <p className="text-xs text-amber-700 mt-1">INR pricing is being calculated — the final amount shows at payment.</p>
             )}
           </div>
 
@@ -249,7 +392,7 @@ export function ConsultationCheckout({
                 <Loader2 size={18} className="animate-spin" /> Starting checkout…
               </>
             ) : (
-              <>Book &amp; pay {formatUsd(price.totalUsd)}</>
+              <>{payLabel}</>
             )}
           </button>
           <p className="text-center text-xs text-gray-400">

@@ -95,6 +95,17 @@ export async function POST(req: NextRequest) {
     const usdTotal = Number(claim.total_usd)
     const fxRate = Number(claim.fx_rate) > 0 ? Number(claim.fx_rate) : 1
 
+    // Domestic (India) was charged in INR + GST; export in USD (GST 0). Money columns always
+    // carry INR (whole-stack convention); currency/amount_charged are the display overlay.
+    const isDomestic = claim.tax_regime === 'domestic_gst'
+    const totalInr = Number(claim.total_inr) || 0
+    const taxableInr = Number(claim.taxable_inr) || 0
+    const gstInr = (Number(claim.cgst_inr) || 0) + (Number(claim.sgst_inr) || 0) + (Number(claim.igst_inr) || 0)
+    const bookInr = isDomestic ? totalInr : inrAmount
+    const enrolCurrency = isDomestic ? 'INR' : 'USD'
+    const enrolCharged = isDomestic ? totalInr : usdTotal
+    const enrolGstPct = isDomestic ? Number(claim.gst_rate) || 18 : 0
+
     // enrolment sequence for this buyer+course
     const { count: existingCount } = await supabase
       .from('student_enrolments')
@@ -117,16 +128,16 @@ export async function POST(req: NextRequest) {
         course_name: course.name,
         course_id: course.id,
         enrolment_type: 'full_course',
-        mrp: inrAmount,
+        mrp: bookInr,
         discount_pct: 0,
         discount_amount: 0,
-        net_after_discount: inrAmount,
-        gst_pct: 0,
-        gst_amount: 0,
-        net_taxable: inrAmount,
-        amount_paid: inrAmount,
-        currency: 'USD',
-        amount_charged: usdTotal,
+        net_after_discount: bookInr,
+        gst_pct: enrolGstPct,
+        gst_amount: gstInr,
+        net_taxable: isDomestic ? taxableInr : inrAmount,
+        amount_paid: bookInr,
+        currency: enrolCurrency,
+        amount_charged: enrolCharged,
         fx_rate: fxRate,
         balance_due: 0,
         payment_mode: 'other', // Razorpay Intl (USD) — instrument not parsed; 'card' is not a valid awa_payment_mode
@@ -134,7 +145,7 @@ export async function POST(req: NextRequest) {
         payment_reference: paymentId,
         commission_pct: 0,
         commission_amount: 0,
-        oi_amount: inrAmount,
+        oi_amount: bookInr,
         is_active: true,
         enrolment_seq: enrolmentSeq,
         enrolment_status: 'active',
@@ -173,7 +184,7 @@ export async function POST(req: NextRequest) {
         p_payment_type: 'full',
         p_instalment_number: 1,
         p_total_instalments: 1,
-        p_amount_paid: inrAmount,
+        p_amount_paid: bookInr,
         p_payment_mode: 'other',
         p_payment_date: today,
         p_payment_reference: paymentId,
@@ -182,7 +193,7 @@ export async function POST(req: NextRequest) {
       })
       await supabase
         .from('payment_transactions')
-        .update({ currency: 'USD', fx_rate: fxRate, amount_charged: usdTotal })
+        .update({ currency: enrolCurrency, fx_rate: fxRate, amount_charged: enrolCharged })
         .eq('enrolment_id', enrolmentId)
     } catch (e: any) {
       console.warn('[consultation confirm] payment_transaction failed (non-fatal):', e?.message)
@@ -216,10 +227,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Mint the sequential invoice number once (persisted on the order for the PDF).
+    let invoiceNumber = (claim.invoice_number as string | null) ?? null
+    if (!invoiceNumber) {
+      try {
+        const { data: inv } = await supabase.rpc('consultation_next_invoice_number')
+        if (typeof inv === 'string') invoiceNumber = inv
+      } catch (e: any) {
+        console.warn('[consultation confirm] invoice number mint failed:', e?.message)
+      }
+    }
+
     // ── Finalise the order (status → paid, attach enrolment) ─────────────────
     const { error: finalErr } = await supabase
       .from('consultation_orders')
-      .update({ status: 'paid', enrolment_id: enrolmentId, updated_at: now })
+      .update({ status: 'paid', enrolment_id: enrolmentId, invoice_number: invoiceNumber, updated_at: now })
       .eq('id', claim.id)
     if (finalErr) {
       // Payment + enrolment already exist; the order just didn't flip to 'paid'. Log for

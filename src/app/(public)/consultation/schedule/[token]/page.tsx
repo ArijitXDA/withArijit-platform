@@ -44,6 +44,11 @@ export default async function SchedulePage({ params }: { params: Promise<{ token
         {Number(order.attendees) > 1 && (
           <InviteAttendees token={token} maxInvites={Number(order.attendees) - 1} />
         )}
+        <p className="text-center mt-6">
+          <a href={`/api/consultation/invoice/${token}`} className="text-sm text-indigo-600 underline">
+            Download invoice (PDF)
+          </a>
+        </p>
       </div>
     )
   }
@@ -67,6 +72,11 @@ export default async function SchedulePage({ params }: { params: Promise<{ token
         attendees={Number(order.attendees) || 1}
         buyerTimezone={order.buyer_timezone}
       />
+      <p className="text-center mt-6">
+        <a href={`/api/consultation/invoice/${token}`} className="text-sm text-indigo-600 underline">
+          Download invoice (PDF)
+        </a>
+      </p>
     </div>
   )
 }

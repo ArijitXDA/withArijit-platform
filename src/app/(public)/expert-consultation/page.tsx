@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { getFxRates } from '@/lib/fxRates'
+import { inrPerUnit } from '@/lib/currency-config'
 import { isConsultationCheckoutEnabled } from '@/lib/consultationFlag'
 import { ConsultationHero } from './_components/ConsultationHero'
 import { WhoThisIsFor } from './_components/WhoThisIsFor'
@@ -41,6 +43,9 @@ export type ConsultationType = {
 export type ConsultationConfig = {
   free_attendees: number
   group_surcharge_per_person_per_hour_usd: number
+  gst_rate: number
+  gst_mode: 'exclusive' | 'inclusive'
+  fx_usd_inr: number // INR per 1 USD — for the domestic-India (INR + GST) price preview
 }
 
 async function getConsultationData(): Promise<{
@@ -59,10 +64,18 @@ async function getConsultationData(): Promise<{
       .order('sort_order'),
     supabase
       .from('consultation_config')
-      .select('free_attendees, group_surcharge_per_person_per_hour_usd')
+      .select('free_attendees, group_surcharge_per_person_per_hour_usd, gst_rate, gst_mode')
       .eq('id', 1)
       .maybeSingle(),
   ])
+
+  // FX (INR per USD) for the domestic-India price preview. Best-effort; falls back below.
+  let fxUsdInr = 0
+  try {
+    fxUsdInr = inrPerUnit('USD', await getFxRates())
+  } catch {
+    fxUsdInr = 0
+  }
 
   if (typesRes.error) console.error('[expert-consultation] types read:', typesRes.error.message)
   if (configRes.error) console.error('[expert-consultation] config read:', configRes.error.message)
@@ -89,6 +102,9 @@ async function getConsultationData(): Promise<{
     group_surcharge_per_person_per_hour_usd: Number(
       configRes.data?.group_surcharge_per_person_per_hour_usd ?? 10,
     ),
+    gst_rate: Number(configRes.data?.gst_rate ?? 18),
+    gst_mode: (configRes.data?.gst_mode === 'inclusive' ? 'inclusive' : 'exclusive'),
+    fx_usd_inr: fxUsdInr,
   }
 
   return { types, config }

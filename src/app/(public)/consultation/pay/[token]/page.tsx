@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
+import { getFxRates } from '@/lib/fxRates'
+import { inrPerUnit } from '@/lib/currency-config'
 import { PayClient } from './_components/PayClient'
 
 export const dynamic = 'force-dynamic'
@@ -38,9 +40,16 @@ export default async function ConsultationPayPage({ params }: { params: Promise<
 
   const { data: cfg } = await admin
     .from('consultation_config')
-    .select('free_attendees, group_surcharge_per_person_per_hour_usd')
+    .select('free_attendees, group_surcharge_per_person_per_hour_usd, gst_rate, gst_mode')
     .eq('id', 1)
     .maybeSingle()
+
+  let fxUsdInr = 0
+  try {
+    fxUsdInr = inrPerUnit('USD', await getFxRates())
+  } catch {
+    fxUsdInr = 0
+  }
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-16 text-center">
@@ -54,6 +63,9 @@ export default async function ConsultationPayPage({ params }: { params: Promise<
         rateUsd={Number(quote.final_rate_usd)}
         freeAttendees={Number(cfg?.free_attendees ?? 5)}
         surchargePerPersonPerHour={Number(cfg?.group_surcharge_per_person_per_hour_usd ?? 10)}
+        gstRate={Number(cfg?.gst_rate ?? 18)}
+        gstMode={cfg?.gst_mode === 'inclusive' ? 'inclusive' : 'exclusive'}
+        fxUsdInr={fxUsdInr}
       />
     </div>
   )

@@ -88,6 +88,10 @@ export function ConsultationInteractive({
           type={checkoutType}
           freeAttendees={config.free_attendees}
           surchargePerPersonPerHour={config.group_surcharge_per_person_per_hour_usd}
+          gstRate={config.gst_rate}
+          gstMode={config.gst_mode}
+          fxUsdInr={config.fx_usd_inr}
+          defaultCountry={buyerCountry}
           buyerTimezone={mounted ? buyerTz : null}
           onClose={() => setCheckoutType(null)}
         />

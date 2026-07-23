@@ -8,11 +8,17 @@ export function PayClient({
   rateUsd,
   freeAttendees,
   surchargePerPersonPerHour,
+  gstRate,
+  gstMode,
+  fxUsdInr,
 }: {
   payToken: string
   rateUsd: number
   freeAttendees: number
   surchargePerPersonPerHour: number
+  gstRate: number
+  gstMode: 'exclusive' | 'inclusive'
+  fxUsdInr: number
 }) {
   const [open, setOpen] = useState(true)
   const [tz, setTz] = useState<string | null>(null)
@@ -32,6 +38,9 @@ export function PayClient({
           type={{ code: 'type4', label: 'Your custom project', rateUsd, minChargeUsd: 0 }}
           freeAttendees={freeAttendees}
           surchargePerPersonPerHour={surchargePerPersonPerHour}
+          gstRate={gstRate}
+          gstMode={gstMode}
+          fxUsdInr={fxUsdInr}
           buyerTimezone={tz}
           payToken={payToken}
           onClose={() => setOpen(false)}

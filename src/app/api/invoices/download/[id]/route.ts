@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { generateGSTInvoice } from '@/lib/pdf'
+import { loadInvoiceSeller } from '@/lib/invoiceConfig'
 
 export async function GET(
   _request: NextRequest,
@@ -29,10 +30,12 @@ export async function GET(
     .eq('email', user.email)
     .maybeSingle()
 
+  const seller = await loadInvoiceSeller(service)
   const pdfBuffer = await generateGSTInvoice(
     payment,
     student?.name,
-    student?.course_name
+    student?.course_name,
+    seller,
   )
 
   return new NextResponse(new Uint8Array(pdfBuffer), {

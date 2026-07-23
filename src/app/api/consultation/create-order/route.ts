@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getRazorpay } from '@/lib/razorpay'
 import { getFxRates } from '@/lib/fxRates'
-import { toNativeOrderAmount } from '@/lib/orderCurrency'
+import { inrPerUnit } from '@/lib/currency-config'
+import { computeConsultationCharge } from '@/lib/consultationTax'
 import { isConsultationCheckoutEnabled } from '@/lib/consultationFlag'
 import {
   computeConsultationPrice,
@@ -36,6 +37,13 @@ export async function POST(req: NextRequest) {
     const company = String(body?.company ?? '').trim().slice(0, 200) || null
     const timezone = String(body?.timezone ?? '').trim().slice(0, 100) || null
 
+    // Billing (drives tax regime: India → INR + GST, else → USD export).
+    const billingCountry = String(body?.billing_country ?? '').trim().toUpperCase().slice(0, 2)
+    const billingState = String(body?.billing_state ?? '').trim().slice(0, 100) || null
+    const billingPostal = String(body?.billing_postal ?? '').trim().slice(0, 20) || null
+    const billingAddress = String(body?.billing_address ?? '').trim().slice(0, 500) || null
+    const billingGstin = String(body?.billing_gstin ?? '').trim().toUpperCase().slice(0, 20) || null
+
     if (!['type1', 'type2', 'type3', 'type4'].includes(projectTypeCode)) {
       return NextResponse.json({ error: 'Invalid project type.' }, { status: 400 })
     }
@@ -47,6 +55,12 @@ export async function POST(req: NextRequest) {
     }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 })
+    }
+    if (!/^[A-Z]{2}$/.test(billingCountry)) {
+      return NextResponse.json({ error: 'Please select your billing country.' }, { status: 400 })
+    }
+    if (billingCountry === 'IN' && !billingState) {
+      return NextResponse.json({ error: 'Please select your state (needed for the GST invoice).' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
@@ -64,11 +78,14 @@ export async function POST(req: NextRequest) {
 
     const { data: cfg } = await supabase
       .from('consultation_config')
-      .select('free_attendees, group_surcharge_per_person_per_hour_usd')
+      .select('free_attendees, group_surcharge_per_person_per_hour_usd, gst_rate, gst_mode, domestic_inr_enabled')
       .eq('id', 1)
       .maybeSingle()
     const freeAttendees = Number(cfg?.free_attendees ?? 5)
     const surchargePerPersonPerHour = Number(cfg?.group_surcharge_per_person_per_hour_usd ?? 10)
+    const gstRate = Number(cfg?.gst_rate ?? 18)
+    const gstMode = (cfg?.gst_mode === 'inclusive' ? 'inclusive' : 'exclusive') as 'inclusive' | 'exclusive'
+    const domesticEnabled = cfg?.domestic_inr_enabled !== false
 
     // ── Rate: type1-3 use the fixed rate; type4 requires an APPROVED quote pay-token ──
     let rateUsd: number
@@ -157,22 +174,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'This booking has no payable amount.' }, { status: 400 })
     }
 
-    // ── USD-native Razorpay International order ───────────────────────────────
+    // ── Charge: export (USD) or domestic India (INR + GST) ───────────────────
     const rates = await getFxRates()
-    const oa = toNativeOrderAmount(price.totalUsd, 'USD', rates)
+    const fxRate = inrPerUnit('USD', rates)
+    const charge = computeConsultationCharge({ usd: price, billingCountry, billingState, fxRate, gstRate, gstMode })
+
+    if (charge.regime === 'domestic_gst' && !domesticEnabled) {
+      return NextResponse.json(
+        { error: 'Online INR booking is being finalised — please use “Enquire” and we’ll invoice you in INR.' },
+        { status: 400 },
+      )
+    }
+
+    const isDomestic = charge.regime === 'domestic_gst'
+    const rzAmount = isDomestic ? charge.amountPaise! : charge.amountCents!
+    const rzCurrency: 'INR' | 'USD' = isDomestic ? 'INR' : 'USD'
 
     const rzOrder = await getRazorpay().orders.create({
-      amount: oa.amount, // exact cents
-      currency: 'USD',
+      amount: rzAmount, // smallest unit: paise (INR) or cents (USD)
+      currency: rzCurrency,
       receipt: `consult_${Date.now()}`,
       notes: {
         product: 'consultation',
         project_type_code: projectTypeCode,
         duration_sku: durationSku,
-        currency: 'USD',
-        charged_amount: String(oa.chargedAmount),
-        fx_rate: String(oa.fxRate),
-        inr_amount: String(oa.inrAmount),
+        currency: rzCurrency,
+        regime: charge.regime,
         name,
         email,
         mobile,
@@ -194,9 +221,23 @@ export async function POST(req: NextRequest) {
         discount_usd: price.discountUsd,
         discount_code: discountCode || null,
         total_usd: price.totalUsd,
-        currency: 'USD',
-        fx_rate: oa.fxRate,
-        inr_amount: oa.inrAmount,
+        currency: charge.currency,
+        fx_rate: charge.fxRate,
+        inr_amount: charge.inrEquivalent,
+        // Tax + invoice
+        tax_regime: charge.regime,
+        gst_rate: isDomestic ? charge.gstRate : 0,
+        taxable_inr: charge.taxableInr ?? null,
+        cgst_inr: charge.cgstInr ?? null,
+        sgst_inr: charge.sgstInr ?? null,
+        igst_inr: charge.igstInr ?? null,
+        total_inr: charge.totalInr ?? null,
+        invoice_type: isDomestic ? 'tax_invoice' : 'export_invoice',
+        billing_country: billingCountry,
+        billing_state: billingState,
+        billing_postal: billingPostal,
+        billing_address: billingAddress,
+        billing_gstin: billingGstin,
         razorpay_order_id: rzOrder.id,
         status: 'pending',
         buyer_name: name,
@@ -214,9 +255,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       orderId: rzOrder.id,
-      amount: oa.amount,
-      currency: 'USD',
+      amount: rzAmount,
+      currency: rzCurrency,
       keyId: process.env.RAZORPAY_KEY_ID,
+      regime: charge.regime,
       totalUsd: price.totalUsd,
       breakdown: {
         hours: price.hours,
@@ -225,6 +267,10 @@ export async function POST(req: NextRequest) {
         surchargeUsd: price.surchargeUsd,
         discountUsd: price.discountUsd,
         totalUsd: price.totalUsd,
+        currency: charge.currency,
+        taxableInr: charge.taxableInr ?? null,
+        gstInr: isDomestic ? (charge.cgstInr! + charge.sgstInr! + charge.igstInr!) : null,
+        totalInr: charge.totalInr ?? null,
       },
     })
   } catch (err: any) {

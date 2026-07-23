@@ -49,9 +49,11 @@ export default async function CoursesPage() {
       {/* ── Hero ────────────────────────────────────────────────────── */}
       <section className="bg-gradient-to-br from-gray-950 via-indigo-950 to-gray-900 text-white py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 mb-5">
-            9 Programmes Available
-          </span>
+          {courseList.length > 0 && (
+            <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 mb-5">
+              {courseList.length} {courseList.length === 1 ? 'Programme' : 'Programmes'} Available
+            </span>
+          )}
           <h1 className="text-4xl md:text-6xl font-extrabold leading-tight mb-5">
             AI Certification<br />
             <span className="text-transparent bg-clip-text" style={{ backgroundImage: 'linear-gradient(90deg, #a78bfa, #60a5fa)' }}>

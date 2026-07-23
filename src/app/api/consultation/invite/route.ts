@@ -59,19 +59,27 @@ export async function POST(req: NextRequest) {
       p_emails: emails,
     })
 
+    // The buyer gets these links back so they can share them directly (Slack/WhatsApp/
+    // their own email) — the emailed invite is a convenience, never the only channel.
+    const links = (inserted ?? []).map((inv: any) => ({
+      email: inv.invitee_email as string,
+      url: `https://www.ostaran.com/consultation/join/${inv.invite_token}`,
+    }))
+
     const resendKey = process.env.RESEND_API_KEY
     if (resendKey && inserted?.length) {
       await Promise.all(
-        inserted.map((inv: any) => {
+        inserted.map(async (inv: any) => {
           const joinUrl = `https://www.ostaran.com/consultation/join/${inv.invite_token}`
-          return fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              from: 'oStaran AI Education <ai@ostaran.com>',
-              to: [inv.invitee_email],
-              subject: `${esc(order.buyer_name) || 'A colleague'} invited you to an Expert Consultation`,
-              html: `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f4f6f8;padding:24px 0;">
+          try {
+            const r = await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                from: 'oStaran AI Education <ai@ostaran.com>',
+                to: [inv.invitee_email],
+                subject: `${esc(order.buyer_name) || 'A colleague'} invited you to an Expert Consultation`,
+                html: `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f4f6f8;padding:24px 0;">
 <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;padding:32px;margin:0 auto;">
 <tr><td style="font-size:20px;font-weight:bold;color:#111827;padding-bottom:12px;">You&apos;re invited to a consultation session</td></tr>
 <tr><td style="font-size:14px;color:#374151;line-height:1.6;padding-bottom:20px;">
@@ -81,13 +89,19 @@ export async function POST(req: NextRequest) {
 </td></tr>
 <tr><td style="font-size:13px;color:#6b7280;padding-top:20px;border-top:1px solid #e5e7eb;">Star Analytix Pvt Ltd · Mumbai · <a href="mailto:ai@ostaran.com" style="color:#4f46e5;">ai@ostaran.com</a></td></tr>
 </table></body></html>`,
-            }),
-          }).catch((e) => console.warn('[consultation invite] email failed:', e?.message))
+              }),
+            })
+            // Resend returns 4xx WITHOUT throwing, so an un-checked fetch would swallow a
+            // rejected send. Surface it (the buyer still has the shareable link regardless).
+            if (!r.ok) console.warn('[consultation invite] resend rejected:', r.status, await r.text().catch(() => ''))
+          } catch (e: any) {
+            console.warn('[consultation invite] email send error:', e?.message)
+          }
         }),
       )
     }
 
-    return NextResponse.json({ success: true, invited: inserted?.length ?? 0 })
+    return NextResponse.json({ success: true, invited: inserted?.length ?? 0, links })
   } catch (err: any) {
     console.error('[consultation invite]', err?.message)
     return NextResponse.json({ error: 'Could not send invites. Please try again.' }, { status: 500 })

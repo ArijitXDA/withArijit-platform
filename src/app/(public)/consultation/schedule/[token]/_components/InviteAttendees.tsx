@@ -8,6 +8,8 @@ export function InviteAttendees({ token, maxInvites }: { token: string; maxInvit
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [sent, setSent] = useState(0)
+  const [links, setLinks] = useState<{ email: string; url: string }[]>([])
+  const [copied, setCopied] = useState('')
 
   if (maxInvites < 1) return null
 
@@ -19,6 +21,15 @@ export function InviteAttendees({ token, maxInvites }: { token: string; maxInvit
   }
   function removeRow(i: number) {
     setRows((prev) => prev.filter((_, idx) => idx !== i))
+  }
+  async function copy(url: string) {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(url)
+      setTimeout(() => setCopied(''), 1500)
+    } catch {
+      /* clipboard blocked — the link is still shown in the field for manual copy */
+    }
   }
 
   async function submit() {
@@ -42,6 +53,7 @@ export function InviteAttendees({ token, maxInvites }: { token: string; maxInvit
         return
       }
       setSent((s) => s + (j.invited ?? emails.length))
+      setLinks((prev) => [...prev, ...((Array.isArray(j.links) ? j.links : []) as { email: string; url: string }[])])
       setRows([''])
     } catch {
       setError('Network error. Please try again.')
@@ -59,9 +71,41 @@ export function InviteAttendees({ token, maxInvites }: { token: string; maxInvit
       </p>
 
       {sent > 0 && (
-        <p className="mt-3 inline-flex items-center gap-1.5 text-sm text-green-700">
-          <CheckCircle2 size={15} /> {sent} invite{sent === 1 ? '' : 's'} sent.
-        </p>
+        <div className="mt-3">
+          <p className="inline-flex items-center gap-1.5 text-sm text-green-700">
+            <CheckCircle2 size={15} /> {sent} invite{sent === 1 ? '' : 's'} sent.
+          </p>
+          {links.length > 0 && (
+            <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
+              <p className="text-xs text-gray-500 mb-2">
+                We&apos;ve emailed each person. If they don&apos;t see it (tell them to check spam), copy their
+                link and share it directly:
+              </p>
+              <ul className="space-y-2.5">
+                {links.map((l) => (
+                  <li key={l.url}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-800 truncate">{l.email}</span>
+                      <button
+                        type="button"
+                        onClick={() => copy(l.url)}
+                        className="ml-auto shrink-0 inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-50"
+                      >
+                        {copied === l.url ? 'Copied ✓' : 'Copy link'}
+                      </button>
+                    </div>
+                    <input
+                      readOnly
+                      value={l.url}
+                      onFocus={(e) => e.currentTarget.select()}
+                      className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-500"
+                    />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       )}
 
       <div className="mt-3 space-y-2">

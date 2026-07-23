@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { CourseCard } from '@/components/marketing/CourseCard'
+import { ConsultationCard } from '@/components/marketing/ConsultationCard'
 
 export const revalidate = 3600
 
@@ -14,15 +15,33 @@ export default async function CoursesPage() {
   const supabase = await createClient()
   const { data: courses, error } = await supabase
     .from('awa_courses')
-    .select('id, name, slug, description, mrp, target_audience, total_sessions, session_duration_mins, course_format, owner_mentor_id, trainer_name')
+    .select('id, name, slug, description, mrp, target_audience, total_sessions, session_duration_mins, course_format, owner_mentor_id, trainer_name, tenure_type')
     .eq('is_active', true)
     .order('sort_order')
 
   if (error) console.error('Failed to fetch courses:', error.message)
 
   const all = courses ?? []
-  const ostaranCourses = all.filter((c: any) => !c.owner_mentor_id)
-  const mentorCourses  = all.filter((c: any) => c.owner_mentor_id)
+  // Expert Consultation is a per-hour USD advisory, not a cohort course — keep it out of the
+  // course grid and show it as a purpose-built card linking to its own booking flow.
+  const consultation   = all.find((c: any) => c.tenure_type === 'consultation') ?? null
+  const courseList     = all.filter((c: any) => c.tenure_type !== 'consultation')
+  const ostaranCourses = courseList.filter((c: any) => !c.owner_mentor_id)
+  const mentorCourses  = courseList.filter((c: any) => c.owner_mentor_id)
+
+  // Live "starting from" rate for the consultation card — lowest fixed per-hour USD rate
+  // (mirrors the /expert-consultation hero, so the two never drift). Quote-only → null.
+  let consultationFromRate: number | null = null
+  if (consultation) {
+    const { data: cTypes } = await supabase
+      .from('consultation_project_types')
+      .select('price_per_hour_usd, is_dynamic')
+      .eq('is_active', true)
+    const fixed = (cTypes ?? [])
+      .filter((t: any) => !t.is_dynamic && t.price_per_hour_usd != null)
+      .map((t: any) => Number(t.price_per_hour_usd))
+    consultationFromRate = fixed.length ? Math.min(...fixed) : null
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -84,6 +103,21 @@ export default async function CoursesPage() {
               </div>
             )}
           </>
+        )}
+
+        {/* ── 1:1 Expert Advisory (Consultation — not a cohort course) ── */}
+        {consultation && (
+          <div className="mt-20">
+            <div className="mb-3">
+              <h2 className="text-2xl font-bold text-gray-900">1:1 Expert Advisory</h2>
+              <p className="text-gray-500 text-sm mt-1">
+                Not a cohort course — book a live consultation on your own AI project, priced per hour, in your timezone
+              </p>
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-7">
+              <ConsultationCard fromRate={consultationFromRate} />
+            </div>
+          </div>
         )}
 
         {/* ── Masterclass CTA ───────────────────────────────────────── */}

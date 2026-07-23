@@ -6,6 +6,7 @@ const BASE = 'https://www.ostaran.com'
 const STATIC_PAGES = [
   { url: '/',                   priority: 1.0, changeFrequency: 'weekly'  as const },
   { url: '/courses',            priority: 0.9, changeFrequency: 'weekly'  as const },
+  { url: '/expert-consultation',priority: 0.85, changeFrequency: 'monthly' as const },
   { url: '/free-webinar',       priority: 0.9, changeFrequency: 'daily'   as const },
   { url: '/masterclass',        priority: 0.8, changeFrequency: 'weekly'  as const },
   { url: '/about',              priority: 0.7, changeFrequency: 'monthly' as const },
@@ -27,10 +28,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  // Consultation is listed as /expert-consultation (a STATIC_PAGE) — not as a course slug,
+  // whose /courses/expert-consultation URL now redirects.
   const { data: courses } = await admin
     .from('awa_courses')
     .select('slug, updated_at')
     .eq('is_active', true)
+    .neq('tenure_type', 'consultation')
 
   const courseUrls: MetadataRoute.Sitemap = (courses ?? []).map(c => ({
     url:             `${BASE}/courses/${c.slug}`,

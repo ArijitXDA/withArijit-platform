@@ -35,7 +35,8 @@ export const revalidate = 3600
 
 export async function generateStaticParams() {
   const supabase = createServiceClient()
-  const { data } = await supabase.from('awa_courses').select('slug').eq('is_active', true)
+  // Consultation is a distinct product with its own page — never prebuild it as a course.
+  const { data } = await supabase.from('awa_courses').select('slug').eq('is_active', true).neq('tenure_type', 'consultation')
   return (data ?? []).map(c => ({ slug: c.slug }))
 }
 
@@ -105,6 +106,11 @@ export default async function CoursePage({
     .single()
 
   if (!course) notFound()
+
+  // Expert Consultation is NOT a course — it's a USD/quote-priced 1:1 advisory with its own
+  // booking flow. The generic course page would hand its ₹0 mrp to the enrol card (a broken
+  // "enrol for free" path that bypasses consultation pricing/booking). Send it to its real home.
+  if (course.tenure_type === 'consultation') redirect('/expert-consultation')
 
   // Not public yet: allow ONLY with a valid signed preview token for this course
   // (mentor authoring / dev-admin review); otherwise redirect gracefully.

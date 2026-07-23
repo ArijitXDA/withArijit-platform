@@ -45,7 +45,8 @@ export default async function ConsultationJoinPage({ params }: { params: Promise
   const { data: { user } } = await supabase.auth.getUser()
   const signedInEmail = user?.email?.toLowerCase() ?? null
   const inviteeEmail = String(invite.invitee_email).toLowerCase()
-  const loginHref = `/login?next=${encodeURIComponent(`/consultation/join/${token}`)}`
+  // The student sign-in route is /signin (there is no /login → it 404s); it reads ?next=.
+  const loginHref = `/signin?next=${encodeURIComponent(`/consultation/join/${token}`)}`
 
   return (
     <Shell>

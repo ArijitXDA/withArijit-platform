@@ -503,13 +503,20 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
 
       {/* Extend — add more sessions to a live consultation engagement */}
       {isConsultation && batch && enrolment.scheduleToken && (
-        <div className="px-5 pb-4">
+        <div className="px-5 pb-4 space-y-2">
           <a
             href={`/consultation/extend/${enrolment.scheduleToken}`}
             className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl text-sm font-bold border-2 transition-colors hover:opacity-90"
             style={{ color: T.indigo, borderColor: T.indigoBorder, background: T.indigoBg }}
           >
             + Add more sessions to this engagement
+          </a>
+          <a
+            href={`/consultation/schedule/${enrolment.scheduleToken}`}
+            className="block text-center text-sm font-semibold hover:underline"
+            style={{ color: T.indigo }}
+          >
+            Booking details &amp; invoices →
           </a>
         </div>
       )}

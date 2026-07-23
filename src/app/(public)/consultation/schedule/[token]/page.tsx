@@ -30,6 +30,15 @@ export default async function SchedulePage({ params }: { params: Promise<{ token
       .select('meeting_link')
       .eq('id', order.batch_id)
       .maybeSingle()
+    // Paid top-up (extension) orders — each has its own downloadable invoice.
+    const { data: extensions } = await admin
+      .from('consultation_orders')
+      .select('schedule_token, extra_sessions')
+      .eq('parent_order_id', order.id)
+      .eq('order_kind', 'extension')
+      .eq('status', 'paid')
+      .not('schedule_token', 'is', null)
+      .order('created_at')
     return (
       <div className="max-w-lg mx-auto px-4 py-24">
         <div className="text-center">
@@ -44,11 +53,29 @@ export default async function SchedulePage({ params }: { params: Promise<{ token
         {Number(order.attendees) > 1 && (
           <InviteAttendees token={token} maxInvites={Number(order.attendees) - 1} />
         )}
-        <p className="text-center mt-6">
-          <a href={`/api/consultation/invoice/${token}`} className="text-sm text-indigo-600 underline">
-            Download invoice (PDF)
-          </a>
-        </p>
+
+        {/* Invoices — the booking + every paid extension */}
+        <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-5 text-left">
+          <h3 className="font-bold text-gray-900 mb-3">Invoices</h3>
+          <ul className="divide-y divide-gray-100">
+            <li className="flex items-center justify-between py-2">
+              <span className="text-sm text-gray-700">Consultation booking</span>
+              <a href={`/api/consultation/invoice/${token}`} className="text-sm font-semibold text-indigo-600 hover:underline">
+                Download PDF
+              </a>
+            </li>
+            {(extensions ?? []).map((x) => (
+              <li key={x.schedule_token} className="flex items-center justify-between py-2">
+                <span className="text-sm text-gray-700">
+                  + {x.extra_sessions} session{x.extra_sessions === 1 ? '' : 's'} added
+                </span>
+                <a href={`/api/consultation/invoice/${x.schedule_token}`} className="text-sm font-semibold text-indigo-600 hover:underline">
+                  Download PDF
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     )
   }

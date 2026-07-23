@@ -37,6 +37,12 @@ const ARI_CASES: Case[] = [
     message: 'Tell me about the AI Masterclass — what is it?',
     mustNotInclude: [/webinar\.ostaran\.com/i],
   },
+  {
+    agent: 'ari',
+    name: 'enterprise / 1:1 project help → routes to Expert Consultation page',
+    message: 'I run a company and I want an expert to advise my team on a specific Agentic AI project — not a course. What do you offer?',
+    mustInclude: [/expert-consultation/i],
+  },
 ]
 
 // Assistant Professor tool-routing cases (run via one Anthropic turn with its

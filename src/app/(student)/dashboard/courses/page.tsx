@@ -90,6 +90,24 @@ export default async function CoursesPage() {
     }
   }
 
+  // Consultation enrolments awaiting a slot (batch null) → fetch their schedule token,
+  // so the dashboard sends them to the slot picker instead of the open-batch selector
+  // (consultation batches are custom per-booking and never appear in select-batch).
+  const awaitingSlotIds = (rawEnrolments ?? [])
+    .filter((e: any) => e.course?.slug === 'expert-consultation' && !e.batch)
+    .map((e: any) => e.id)
+  const scheduleTokenByEnrol: Record<string, string> = {}
+  if (awaitingSlotIds.length > 0) {
+    const { data: pendingOrders } = await service
+      .from('consultation_orders')
+      .select('enrolment_id, schedule_token')
+      .in('enrolment_id', awaitingSlotIds)
+      .not('schedule_token', 'is', null)
+    for (const o of pendingOrders ?? []) {
+      if (o.enrolment_id && o.schedule_token) scheduleTokenByEnrol[o.enrolment_id] = o.schedule_token
+    }
+  }
+
   // Build enrolments with computed + overlaid session schedule
   const enrolments = (rawEnrolments ?? []).map((e: any) => {
     const batch      = e.batch
@@ -119,7 +137,7 @@ export default async function CoursesPage() {
         ).map((s) => ({ ...s, join_url: joinUrl(email, batch.id, s.session_number), batch_id: batch.id as string }))
       : []
 
-    return { ...e, sessions }
+    return { ...e, sessions, scheduleToken: scheduleTokenByEnrol[e.id] ?? null }
   })
 
   // Monthly memberships create one enrolment row per paid month. Collapse a

@@ -63,6 +63,7 @@ interface Enrolment {
   access_end_date?: string | null; enrolment_status?: string | null
   student_email?: string | null; student_name?: string | null; student_mobile?: string | null
   sessions: Session[]
+  scheduleToken?: string | null   // consultation: slot-picker token while batch not yet chosen
 }
 
 // ── Sessions panel — shows ALL sessions: past (unlocked) + future (locked) ────
@@ -339,6 +340,7 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
 function CourseCard({ enrolment }: { enrolment: Enrolment }) {
   const [open, setOpen] = useState(false)
   const { course, batch, sessions } = enrolment
+  const isConsultation = course?.slug === 'expert-consultation'
   // Count + duration come from the student's actual BATCH (9×120min for a 9-week
   // cohort, 26×60 for long, weekly for a rolling subscription) — the course
   // record always says 26, so reading it showed "26 sessions" for every variant.
@@ -457,6 +459,14 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
               <p className="text-sm font-semibold" style={{ color: T.textPrimary }}>{batch.instructor_name ?? 'Arijit Chowdhury'}</p>
             </div>
           </>
+        ) : isConsultation && enrolment.scheduleToken ? (
+          <div className="col-span-2">
+            <p className="text-sm font-semibold" style={{ color: T.amber }}>⏳ Session time not picked yet</p>
+            <Link href={`/consultation/schedule/${enrolment.scheduleToken}`}
+              className="text-xs underline mt-0.5 inline-block" style={{ color: T.amber }}>
+              Pick your session time →
+            </Link>
+          </div>
         ) : (
           <div className="col-span-2">
             <p className="text-sm font-semibold" style={{ color: T.amber }}>⚠️ Batch not selected yet</p>

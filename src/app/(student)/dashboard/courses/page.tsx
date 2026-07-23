@@ -90,20 +90,21 @@ export default async function CoursesPage() {
     }
   }
 
-  // Consultation enrolments awaiting a slot (batch null) → fetch their schedule token,
-  // so the dashboard sends them to the slot picker instead of the open-batch selector
-  // (consultation batches are custom per-booking and never appear in select-batch).
-  const awaitingSlotIds = (rawEnrolments ?? [])
-    .filter((e: any) => e.course?.slug === 'expert-consultation' && !e.batch)
+  // Consultation enrolments → fetch their (booking) order's schedule token. Used to send an
+  // un-scheduled buyer to the slot picker (batch null) AND to let a scheduled buyer add more
+  // sessions (the "extend" flow) — both keyed on the same token.
+  const consultIds = (rawEnrolments ?? [])
+    .filter((e: any) => e.course?.slug === 'expert-consultation')
     .map((e: any) => e.id)
   const scheduleTokenByEnrol: Record<string, string> = {}
-  if (awaitingSlotIds.length > 0) {
-    const { data: pendingOrders } = await service
+  if (consultIds.length > 0) {
+    const { data: consultOrders } = await service
       .from('consultation_orders')
       .select('enrolment_id, schedule_token')
-      .in('enrolment_id', awaitingSlotIds)
+      .eq('order_kind', 'booking')
+      .in('enrolment_id', consultIds)
       .not('schedule_token', 'is', null)
-    for (const o of pendingOrders ?? []) {
+    for (const o of consultOrders ?? []) {
       if (o.enrolment_id && o.schedule_token) scheduleTokenByEnrol[o.enrolment_id] = o.schedule_token
     }
   }

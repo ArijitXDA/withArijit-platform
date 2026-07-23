@@ -501,6 +501,19 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
         )}
       </div>
 
+      {/* Extend — add more sessions to a live consultation engagement */}
+      {isConsultation && batch && enrolment.scheduleToken && (
+        <div className="px-5 pb-4">
+          <a
+            href={`/consultation/extend/${enrolment.scheduleToken}`}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold"
+            style={{ color: T.indigo }}
+          >
+            + Add more sessions
+          </a>
+        </div>
+      )}
+
       {/* Subjects */}
       {course?.subjects && Array.isArray(course.subjects) && course.subjects.length > 0 && (
         <div className="px-5 pb-4">

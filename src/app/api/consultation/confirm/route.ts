@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
       .from('consultation_orders')
       .update({ razorpay_payment_id: paymentId, schedule_token: scheduleToken, updated_at: now })
       .eq('razorpay_order_id', orderId)
+      .eq('order_kind', 'booking') // never touch an extension (top-up) order — it has its own route
       .is('razorpay_payment_id', null)
       .select('*')
       .maybeSingle()

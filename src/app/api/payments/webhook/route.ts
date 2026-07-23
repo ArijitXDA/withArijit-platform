@@ -60,7 +60,10 @@ export async function POST(request: NextRequest) {
   if (notes.product === 'consultation') {
     try {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ostaran.com'
-      const res = await fetch(`${appUrl}/api/consultation/confirm`, {
+      // An extension (top-up) APPENDS sessions to an existing batch — a different route. It must
+      // NOT go to the main confirm, which would create a fresh (batchless) enrolment.
+      const confirmPath = notes.kind === 'extension' ? '/api/consultation/extend/confirm' : '/api/consultation/confirm'
+      const res = await fetch(`${appUrl}${confirmPath}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

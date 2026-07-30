@@ -24,11 +24,19 @@ const SLUG_AUDIENCE: Record<string, string> = {
   'quantum-computing-and-ai':     'quantum',
 }
 
+// Date-only display for the hero batch line, pulled live from awa_batches.
+// `+ 'T00:00:00'` anchors the YYYY-MM-DD to local midnight so it never shifts a day.
+function formatHeroDate(d: string) {
+  return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 export function CourseHero({
   course, mrp, gstAmount, netBeforeGst, discountPct, partner, partnerName, enrolProps,
+  nextBatchStart, ongoingSince,
 }: {
   course: any; mrp: number; gstAmount: number; netBeforeGst: number
   discountPct: number; partner?: string; partnerName?: string; enrolProps: any
+  nextBatchStart?: string | null; ongoingSince?: string | null
 }) {
   const tagKey  = SLUG_AUDIENCE[course.slug] ?? course.audience_category ?? 'general'
   const tag     = AUDIENCE_TAG[tagKey] ?? AUDIENCE_TAG.general
@@ -122,10 +130,20 @@ export function CourseHero({
               ))}
             </div>
 
-            {/* Batch start */}
-            <div className="flex items-center gap-2 text-sm text-emerald-400 font-semibold mb-4">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Enrol in the upcoming batch now
+            {/* Batch dates — pulled live from awa_batches (date only, no time) */}
+            <div className="mb-4 space-y-1.5">
+              <div className="flex items-center gap-2 text-sm text-emerald-400 font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                {nextBatchStart
+                  ? <span>Next batch starts <span className="text-white">{formatHeroDate(nextBatchStart)}</span></span>
+                  : <span>Enrol in the upcoming batch now</span>}
+              </div>
+              {ongoingSince && (
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#818cf8' }} />
+                  A batch is currently in progress (started {formatHeroDate(ongoingSince)}) — join the next one
+                </div>
+              )}
             </div>
 
             {/* Urgency */}

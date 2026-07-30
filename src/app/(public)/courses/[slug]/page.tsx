@@ -132,6 +132,7 @@ export default async function CoursePage({
     { data: allTestimonials },
     { data: partnerRow },
     { data: mentorRow },
+    { data: heroBatches },
   ] = await Promise.all([
     supabase
       .from('course_projects')
@@ -157,6 +158,13 @@ export default async function CoursePage({
     isMentor
       ? supabase.from('mentors').select('trainer_photo_url, partner_id').eq('id', course.owner_mentor_id).single()
       : Promise.resolve({ data: null }),
+
+    // Live batch dates for the hero — next upcoming + any in-progress cohort (date only).
+    supabase.from('awa_batches')
+      .select('start_date, end_date, is_open')
+      .eq('course_id', course.id)
+      .eq('is_active', true)
+      .order('start_date', { ascending: true }),
   ])
 
   // Trainer photo priority: course snapshot → mentor's chosen photo → the mentor's
@@ -200,6 +208,12 @@ export default async function CoursePage({
     }).catch(() => {})
   }
 
+  // Live batch dates for the hero (IST date-only; ISR-cached hourly with the page).
+  // toLocaleDateString names Asia/Kolkata so the server's UTC "today" can't drift a day.
+  const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+  const nextBatchStart = (heroBatches ?? []).find(b => b.is_open && b.start_date && b.start_date >= todayIST)?.start_date ?? null
+  const ongoingSince   = (heroBatches ?? []).find(b => b.start_date && b.start_date < todayIST && (!b.end_date || b.end_date >= todayIST))?.start_date ?? null
+
   const enrolProps = {
     courseId:          course.id,
     courseName:        course.name,
@@ -229,6 +243,7 @@ export default async function CoursePage({
         <CourseHero
           course={course} mrp={mrp} gstAmount={gstAmount} netBeforeGst={netBeforeGst}
           discountPct={discountPct} partner={isPartnerReferred ? partnerCode : undefined} partnerName={partnerName} enrolProps={enrolProps}
+          nextBatchStart={nextBatchStart} ongoingSince={ongoingSince}
         />
 
         {/* 2. Transformation outcomes */}

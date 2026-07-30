@@ -7,7 +7,7 @@ const BASE_FAQS = [
   { q: 'What if I miss a class?', a: 'Every live session is recorded and uploaded within 24 hours. You get lifetime access to all recordings.' },
   { q: 'What certificates do I receive?', a: 'You receive an Interim Certificate after Session 13, and a globally recognised Completion Certificate after all sessions.' },
   { q: 'What is the AI Kit?', a: 'A physical AI learning kit couriered to your home address in India after successful full-course payment.' },
-  { q: 'Is there a payment plan?', a: 'Yes — the 50-50 Plan lets you pay 50% now and the remaining 50% after Session 13.' },
+  { q: 'Is there a payment plan?', a: 'Yes — the 50-50 Plan lets you pay 50% now and the remaining 50% before your 6th session.' },
   { q: 'Who owns the projects I build?', a: 'You do. Every project you build is entirely yours with no IP or commercial restrictions.' },
   { q: 'Is the certificate recognised internationally?', a: 'Yes. oStaran certificates are held by learners in India, the USA, and Canada. Verifiable at ostaran.com/certificate-verification.' },
 ]

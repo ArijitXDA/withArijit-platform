@@ -29,7 +29,7 @@ const SHARED_FAQS = [
   },
   {
     q: 'Is there a payment plan?',
-    a: 'Yes — the 50-50 Plan lets you pay 50% now to lock in today\'s price, and the remaining 50% after Session 13 before your Interim Certificate is issued. The price you lock in today does not change regardless of future increases.',
+    a: 'Yes — the 50-50 Plan lets you pay 50% now to lock in today\'s price, and the remaining 50% before your 6th session. The price you lock in today does not change regardless of future increases.',
   },
   {
     q: 'Will the fee increase if I wait?',

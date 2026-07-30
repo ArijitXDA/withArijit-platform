@@ -135,7 +135,7 @@ export function CourseHero({
               <div className="flex items-center gap-2 text-sm text-emerald-400 font-semibold">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 {nextBatchStart
-                  ? <span>Next batch starts <span className="text-white">{formatHeroDate(nextBatchStart)}</span></span>
+                  ? <span>Next batch starts <span className="batch-date-neon text-base align-middle">{formatHeroDate(nextBatchStart)}</span></span>
                   : <span>Enrol in the upcoming batch now</span>}
               </div>
               {ongoingSince && (
@@ -223,7 +223,7 @@ function PriceCard({ mrp, finalPrice, finalGst, finalNet, discountPct, discountA
           <p className="text-indigo-300 font-semibold mb-1">💳 50-50 Payment Plan</p>
           <p className="text-slate-400">
             Pay <strong className="text-white"><Price inr={Math.round((discountPct > 0 ? finalPrice : mrp) / 2)} /></strong> now
-            · <strong className="text-white"><Price inr={Math.round((discountPct > 0 ? finalPrice : mrp) / 2)} /></strong> after session 13
+            · <strong className="text-white"><Price inr={Math.round((discountPct > 0 ? finalPrice : mrp) / 2)} /></strong> before your 6th session
           </p>
         </div>
 

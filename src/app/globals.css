@@ -193,3 +193,19 @@ body {
     @apply font-sans;
   }
 }
+
+/* Neon-sky-blue "next batch" date — grow/contract pulse, respects reduced-motion. */
+@keyframes batchDateNeon {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.09); }
+}
+.batch-date-neon {
+  display: inline-block;
+  color: #38bdf8;
+  font-weight: 800;
+  text-shadow: 0 0 8px rgba(56, 189, 248, 0.75), 0 0 20px rgba(56, 189, 248, 0.45);
+  animation: batchDateNeon 1.5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .batch-date-neon { animation: none; }
+}

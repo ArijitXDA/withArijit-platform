@@ -624,7 +624,7 @@ export function PaymentModal({
                 ) : null}
                 {!membership && frequency === 'half' && price ? (
                   <p className="text-[11px] text-amber-400/80 text-center">
-                    50-50 plan: pay {format(displayPrice)} now — the balance of {format(displayPrice)} is due before the second half of your course.
+                    50-50 plan: pay {format(displayPrice)} now — the balance of {format(displayPrice)} is due before your 6th session.
                   </p>
                 ) : null}
                 <p className="text-[11px] text-slate-600 text-center">Secured by Razorpay · 256-bit SSL</p>

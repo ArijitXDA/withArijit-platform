@@ -27,6 +27,8 @@ export interface StudentSessionRow {
   original_date:       string         // computed date before reschedule (== session_date if not rescheduled)
   change_reason:       string | null
   isPast:              boolean
+  content_locked:      boolean   // 50-50 balance overdue → on-demand links nulled; render a "Pay to unlock" chip
+  has_recording:       boolean   // a recording link exists for this session (independent of the lock)
 }
 export interface StudentSessions {
   all:      StudentSessionRow[]
@@ -95,6 +97,8 @@ export async function getStudentSessions(email: string): Promise<StudentSessions
           original_date:       s.originalDateISO,
           change_reason:       s.changeReason,
           isPast:              s.isPast,
+          content_locked:      locked,
+          has_recording:       !!s.recordingLink,
         })
       }
     }
@@ -126,6 +130,8 @@ export async function getStudentSessions(email: string): Promise<StudentSessions
       original_date:       r.session_date,
       change_reason:       null,
       isPast:              r.session_date < today,
+      content_locked:      false,
+      has_recording:       false,
     }))
     return { all, upcoming: all.filter(s => !s.isPast), past: all.filter(s => s.isPast), source: 'legacy' }
   }

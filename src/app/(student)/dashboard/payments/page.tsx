@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { redirect }            from 'next/navigation'
 import { CreditCard, CheckCircle, FileText, AlertCircle } from 'lucide-react'
 import { BalancePaymentButton } from './BalancePaymentButton'
+import { LockedBanner } from './LockedBanner'
 
 const T = {
   surface: '#ffffff', border: '#dce6f5', borderLight: '#e8f0fc',
@@ -77,7 +78,12 @@ function resolveNextPayment(enrolment: any, lastTransaction: any | null): {
   }
 }
 
-export default async function PaymentsPage() {
+export default async function PaymentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ locked?: string }>
+}) {
+  const { locked } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/signin')
@@ -167,6 +173,8 @@ export default async function PaymentsPage() {
 
   return (
     <div className="space-y-6 pb-12 max-w-3xl">
+
+      <LockedBanner reason={locked} />
 
       {/* Header */}
       <div>

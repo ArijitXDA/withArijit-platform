@@ -347,7 +347,10 @@ export async function POST(req: NextRequest) {
   // 50-50 balance gate — the Assistant Professor + transcript retrieval are on-demand
   // content, locked once the balance is overdue (past the 6th session). Live class stays open.
   if (isContentLocked((activeEnrolment as any)?.balance_due, activeBatch?.start_date)) {
-    return NextResponse.json({ locked: true, lock_reason: 'balance_due', message: 'Please clear your 50-50 balance to unlock the Assistant Professor. Your live classes stay open.' })
+    // `reply` mirrors `message` as a safety net: a client that only reads data.reply
+    // renders it as a normal assistant bubble instead of crashing on undefined.
+    const lockMsg = 'Please clear your 50-50 balance to unlock the Assistant Professor. Your live classes stay open.'
+    return NextResponse.json({ locked: true, lock_reason: 'balance_due', message: lockMsg, reply: lockMsg })
   }
 
   // Days since last visit

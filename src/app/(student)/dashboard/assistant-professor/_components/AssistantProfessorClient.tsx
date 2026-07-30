@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Loader2, RefreshCw, Sparkles, Video, BookOpen, ChevronRight } from 'lucide-react'
+import { Send, Loader2, RefreshCw, Sparkles, Video, BookOpen, ChevronRight, Lock, CreditCard } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Message { role: 'user' | 'assistant'; content: string }
@@ -120,6 +120,7 @@ export default function AssistantProfessorClient({
   const [loading,        setLoading]        = useState(false)
   const [error,          setError]          = useState('')
   const [activeCourseId, setActiveCourseId] = useState<string | null>(ctx.courseId)
+  const [locked,         setLocked]         = useState<string | null>(null)
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef  = useRef<HTMLInputElement>(null)
@@ -134,6 +135,7 @@ export default function AssistantProfessorClient({
 
     setInput('')
     setError('')
+    setLocked(null)
 
     const userMsg: Message = { role: 'user', content: q }
     const newMessages      = [...messages, userMsg]
@@ -150,6 +152,12 @@ export default function AssistantProfessorClient({
         }),
       })
       const data = await res.json()
+      // 50-50 balance lock — returns HTTP 200 with { locked, message } and no reply;
+      // intercept it (so we never render an undefined bubble) and show a lock card.
+      if (data.locked && data.lock_reason === 'balance_due') {
+        setLocked(data.message ?? 'Please clear your 50-50 balance to unlock the Assistant Professor. Your live classes stay open.')
+        return   // finally{} still runs → loading reset + refocus
+      }
       if (!res.ok) throw new Error(data.error ?? 'Failed to get response')
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
     } catch (e: any) {
@@ -163,6 +171,7 @@ export default function AssistantProfessorClient({
   function reset() {
     setMessages([{ role: 'assistant', content: welcomeMessage }])
     setError('')
+    setLocked(null)
   }
 
   // Next session urgency colour
@@ -209,6 +218,7 @@ export default function AssistantProfessorClient({
               <button key={c.id} onClick={() => {
                 setActiveCourseId(c.id)
                 setMessages([{ role: 'assistant', content: welcomeMessage }])
+                setLocked(null)
               }}
                 className="text-xs px-3 py-1.5 rounded-full font-semibold border transition-all"
                 style={activeCourseId === c.id ? {
@@ -320,6 +330,27 @@ export default function AssistantProfessorClient({
             <div className="rounded-2xl px-4 py-3"
               style={{ background: 'white', border: `1px solid ${T.border}`, borderRadius: '16px 16px 16px 4px' }}>
               <TypingDots />
+            </div>
+          </div>
+        )}
+
+        {locked && (
+          <div className="flex gap-3 justify-start">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+              style={{ background: `linear-gradient(135deg, ${T.indigo}, ${T.purple})` }}>
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <div className="max-w-[85%] rounded-2xl px-4 py-3 text-sm"
+              style={{ background: T.amberBg, border: `1px solid ${T.amberBorder}`, borderRadius: '16px 16px 16px 4px' }}>
+              <p className="font-bold flex items-center gap-1.5 mb-1" style={{ color: T.amber }}>
+                <Lock size={13} /> Balance due
+              </p>
+              <p style={{ color: T.textSec }}>{locked}</p>
+              <a href="/dashboard/payments?locked=professor"
+                className="inline-flex items-center gap-1.5 mt-2.5 text-xs font-bold text-white px-3 py-1.5 rounded-xl transition-all hover:opacity-90"
+                style={{ background: T.amber }}>
+                <CreditCard size={12} /> Pay balance
+              </a>
             </div>
           </div>
         )}

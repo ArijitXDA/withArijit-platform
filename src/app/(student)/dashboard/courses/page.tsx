@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import CoursesClient from './CoursesClient'
 import { joinUrl } from '@/lib/joinToken'
 import { addWeeksISO, todayISO } from '@/lib/sessionSchedule'
+import { isContentLocked } from '@/lib/contentGate'
 
 // ── Generate 26 weekly session dates from batch start ─────────────────────────
 // Each session is 1 week after the previous, starting from batch.start_date.
@@ -59,7 +60,7 @@ export default async function CoursesPage() {
   const { data: rawEnrolments } = await service
     .from('student_enrolments')
     .select(`
-      id, created_at, enrolment_type, amount_paid, is_active,
+      id, created_at, enrolment_type, amount_paid, is_active, balance_due,
       payment_date, enrolment_seq, access_end_date, enrolment_status,
       student_email, student_name, student_mobile,
       course:course_id(id, name, short_name, description, total_sessions, session_duration_mins, slug, subjects),
@@ -130,12 +131,28 @@ export default async function CoursesPage() {
       totalSessions      = Math.max(weeksElapsed + 1, highestLink, 1)
     }
 
+    // 50-50 balance gate — once the balance is overdue (past the 6th session), hide the
+    // external study link at the source and flag every session so CoursesClient shows a
+    // "Pay to unlock" chip in place of the Watch / Study-Notes buttons. The live-class
+    // join link is never gated. (The recording API + in-app study page also enforce this
+    // server-side; this is the friendly pre-emptive UI + closes the external-link leak.)
+    const locked = isContentLocked(e.balance_due, batch?.start_date)
     const sessions = batch
       ? generateSessionSchedule(
           { start_date: batch.start_date, start_time: batch.start_time, duration_mins: batch.duration_mins ?? 60 },
           batchLinks,
           totalSessions,
-        ).map((s) => ({ ...s, join_url: joinUrl(email, batch.id, s.session_number), batch_id: batch.id as string }))
+        ).map((s) => ({
+          ...s,
+          // session_link here IS the pasted recording URL — null it too (not just the
+          // study link) so a locked student never receives a playable URL in the client
+          // payload. meeting_link (live join) is a separate field and stays.
+          session_link:        locked ? null : s.session_link,
+          study_material_link: locked ? null : s.study_material_link,
+          content_locked:      locked,
+          join_url:            joinUrl(email, batch.id, s.session_number),
+          batch_id:            batch.id as string,
+        }))
       : []
 
     return { ...e, sessions, scheduleToken: scheduleTokenByEnrol[e.id] ?? null }

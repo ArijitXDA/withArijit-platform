@@ -3,7 +3,7 @@ import { getStudentSessions } from '@/lib/studentSessions'
 import { joinUrl } from '@/lib/joinToken'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Calendar, Clock, CheckCircle2, ChevronLeft, Video } from 'lucide-react'
+import { Calendar, Clock, CheckCircle2, ChevronLeft, Video, Lock } from 'lucide-react'
 
 function fmt(d: string) {
   return new Date(d).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
@@ -170,13 +170,19 @@ export default async function SessionsPage() {
                     {s.session_start_time ? ` · ${fmtTime(s.session_start_time)} IST` : ''}
                   </p>
                 </div>
-                {s.recording_link && (
+                {s.recording_link ? (
                   <a href={s.recording_link} target="_blank" rel="noopener noreferrer"
                     className="shrink-0 flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all hover:opacity-90"
                     style={{ background: T.greenBg, color: T.green, border: `1px solid ${T.greenBorder}` }}>
                     <Video size={12} /> Recording
                   </a>
-                )}
+                ) : (s.content_locked && s.has_recording) ? (
+                  <Link href="/dashboard/payments?locked=recording"
+                    className="shrink-0 flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all hover:opacity-90"
+                    style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a' }}>
+                    <Lock size={12} /> Pay to unlock
+                  </Link>
+                ) : null}
               </div>
             ))}
           </div>

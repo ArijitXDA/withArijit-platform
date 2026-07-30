@@ -44,6 +44,7 @@ interface Session {
   status?: 'scheduled' | 'rescheduled' | 'skipped'
   original_date?: string         // computed date before a reschedule
   change_reason?: string | null
+  content_locked?: boolean       // 50-50 balance overdue → show a "Pay to unlock" chip instead of content buttons
 }
 interface Course {
   id: string; name: string; short_name: string | null; description: string | null
@@ -78,19 +79,22 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
   const [vidUrl, setVidUrl]         = useState<string | null>(null)
   const [vidLoading, setVidLoading] = useState(false)
   const [vidErr, setVidErr]         = useState('')
+  const [vidLocked, setVidLocked]   = useState(false)
 
   async function watch(s: Session) {
     setPlayN(s.session_number); setPlayTitle(s.session_title ?? `Session ${s.session_number}`)
-    setVidUrl(null); setVidErr(''); setVidLoading(true)
+    setVidUrl(null); setVidErr(''); setVidLocked(false); setVidLoading(true)
     try {
       const res  = await fetch(`/api/student/recording/${s.batch_id}/${s.session_number}`)
       const data = await res.json().catch(() => ({}))
+      // 402 = 50-50 balance overdue → show a friendly locked panel, not an error.
+      if (res.status === 402 || data?.locked) { setVidLocked(true); return }
       if (!res.ok) throw new Error(data.error || 'Could not load the recording')
       setVidUrl(data.url)
     } catch (e: any) { setVidErr(e.message) }
     finally { setVidLoading(false) }
   }
-  function closePlayer() { setPlayN(null); setVidUrl(null); setVidErr('') }
+  function closePlayer() { setPlayN(null); setVidUrl(null); setVidErr(''); setVidLocked(false) }
 
   const today   = todayISO()   // IST business day — UTC's day is yesterday until 05:30 IST
   // A session is "available" once its recording or study guide exists. Today's
@@ -181,27 +185,37 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {(s.has_study_material || s.study_material_link) && (
-                      <a href={s.has_study_material
-                            ? `/dashboard/courses/study/${s.batch_id}/${s.session_number}`
-                            : s.study_material_link!}
-                        target={s.has_study_material ? '_self' : '_blank'} rel="noopener noreferrer"
-                        className="text-xs px-2.5 py-1 rounded-lg font-medium"
-                        style={{ background: T.indigoBg, color: T.indigo, border: `1px solid ${T.indigoBorder}` }}>
-                        📄 Study Notes
-                      </a>
-                    )}
-                    {s.has_recording ? (
-                      <button onClick={() => watch(s)}
-                        className="text-xs px-2.5 py-1 rounded-lg font-medium"
-                        style={{ background: T.purpleBg, color: T.purple, border: `1px solid ${T.purpleBorder}` }}>
-                        ▶ Watch
-                      </button>
+                    {s.content_locked && (s.has_recording || s.has_study_material) ? (
+                      <Link href="/dashboard/payments?locked=recording"
+                        className="text-xs px-2.5 py-1 rounded-lg font-medium flex items-center gap-1"
+                        style={{ background: T.amberBg, color: '#b45309', border: `1px solid ${T.amberBorder}` }}>
+                        <Lock size={11} /> Pay to unlock
+                      </Link>
                     ) : (
-                      <span className="text-xs px-2.5 py-1 rounded-lg flex items-center gap-1"
-                        style={{ background: '#f1f5f9', color: T.textMuted }}>
-                        <Clock size={10} /> Processing
-                      </span>
+                      <>
+                        {(s.has_study_material || s.study_material_link) && (
+                          <a href={s.has_study_material
+                                ? `/dashboard/courses/study/${s.batch_id}/${s.session_number}`
+                                : s.study_material_link!}
+                            target={s.has_study_material ? '_self' : '_blank'} rel="noopener noreferrer"
+                            className="text-xs px-2.5 py-1 rounded-lg font-medium"
+                            style={{ background: T.indigoBg, color: T.indigo, border: `1px solid ${T.indigoBorder}` }}>
+                            📄 Study Notes
+                          </a>
+                        )}
+                        {s.has_recording ? (
+                          <button onClick={() => watch(s)}
+                            className="text-xs px-2.5 py-1 rounded-lg font-medium"
+                            style={{ background: T.purpleBg, color: T.purple, border: `1px solid ${T.purpleBorder}` }}>
+                            ▶ Watch
+                          </button>
+                        ) : (
+                          <span className="text-xs px-2.5 py-1 rounded-lg flex items-center gap-1"
+                            style={{ background: '#f1f5f9', color: T.textMuted }}>
+                            <Clock size={10} /> Processing
+                          </span>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -321,7 +335,24 @@ function SessionsPanel({ sessions, totalSessions, batchMeetingLink }: {
             </div>
             <div className="bg-black flex items-center justify-center" style={{ minHeight: 260 }}>
               {vidLoading && <p className="text-white text-sm py-20">Loading recording…</p>}
-              {vidErr && <p className="text-white text-sm py-20 px-6 text-center">{vidErr}</p>}
+              {vidLocked && (
+                <div className="py-14 px-8 text-center">
+                  <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center"
+                    style={{ background: 'rgba(255,255,255,0.1)' }}>
+                    <Lock size={20} className="text-white" />
+                  </div>
+                  <p className="text-white text-sm font-semibold mb-1">Recording locked</p>
+                  <p className="text-white/70 text-xs mb-4 max-w-xs mx-auto">
+                    Clear your remaining 50-50 balance to unlock all recordings &amp; study notes.
+                  </p>
+                  <Link href="/dashboard/payments?locked=recording"
+                    className="inline-block text-xs font-bold px-4 py-2 rounded-lg text-white"
+                    style={{ background: T.blue }}>
+                    Pay Your Balance →
+                  </Link>
+                </div>
+              )}
+              {vidErr && !vidLocked && <p className="text-white text-sm py-20 px-6 text-center">{vidErr}</p>}
               {vidUrl && (
                 <video src={vidUrl} controls autoPlay
                   controlsList="nodownload noplaybackrate" disablePictureInPicture

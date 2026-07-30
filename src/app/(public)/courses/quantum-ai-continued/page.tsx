@@ -94,6 +94,8 @@ export default async function QuantumAIContinuedPage() {
     .order('sort_order')
 
   const cohorts = batches ?? []
+  // IST "today" (server runs UTC) to label a running cohort vs an upcoming one.
+  const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
   const price   = Number(course.mrp ?? 2999)
   const priceStr = `₹${price.toLocaleString('en-IN')}`
   const gstPct   = Number(course.gst_percent ?? 18)
@@ -187,7 +189,11 @@ export default async function QuantumAIContinuedPage() {
                 <p className="text-xs font-bold uppercase tracking-widest text-indigo-600 mb-2">{c.day_of_week} Cohort</p>
                 <p className="text-2xl font-extrabold text-gray-900">{fmtTime(c.start_time)}</p>
                 <p className="text-sm text-gray-500 mt-1">60 minutes live · every {c.day_of_week}</p>
-                <p className="text-sm text-gray-700 mt-3">First session: <strong>{fmtDate(c.start_date)}</strong></p>
+                <p className="text-sm text-gray-700 mt-3">
+                  {c.start_date && c.start_date <= todayIST
+                    ? <>🟢 Running since <strong>{fmtDate(c.start_date)}</strong> · join anytime</>
+                    : <>Starts <strong>{fmtDate(c.start_date)}</strong></>}
+                </p>
               </div>
             ))}
           </div>

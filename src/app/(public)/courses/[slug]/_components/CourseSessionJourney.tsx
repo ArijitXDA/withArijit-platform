@@ -57,101 +57,135 @@ const QUANTUM_SESSIONS: SessionRow[] = [
 
 const SHOW_INITIAL = 13
 
+// The 9-week weekend track fits the full 26-session curriculum into 9 two-hour
+// weekend blocks: W1–W8 = 3 sessions each, W9 = the final 2. (Same bundling the
+// live schedule uses — wgroup() in sessionSchedule.ts.)
+type WeekendBlock = { block: number; lo: number; hi: number; rows: SessionRow[] }
+function weekendBlocks(sessions: SessionRow[]): WeekendBlock[] {
+  const out: WeekendBlock[] = []
+  for (let w = 1; w <= 9; w++) {
+    const lo = (w - 1) * 3 + 1
+    const hi = w === 9 ? 26 : w * 3
+    out.push({ block: w, lo, hi, rows: sessions.filter(s => s.num >= lo && s.num <= hi) })
+  }
+  return out
+}
+
 export function CourseSessionJourney({ category = 'default' }: { category?: string }) {
   const isQuantum = category === 'quantum'
   const ALL_SESSIONS = isQuantum ? QUANTUM_SESSIONS : SESSIONS
-  const showExpand = !isQuantum  // quantum has exactly 13 — no expand needed
+  // The 9w/26w toggle only applies to the standard 26-session curriculum.
+  const canToggle = !isQuantum && ALL_SESSIONS.length === 26
+  const [track, setTrack]       = useState<'9w' | '26w'>('9w')
   const [expanded, setExpanded] = useState(false)
-  const visible = (expanded || isQuantum) ? ALL_SESSIONS : ALL_SESSIONS.slice(0, SHOW_INITIAL)
+
+  const showBlocks = canToggle && track === '9w'
+  const blocks     = showBlocks ? weekendBlocks(ALL_SESSIONS) : []
+  const showExpand = !isQuantum && (!canToggle || track === '26w')
+  const visible    = (expanded || isQuantum) ? ALL_SESSIONS : ALL_SESSIONS.slice(0, SHOW_INITIAL)
 
   return (
     <section className="py-16 px-4" style={{ background: '#06080f' }}>
       <div className="max-w-4xl mx-auto">
 
         {/* Header */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-4"
             style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)' }}>
             Full Curriculum · Two Formats
           </span>
           <h2 className="text-3xl font-extrabold text-white mb-3">Session by Session</h2>
-          <p className="text-slate-500 text-sm">
-            Choose the <strong className="text-indigo-300">9-week weekend intensive</strong> (9 × 2-hour sessions) or the{' '}
-            <strong className="text-slate-300">26-week long track</strong> (26 × 1-hour) — same curriculum below, every session live and hands-on.
+          <p className="text-slate-500 text-sm max-w-2xl mx-auto">
+            Same curriculum, your pace. The <strong className="text-indigo-300">9-week weekend intensive</strong> merges the 26
+            one-hour sessions into <strong className="text-indigo-300">9 two-hour weekend blocks</strong>; the{' '}
+            <strong className="text-slate-300">26-week long track</strong> runs them one hour at a time. Every session live and hands-on.
           </p>
         </div>
+
+        {/* 9w / 26w toggle */}
+        {canToggle && (
+          <div className="flex justify-center mb-6">
+            <div className="inline-flex rounded-full p-1 border" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }}>
+              {([['9w', '🔥 9-Week Weekend Intensive'], ['26w', '📅 26-Week Long Track']] as const).map(([key, label]) => (
+                <button key={key} onClick={() => setTrack(key)}
+                  className="px-4 py-1.5 rounded-full text-xs font-bold transition-all"
+                  style={track === key
+                    ? { background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: '#fff' }
+                    : { background: 'transparent', color: '#94a3b8' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Table */}
         <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
 
           {/* Column headers */}
-          <div className="grid grid-cols-[48px_1fr_auto] px-4 py-2.5 text-xs font-bold uppercase tracking-widest border-b"
+          <div className="grid grid-cols-[64px_1fr_auto] px-4 py-2.5 text-xs font-bold uppercase tracking-widest border-b"
             style={{ background: 'rgba(99,102,241,0.1)', borderColor: 'rgba(255,255,255,0.08)', color: '#64748b' }}>
-            <span>#</span>
-            <span>Session Title</span>
+            <span>{showBlocks ? 'Wknd' : '#'}</span>
+            <span>{showBlocks ? 'Weekend Block · 2 hours' : 'Session Title'}</span>
             <span className="text-right">Milestone</span>
           </div>
 
-          {visible.map((s, i) => (
-            <div
-              key={s.num}
-              className="grid grid-cols-[48px_1fr_auto] items-center px-4 py-3 border-b transition-colors hover:bg-white/[0.02]"
-              style={{
-                borderColor: 'rgba(255,255,255,0.05)',
-                background: s.highlight ? 'rgba(99,102,241,0.06)' : i % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent',
-              }}>
-
-              {/* Session number */}
-              <span className="text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center"
-                style={{
-                  background: s.highlight ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.06)',
-                  color: s.highlight ? '#a5b4fc' : '#475569',
-                }}>
-                {s.num}
-              </span>
-
-              {/* Title */}
-              <span className="text-sm pl-1"
-                style={{ color: s.highlight ? '#e2e8f0' : '#94a3b8' }}>
-                {s.title}
-              </span>
-
-              {/* Milestone badge */}
-              <div className="text-right">
-                {s.highlight && (
-                  <span className="text-xs px-2 py-0.5 rounded-full"
-                    style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', whiteSpace: 'nowrap' }}>
-                    {s.highlight}
+          {showBlocks
+            ? blocks.map((b, i) => {
+                const milestone = b.rows.find(r => r.highlight)?.highlight
+                return (
+                  <div key={b.block}
+                    className="grid grid-cols-[64px_1fr_auto] items-start px-4 py-3 border-b transition-colors hover:bg-white/[0.02]"
+                    style={{ borderColor: 'rgba(255,255,255,0.05)', background: milestone ? 'rgba(99,102,241,0.06)' : i % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent' }}>
+                    <span className="text-xs font-bold w-8 h-8 rounded-full flex items-center justify-center mt-0.5"
+                      style={{ background: milestone ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.06)', color: milestone ? '#a5b4fc' : '#475569' }}>
+                      W{b.block}
+                    </span>
+                    <div className="pl-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#818cf8' }}>Sessions {b.lo}–{b.hi}</p>
+                      {b.rows.map(r => (
+                        <p key={r.num} className="text-sm" style={{ color: '#94a3b8' }}>• {r.title}</p>
+                      ))}
+                    </div>
+                    <div className="text-right">
+                      {milestone && (
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', whiteSpace: 'nowrap' }}>
+                          {milestone}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })
+            : visible.map((s, i) => (
+                <div key={s.num}
+                  className="grid grid-cols-[64px_1fr_auto] items-center px-4 py-3 border-b transition-colors hover:bg-white/[0.02]"
+                  style={{ borderColor: 'rgba(255,255,255,0.05)', background: s.highlight ? 'rgba(99,102,241,0.06)' : i % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent' }}>
+                  <span className="text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center"
+                    style={{ background: s.highlight ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.06)', color: s.highlight ? '#a5b4fc' : '#475569' }}>
+                    {s.num}
                   </span>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {/* Show/hide row */}
-          {!expanded && (
-            <div className="py-1" style={{ background: 'rgba(255,255,255,0.01)' }}>
-              <div className="h-px" style={{ background: 'rgba(255,255,255,0.05)' }} />
-            </div>
-          )}
+                  <span className="text-sm pl-1" style={{ color: s.highlight ? '#e2e8f0' : '#94a3b8' }}>{s.title}</span>
+                  <div className="text-right">
+                    {s.highlight && (
+                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', whiteSpace: 'nowrap' }}>
+                        {s.highlight}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))
+          }
         </div>
 
-        {/* Expand / collapse button */}
+        {/* Expand / collapse — only for the 26-session view */}
         {showExpand && (
           <div className="text-center mt-5">
             <button
               onClick={() => setExpanded(!expanded)}
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold border transition-all hover:border-indigo-500/60 hover:bg-indigo-500/10"
-              style={{
-                background: 'rgba(255,255,255,0.03)',
-                borderColor: 'rgba(255,255,255,0.12)',
-                color: '#94a3b8',
-              }}>
-              {expanded ? (
-                <>Show less ↑</>
-              ) : (
-                <>Show all 26 sessions ↓ <span className="text-xs opacity-60">(Sessions 14–26)</span></>
-              )}
+              style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.12)', color: '#94a3b8' }}>
+              {expanded ? <>Show less ↑</> : <>Show all 26 sessions ↓ <span className="text-xs opacity-60">(Sessions 14–26)</span></>}
             </button>
           </div>
         )}

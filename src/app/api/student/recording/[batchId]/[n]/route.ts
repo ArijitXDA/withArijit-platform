@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient }        from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getRecordingDownloadUrl } from '@/lib/msGraph'
+import { isContentLocked } from '@/lib/contentGate'
 
 // GET /api/student/recording/<batchId>/<n>
 // Enrolment-gated recording source for the in-page player. Verifies the student
@@ -23,13 +24,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ batc
   // Enrolment check — the student must be actively enrolled in THIS batch.
   const { data: enrolment } = await service
     .from('student_enrolments')
-    .select('id')
+    .select('id, balance_due, batch:batch_id(start_date)')
     .eq('student_email', user.email)
     .eq('batch_id', batchId)
     .eq('is_active', true)
     .limit(1)
     .maybeSingle()
   if (!enrolment) return NextResponse.json({ error: 'You are not enrolled in this batch' }, { status: 403 })
+
+  // 50-50 balance gate — recordings are on-demand content, locked once the balance
+  // is overdue (past the 6th session). Live-class join is unaffected.
+  if (isContentLocked((enrolment as any).balance_due, (enrolment as any).batch?.start_date)) {
+    return NextResponse.json({ locked: true, reason: 'balance_due', error: 'Clear your 50-50 balance to unlock recordings.' }, { status: 402 })
+  }
 
   const { data: link } = await service
     .from('awa_session_links')

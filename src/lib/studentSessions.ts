@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { generateSchedule, todayISO, type BatchLike } from '@/lib/sessionSchedule'
+import { isContentLocked } from '@/lib/contentGate'
 
 /**
  * Server loader: a student's unified session list.
@@ -40,7 +41,7 @@ export async function getStudentSessions(email: string): Promise<StudentSessions
 
   const { data: enrolments } = await service
     .from('student_enrolments')
-    .select('created_at, course:course_id(id, name, total_sessions), batch:batch_id(id, label, day_of_week, start_time, start_date, end_date, duration_mins, total_sessions, variant, meeting_link)')
+    .select('created_at, balance_due, course:course_id(id, name, total_sessions), batch:batch_id(id, label, day_of_week, start_time, start_date, end_date, duration_mins, total_sessions, variant, meeting_link)')
     .eq('student_email', email)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
@@ -74,6 +75,9 @@ export async function getStudentSessions(email: string): Promise<StudentSessions
       const b = e.batch
       if (seen.has(b.id)) continue
       seen.add(b.id)
+      // 50-50 balance gate — hide on-demand recording/material links once the balance
+      // is overdue (past the 6th session). The live-class join link stays available.
+      const locked = isContentLocked(e.balance_due, b.start_date)
       const sched = generateSchedule(b as BatchLike, linksByBatch[b.id] ?? [], curByCourse[e.course?.id] ?? [])
       for (const s of sched) {
         all.push({
@@ -85,8 +89,8 @@ export async function getStudentSessions(email: string): Promise<StudentSessions
           session_date:        s.dateISO,
           session_start_time:  s.timeRaw ?? b.start_time ?? null,
           session_link:        s.meetingLink,
-          recording_link:      s.recordingLink,
-          study_material_link: s.studyMaterialLink,
+          recording_link:      locked ? null : s.recordingLink,
+          study_material_link: locked ? null : s.studyMaterialLink,
           status:              s.status,
           original_date:       s.originalDateISO,
           change_reason:       s.changeReason,

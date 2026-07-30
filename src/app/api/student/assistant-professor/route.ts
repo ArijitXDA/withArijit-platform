@@ -7,6 +7,7 @@ import {
   type ScheduleSession, type BatchLike,
 } from '@/lib/sessionSchedule'
 import { getPlatformFacts, platformFactsBlock } from '@/lib/platformFacts'
+import { isContentLocked } from '@/lib/contentGate'
 import { ASSISTANT_PROFESSOR_TOOLS, buildSystemPrompt } from '@/lib/assistantProfessorPrompt'
 import { embedQuery, toVectorLiteral } from '@/lib/embeddings'
 
@@ -292,7 +293,7 @@ export async function POST(req: NextRequest) {
     // Full batch shape — variant + total_sessions + dates drive the schedule.
     service.from('student_enrolments')
       .select(`
-        id, course_name, is_active,
+        id, course_name, is_active, balance_due,
         course:course_id(id, name, total_sessions, subjects),
         batch:batch_id(id, label, day_of_week, start_time, start_date, end_date,
                        duration_mins, meeting_link, variant, total_sessions)
@@ -342,6 +343,12 @@ export async function POST(req: NextRequest) {
   const next         = nextSessionOf(schedule)
   const sessionsPast = schedule.filter(s => s.isPast).length
   const sessionsTotal = activeBatch?.total_sessions ?? activeCourse?.total_sessions ?? 26
+
+  // 50-50 balance gate — the Assistant Professor + transcript retrieval are on-demand
+  // content, locked once the balance is overdue (past the 6th session). Live class stays open.
+  if (isContentLocked((activeEnrolment as any)?.balance_due, activeBatch?.start_date)) {
+    return NextResponse.json({ locked: true, lock_reason: 'balance_due', message: 'Please clear your 50-50 balance to unlock the Assistant Professor. Your live classes stay open.' })
+  }
 
   // Days since last visit
   const { data: convHistory } = await service

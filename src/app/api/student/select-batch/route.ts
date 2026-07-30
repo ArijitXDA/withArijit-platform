@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { balanceDeadlineISO } from '@/lib/contentGate'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
   // Rolling (monthly-membership) cohorts have no fixed end_date: access runs for a
   // rolling 30 days from today (enrol stamped it; we keep it consistent here and
   // never clobber it with the batch's null end_date).
-  let accessDates: { access_start_date: string | null; access_end_date: string | null }
+  let accessDates: { access_start_date: string | null; access_end_date: string | null; balance_due_date?: string | null }
   if (batch.variant === 'rolling') {
     const today = new Date()
     const end   = new Date(today); end.setDate(end.getDate() + 30)
@@ -43,6 +44,9 @@ export async function POST(req: NextRequest) {
     accessDates = {
       access_start_date: batch.start_date ?? null,
       access_end_date:   batch.end_date ?? null,
+      // 50-50 balance is due before the 6th session — stamp that deadline now that
+      // the batch (and its start date) is known. Harmless for full-pay enrolments.
+      balance_due_date:  balanceDeadlineISO(batch.start_date),
     }
   }
 

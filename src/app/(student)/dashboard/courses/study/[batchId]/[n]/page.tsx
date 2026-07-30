@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import PrintButton from './PrintButton'
+import { isContentLocked } from '@/lib/contentGate'
 
 // ── Minimal, dependency-free markdown → HTML (study guides only) ─────────────
 function esc(s: string) {
@@ -52,13 +53,18 @@ export default async function StudyPage({ params }: { params: Promise<{ batchId:
   // Enrolment gate — must be actively enrolled in this batch.
   const { data: enrolment } = await service
     .from('student_enrolments')
-    .select('id, course:course_id(name)')
+    .select('id, balance_due, batch:batch_id(start_date), course:course_id(name)')
     .eq('student_email', user.email)
     .eq('batch_id', batchId)
     .eq('is_active', true)
     .limit(1)
     .maybeSingle()
   if (!enrolment) redirect('/dashboard/courses')
+  // 50-50 balance gate — study notes are on-demand content; send unpaid-overdue
+  // students to clear their balance first (live class stays open).
+  if (isContentLocked((enrolment as any).balance_due, (enrolment as any).batch?.start_date)) {
+    redirect('/dashboard/payments?locked=study')
+  }
 
   const { data: link } = await service
     .from('awa_session_links')

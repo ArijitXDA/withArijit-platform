@@ -4,10 +4,15 @@ import { PaymentModalTrigger } from '@/components/shared/PaymentModalTrigger'
 export function CourseBottomCTA({
   course,
   enrolProps,
+  nextBatchStart,
 }: {
   course: any
   enrolProps: any
+  nextBatchStart?: string | null
 }) {
+  const nextDate = nextBatchStart
+    ? new Date(nextBatchStart + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null
   return (
     <section
       className="py-20 px-4 text-white text-center relative overflow-hidden"
@@ -20,7 +25,7 @@ export function CourseBottomCTA({
       <div className="relative max-w-3xl mx-auto">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold mb-6 border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
           <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          Enrolments Open · Batch Starting This Week
+          {nextDate ? `Enrolments Open · Next batch ${nextDate}` : 'Enrolments Open'}
         </div>
 
         <h2 className="text-3xl md:text-4xl font-extrabold mb-4 text-white">

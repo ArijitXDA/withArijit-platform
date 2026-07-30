@@ -2,19 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import SelectBatchClient from './SelectBatchClient'
-
-// ── Shared-content course group ───────────────────────────────────────────────
-// These 6 courses all teach the same curriculum and share the same batches.
-// When a student enrolled in ANY of these selects a batch, show ALL timeslots
-// across the entire group. The course name displayed stays what they enrolled for.
-const SHARED_CONTENT_SLUGS = [
-  'ai-mastery-for-working-professionals',
-  'ai-mastery-for-leaders',
-  'ai-mastery-for-entrepreneurs',
-  'ai-mastery-for-students',
-  'ai-mastery-for-homemakers',
-  'ai-mastery-programme',
-]
+import { SHARED_CONTENT_SLUGS } from '@/lib/sharedCourseGroup'
 
 export default async function SelectBatchPage({
   searchParams,

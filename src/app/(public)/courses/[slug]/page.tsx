@@ -30,6 +30,7 @@ import { CourseSessionJourney } from './_components/CourseSessionJourney'
 import { MentorWhatYouGet, MentorCurriculum, MentorSessions, MentorProjects, MentorFAQ } from './_components/MentorSections'
 import { verifyPreviewToken } from '@/lib/previewToken'
 import { CourseVideos } from '@/components/CourseVideos'
+import { SHARED_CONTENT_SLUGS, isSharedContentSlug } from '@/lib/sharedCourseGroup'
 
 export const revalidate = 3600
 
@@ -127,6 +128,16 @@ export default async function CoursePage({
   const category = course.audience_category ?? 'general'
   const filters  = CATEGORY_FILTER[category] ?? []
 
+  // Audience courses (Working Professionals, Students, …) carry no batches of their own —
+  // they funnel into the shared AI Mastery batch pool (same curriculum), exactly like the
+  // batch picker. So the hero sources its next-batch date from the whole shared group.
+  let heroBatchCourseIds: string[] = [course.id]
+  if (isSharedContentSlug(course.slug)) {
+    const { data: grpCourses } = await supabase
+      .from('awa_courses').select('id').in('slug', SHARED_CONTENT_SLUGS).eq('is_active', true)
+    if (grpCourses && grpCourses.length) heroBatchCourseIds = grpCourses.map(c => c.id)
+  }
+
   const [
     { data: projects },
     { data: allTestimonials },
@@ -160,9 +171,10 @@ export default async function CoursePage({
       : Promise.resolve({ data: null }),
 
     // Live batch dates for the hero — next upcoming + any in-progress cohort (date only).
+    // Shared-group (audience) courses source the AI Mastery pool via heroBatchCourseIds.
     supabase.from('awa_batches')
       .select('start_date, end_date, is_open')
-      .eq('course_id', course.id)
+      .in('course_id', heroBatchCourseIds)
       .eq('is_active', true)
       .order('start_date', { ascending: true }),
   ])
@@ -290,7 +302,7 @@ export default async function CoursePage({
         {isMentor ? <MentorFAQ faqs={lc.faqs} /> : <CourseFAQ course={course} />}
 
         {/* 15. Bottom CTA */}
-        <CourseBottomCTA course={course} enrolProps={enrolProps} />
+        <CourseBottomCTA course={course} enrolProps={enrolProps} nextBatchStart={nextBatchStart} />
 
       </div>
     </>

@@ -1,14 +1,19 @@
 'use client'
 
+// These rows are USER-GENERATED (webinar_ratings) and every text column is nullable —
+// the WhatsApp rating campaign writes rows with no name/course. An unguarded
+// .includes()/.trim() on those nulls took the entire homepage down (500), so the type
+// tells the truth and every consumer below normalises before use.
 interface Testimonial {
-  full_name: string
-  course_name: string
+  full_name: string | null
+  course_name: string | null
   rating: number
-  feedback: string
+  feedback: string | null
 }
 
 // Course name → short label
 function shortCourse(name: string): string {
+  if (!name) return 'AI Webinar'
   if (name.includes('Working')) return 'Working Professional'
   if (name.includes('School')) return 'School Student'
   if (name.includes('College') || name.includes('Job')) return 'College & Job Seeker'
@@ -19,9 +24,10 @@ function shortCourse(name: string): string {
 
 // Initials avatar
 function Avatar({ name }: { name: string }) {
-  const initials = name.trim().split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('')
+  const safe = name.trim() || 'oStaran Learner'
+  const initials = safe.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || 'O'
   const colors = ['#4f46e5','#059669','#d97706','#7c3aed','#0891b2','#e11d48','#0284c7','#16a34a']
-  const color  = colors[name.charCodeAt(0) % colors.length]
+  const color  = colors[safe.charCodeAt(0) % colors.length]
   return (
     <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
       style={{ background: color }}>
@@ -31,6 +37,9 @@ function Avatar({ name }: { name: string }) {
 }
 
 function TestimonialCard({ t }: { t: Testimonial }) {
+  const name   = (t.full_name ?? '').trim() || 'oStaran Learner'
+  const course = (t.course_name ?? '').trim()
+  const quote  = (t.feedback ?? '').trim()
   return (
     <div
       className="shrink-0 w-80 p-5 rounded-2xl border"
@@ -44,14 +53,14 @@ function TestimonialCard({ t }: { t: Testimonial }) {
       </div>
       {/* Quote */}
       <p className="text-sm leading-relaxed mb-4 line-clamp-4" style={{ color: 'var(--os-ink-2)' }}>
-        &ldquo;{t.feedback}&rdquo;
+        &ldquo;{quote}&rdquo;
       </p>
       {/* Author */}
       <div className="flex items-center gap-3">
-        <Avatar name={t.full_name} />
+        <Avatar name={name} />
         <div>
-          <p className="text-sm font-bold capitalize" style={{ color: 'var(--os-ink)' }}>{t.full_name}</p>
-          <p className="text-xs font-medium" style={{ color: 'var(--os-accent)' }}>{shortCourse(t.course_name)}</p>
+          <p className="text-sm font-bold capitalize" style={{ color: 'var(--os-ink)' }}>{name}</p>
+          <p className="text-xs font-medium" style={{ color: 'var(--os-accent)' }}>{shortCourse(course)}</p>
         </div>
       </div>
     </div>

@@ -1,16 +1,19 @@
 'use client'
 
+// User-generated (webinar_ratings): every text column is nullable — the WhatsApp rating
+// campaign writes rows with no name/course. An unguarded .trim() here 500'd this page.
 interface Testimonial {
-  full_name: string
-  course_name: string
+  full_name: string | null
+  course_name: string | null
   rating: number
-  feedback: string
+  feedback: string | null
 }
 
 function Avatar({ name }: { name: string }) {
-  const initials = name.trim().split(' ').filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
+  const safe     = name.trim() || 'oStaran Learner'
+  const initials = safe.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || 'O'
   const colors   = ['#4f46e5','#059669','#d97706','#7c3aed','#0891b2','#e11d48','#0284c7','#16a34a']
-  const color    = colors[name.charCodeAt(0) % colors.length]
+  const color    = colors[safe.charCodeAt(0) % colors.length]
   return (
     <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
       style={{ background: color }}>
@@ -20,6 +23,8 @@ function Avatar({ name }: { name: string }) {
 }
 
 function Card({ t }: { t: Testimonial }) {
+  const name  = (t.full_name ?? '').trim() || 'oStaran Learner'
+  const quote = (t.feedback ?? '').trim()
   return (
     <div className="shrink-0 w-72 bg-white rounded-2xl border border-gray-100 p-5"
       style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
@@ -29,12 +34,12 @@ function Card({ t }: { t: Testimonial }) {
         ))}
       </div>
       <p className="text-sm text-gray-700 leading-relaxed mb-4 line-clamp-4">
-        &ldquo;{t.feedback}&rdquo;
+        &ldquo;{quote}&rdquo;
       </p>
       <div className="flex items-center gap-2.5">
-        <Avatar name={t.full_name} />
+        <Avatar name={name} />
         <div>
-          <p className="text-sm font-bold text-gray-900 capitalize">{t.full_name}</p>
+          <p className="text-sm font-bold text-gray-900 capitalize">{name}</p>
           <p className="text-xs text-indigo-600">Verified Learner · ⭐ {t.rating}/5</p>
         </div>
       </div>

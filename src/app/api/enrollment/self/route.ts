@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { attributeBroadcast } from '@/lib/broadcastAttribution'
 import { notifyPartner, type PartnerNotice } from '@/lib/notifyPartner'
+import { allocateCascade } from '@/lib/cascade'
 
 // Commission amounts are unrounded fractions of the net, so they are shown to the paisa. The
 // shared formatCurrency() fixes 0 decimals, which would tell a partner they earned 4,408 when
@@ -36,23 +37,96 @@ async function creditPartnerCommission(
     return
   }
 
-  const partnerPoolAmount = netTaxable * partnerPoolPct
-  const enrollerAmount    = partnerPoolAmount * enrollerShare
-  const upstreamPool      = partnerPoolAmount * upstreamShare
+  // Round to paise HERE, byte-identically to how student_enrolments.commission_amount is
+  // booked below (Number(x.toFixed(2))). Passing the raw float let the engine's drift
+  // correction chase a target the books never used: on a pool ending in half a paisa
+  // (partner_pool_percent 0.25 — the Quantum course — whenever netTaxable paise ≡ 2 mod 4)
+  // Math.round(x*100)/100 and toFixed(2) break the tie in opposite directions and the ledger
+  // ended up 1 paisa ABOVE the booked commission.
+  const partnerPoolAmount = Number((netTaxable * partnerPoolPct).toFixed(2))
 
-  await supabase.from('commission_ledger').insert({
-    enrolment_id:           enrolmentId,
-    partner_id:             enroller.id,
-    partner_level_in_chain: 1,
-    direct_partner_id:      enroller.id,
-    base_amount:            netTaxable,
-    commission_rate:        partnerPoolPct * enrollerShare,
-    commission_amount:      enrollerAmount,
-    commission_model:       'cascade',
-    enroller_layer:         1,
-    course_id:              courseId,
-    status:                 'pending',
-  })
+  // ── Walk the upline chain, nearest first, collecting each partner's "keep" dial ──────
+  // The dial is keyed (parent, child): what THIS upline keeps on sales originating in that
+  // child's sub-tree. Missing row → keeps everything (1).
+  const uplineIds: string[] = []
+  const childOf  = new Map<string, string>()   // upline id → the node just below it in this chain
+  {
+    let cursor: string | null = enroller.parent_partner_id as string | null
+    let below  = enroller.id
+    // Hard depth cap + cycle guard. The seen-set includes the ENROLLER: a cycle that loops
+    // back to them (E → A → B → E) would otherwise book the enroller twice on one enrolment,
+    // and there is no unique constraint on (enrolment_id, partner_id) to catch it.
+    const seen = new Set<string>([enroller.id])
+    while (cursor && uplineIds.length < 12 && !seen.has(cursor)) {
+      const { data: ancestor } = await supabase
+        .from('partners').select('id, parent_partner_id').eq('id', cursor).single()
+      if (!ancestor) break
+      uplineIds.push(ancestor.id)
+      seen.add(ancestor.id)
+      childOf.set(ancestor.id, below)
+      below  = ancestor.id
+      cursor = ancestor.parent_partner_id as string | null
+    }
+  }
+
+  const keepByUpline = new Map<string, number>()
+  if (uplineIds.length) {
+    const { data: dials } = await supabase
+      .from('partner_downline_sharing')
+      .select('parent_partner_id, child_partner_id, keep_fraction')
+      .in('parent_partner_id', uplineIds)
+      .eq('is_active', true)
+    for (const d of dials ?? []) {
+      if (childOf.get(d.parent_partner_id) === d.child_partner_id) {
+        keepByUpline.set(d.parent_partner_id, Number(d.keep_fraction ?? 1))
+      }
+    }
+  }
+
+  // ── Allocate. The shared engine guarantees the parts sum to EXACTLY the pool ─────────
+  const allocations = allocateCascade(
+    partnerPoolAmount,
+    uplineIds.map(id => ({ partnerId: id, keepFraction: keepByUpline.get(id) ?? 1 })),
+    enrollerShare,
+    upstreamShare,
+  )
+  // allocations[0] is the enroller (layerInChain 1); the engine leaves its partnerId blank.
+  if (allocations.length) allocations[0].partnerId = enroller.id
+
+  const enrollerAmount = allocations[0]?.amount ?? 0
+  const enrollerLayer  = uplineIds.length + 1
+
+  // ONE statement for the whole chain. Inserting row-by-row made the cascade non-atomic:
+  // supabase-js RESOLVES on a Postgres error rather than throwing, so a failed upline row was
+  // silently swallowed — while the RPC below still credited that partner's aggregate, leaving
+  // an "earned" total that no ledger row backs and payouts can never pay. Worse, the
+  // idempotency guard keys off the ENROLLER's row, so a freeze after row 1 made every retry
+  // short-circuit and the uplines stayed uncredited forever.
+  const { error: ledgerErr } = await supabase.from('commission_ledger').insert(
+    allocations.map(a => ({
+      enrolment_id:           enrolmentId,
+      partner_id:             a.partnerId,
+      partner_level_in_chain: a.layerInChain,
+      direct_partner_id:      enroller.id,
+      base_amount:            netTaxable,
+      commission_rate:        netTaxable > 0 ? a.amount / netTaxable : 0,
+      commission_amount:      a.amount,
+      commission_model:       'cascade',
+      enroller_layer:         enrollerLayer,
+      upstream_layer_index:   a.layerInChain > 1 ? a.layerInChain - 1 : null,
+      total_upstream_count:   uplineIds.length,
+      course_id:              courseId,
+      status:                 'pending',
+      // Snapshot the maths so a partner moving their slider later can never rewrite history.
+      entitlement_amount:     a.entitlement,
+      received_amount:        a.received,
+      keep_fraction_applied:  a.keepFraction,
+      forgone_amount:         a.forgone,
+    })),
+  )
+  // Throw so the caller's catch records a payment_recovery_log entry — a commission that
+  // failed to book must never fail silently.
+  if (ledgerErr) throw new Error(`commission_ledger insert failed: ${ledgerErr.message}`)
 
   // Update partner aggregate totals atomically.
   // The DB trigger trg_cascade_commissions was dropped to prevent double-writes.
@@ -76,50 +150,23 @@ async function creditPartnerCommission(
     link:      '/dashboard/income',
   }]
 
-  let parentId: string | null = enroller.parent_partner_id as string | null
-  let level = 2
-  let remaining = upstreamPool
-
-  while (parentId && level <= 6) {
-    const { data: ancestor } = await supabase
-      .from('partners')
-      .select('id, parent_partner_id')
-      .eq('id', parentId)
-      .single()
-
-    if (!ancestor) break
-
-    const thisLevel = remaining * 0.75
-    remaining       = remaining * 0.25
-
-    await supabase.from('commission_ledger').insert({
-      enrolment_id:           enrolmentId,
-      partner_id:             ancestor.id,
-      partner_level_in_chain: level,
-      direct_partner_id:      enroller.id,
-      base_amount:            netTaxable,
-      commission_rate:        thisLevel / netTaxable,
-      commission_amount:      thisLevel,
-      commission_model:       'cascade',
-      enroller_layer:         1,
-      upstream_layer_index:   level - 1,
-      total_upstream_count:   level - 1,
-      course_id:              courseId,
-      status:                 'pending',
+  // Upstream partners earn on their downline's work without ever seeing it happen — this is
+  // the notification that makes the network visible to them. A partner who set their dial to
+  // 0 earns nothing here, so they are not notified about a zero credit.
+  for (const a of allocations.slice(1)) {
+    if (!(a.amount > 0)) continue
+    await supabase.rpc('increment_partner_commission', {
+      p_partner_id:      a.partnerId,
+      p_commission:      a.amount,
+      p_count_enrolment: false,
     })
-
-    // Upstream partners earn on their downline's work without ever seeing it happen —
-    // this is the notification that makes the network visible to them.
     notices.push({
-      partnerId: ancestor.id,
+      partnerId: a.partnerId,
       kind:      'enrolment_commission',
       title:     '📈 Your network earned you a commission',
-      body:      `${enroller.full_name} closed an enrolment — ${money(thisLevel)} credited to you.`,
+      body:      `${enroller.full_name} closed an enrolment — ${money(a.amount)} credited to you.`,
       link:      '/dashboard/income',
     })
-
-    parentId = ancestor.parent_partner_id as string | null
-    level++
   }
 
   // Every ledger row is durable by now, so a slow or failing notification can no longer cost

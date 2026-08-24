@@ -440,8 +440,16 @@ async function buildVars(supabase: SupabaseClient, enrolment: { id: string; emai
     vars.enrol_button_suffix = sp.toString();
     if (!vars.partner_name) {
       if (vars.partner_code) {
-        const { data: pn } = await supabase.from('partners').select('full_name').eq('partner_code', vars.partner_code).maybeSingle();
-        vars.partner_name = (pn?.full_name || '').trim() || 'AIwithArijit';
+        // HIDE MODE (partners.hide_identity). {{partner_name}} is rendered INTO the message
+        // that goes to the student — the live s6/s8 nudges close on "(Message from your AI
+        // Partner: {{partner_name}})". For a partner who switched Hide Mode on, that mails
+        // their name to every lead they ever referred, on a drip, for weeks. Hidden partners
+        // fall back to the same brand string an unresolvable code already uses, so the
+        // sentence still reads and nothing about attribution or the cascade changes.
+        const { data: pn } = await supabase.from('partners').select('full_name, hide_identity').eq('partner_code', vars.partner_code).maybeSingle();
+        vars.partner_name = pn?.hide_identity === true
+          ? 'AIwithArijit'
+          : ((pn?.full_name || '').trim() || 'AIwithArijit');
       } else {
         vars.partner_name = 'AIwithArijit';
       }

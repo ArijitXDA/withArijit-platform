@@ -161,7 +161,9 @@ export default async function CoursePage({
       .limit(30),
 
     partnerCode
-      ? supabase.from('partners').select('full_name').eq('partner_code', partnerCode).eq('status', 'active').maybeSingle()
+      // hide_identity rides along so the referral banner can credit the partner without
+      // naming them — see the partnerName line below.
+      ? supabase.from('partners').select('full_name, hide_identity').eq('partner_code', partnerCode).eq('status', 'active').maybeSingle()
       : Promise.resolve({ data: null }),
 
     // Mentor course: pull the mentor's trainer photo (and partner link) as a live
@@ -204,7 +206,12 @@ export default async function CoursePage({
   // displayed strike-through in lock-step with what create-order actually charges.
   const isPartnerReferred = !!partnerRow
   const discountPct  = isPartnerReferred ? Number(course.discount_percent ?? 0) : 0
-  const partnerName  = partnerRow?.full_name ?? ''
+  // HIDE MODE (partners.hide_identity): still a valid referral — isPartnerReferred, the
+  // discount and the commission are all unchanged — just an unnamed one. This page is where
+  // every hidden partner's course-share link lands, so "🤝 Referred by <name>" / "Gift from
+  // <name>" in PaymentModal would undo the whole feature. Empty string = the modal's own
+  // "Referred by" / "Partner Gift" fallbacks.
+  const partnerName  = partnerRow?.hide_identity === true ? '' : (partnerRow?.full_name ?? '')
   const mrp          = Number(course.mrp)
   const gstPct       = Number(course.gst_percent ?? 18) / 100
   const netBeforeGst = Math.round(mrp / (1 + gstPct))

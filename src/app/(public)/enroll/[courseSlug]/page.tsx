@@ -91,11 +91,19 @@ export default async function EnrollPage({ params, searchParams }: Props) {
     const service = createServiceClient()
     const { data: partnerRow } = await service
       .from('partners')
-      .select('full_name')
+      .select('full_name, hide_identity')
       .eq('partner_code', partnerCode)
       .eq('status', 'active')
       .maybeSingle()
-    if (partnerRow) { partnerValid = true; partnerName = partnerRow.full_name ?? '' }
+    // HIDE MODE (partners.hide_identity): the partner is still VALID — the discount, the
+    // attribution and the commission are untouched — but the page must not name them.
+    // Every hidden partner's poster and QR lands a stranger on exactly this URL, so
+    // "🤝 Referred by <name>" here would print the name the artwork just withheld.
+    // partnerName === '' makes PaymentModal fall back to "Referred by" / "Partner Gift".
+    if (partnerRow) {
+      partnerValid = true
+      partnerName  = partnerRow.hide_identity === true ? '' : (partnerRow.full_name ?? '')
+    }
   }
   const discountPct = partnerValid ? Number((course as any).discount_percent ?? 0) : 0
 

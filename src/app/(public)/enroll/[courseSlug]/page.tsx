@@ -2,7 +2,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { EnrollPageClient } from './EnrollPageClient'
-import { resolvePartnerByCode } from '@/lib/partnerCode'
+import { resolvePartnerByCode, publicPartnerCode } from '@/lib/partnerCode'
 
 interface Props {
   params: Promise<{ courseSlug: string }>
@@ -88,13 +88,18 @@ export default async function EnrollPage({ params, searchParams }: Props) {
   // (create-order re-applies the discount from the same active partner_code).
   let partnerName = ''
   let partnerValid = false
+  // What the STUDENT is shown. partnerCode is the raw value off the URL/cookie, which for any
+  // poster printed before the opaque-code cutover is the legacy name-derived code — rendering
+  // it prints the partner's name on a public page. Display the v2 code instead; attribution
+  // still runs off the raw code, which create-order resolves through the alias table.
+  let partnerPublicCode = ''
   if (partnerCode) {
     const service = createServiceClient()
     // Alias-aware: the link may carry the partner's OLD printed code or the new opaque
     // one, and refusing to validate one of them would show a price the checkout then
     // contradicts.
     const partnerRow = await resolvePartnerByCode(
-      service, partnerCode, 'full_name, hide_identity, status')
+      service, partnerCode, 'full_name, hide_identity, status, partner_code, partner_code_v2')
       .then((r: any) => (r && r.status === 'active' ? r : null))
     // HIDE MODE (partners.hide_identity): the partner is still VALID — the discount, the
     // attribution and the commission are untouched — but the page must not name them.
@@ -104,6 +109,7 @@ export default async function EnrollPage({ params, searchParams }: Props) {
     if (partnerRow) {
       partnerValid = true
       partnerName  = partnerRow.hide_identity === true ? '' : (partnerRow.full_name ?? '')
+      partnerPublicCode = publicPartnerCode(partnerRow)
     }
   }
   const discountPct = partnerValid ? Number((course as any).discount_percent ?? 0) : 0
@@ -120,7 +126,7 @@ export default async function EnrollPage({ params, searchParams }: Props) {
         mrp:         Number(course.mrp),
       }}
       prefill={prefill}
-      partnerCode={partnerCode}
+      partnerCode={partnerPublicCode || partnerCode}
       partnerName={partnerName}
       discountPct={discountPct}
       refSource={ref}

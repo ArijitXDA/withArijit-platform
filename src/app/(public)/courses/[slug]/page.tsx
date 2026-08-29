@@ -3,6 +3,7 @@ import Link              from 'next/link'
 import { redirect }      from 'next/navigation'
 import { cookies }       from 'next/headers'
 import { createServiceClient } from '@/lib/supabase/service'
+import { publicPartnerCode } from '@/lib/partnerCode'
 import { notFound }      from 'next/navigation'
 import { formatCurrency } from '@/lib/utils'
 import { PaymentModalTrigger } from '@/components/shared/PaymentModalTrigger'
@@ -167,7 +168,7 @@ export default async function CoursePage({
       // opaque one must validate, or the referral discount vanishes for half the links.
       ? supabase.rpc('resolve_partner_code', { p_code: partnerCode.toUpperCase() })
           .then(async ({ data: pid }: any) => pid
-            ? await supabase.from('partners').select('full_name, hide_identity').eq('id', pid).eq('status', 'active').maybeSingle()
+            ? await supabase.from('partners').select('full_name, hide_identity, partner_code, partner_code_v2').eq('id', pid).eq('status', 'active').maybeSingle()
             : { data: null })
       : Promise.resolve({ data: null }),
 
@@ -217,6 +218,13 @@ export default async function CoursePage({
   // <name>" in PaymentModal would undo the whole feature. Empty string = the modal's own
   // "Referred by" / "Partner Gift" fallbacks.
   const partnerName  = partnerRow?.hide_identity === true ? '' : (partnerRow?.full_name ?? '')
+  // The code a STUDENT sees must be the opaque one. `partnerCode` here is whatever arrived in
+  // the URL or the 30-day ost_partner cookie, which for any pre-cutover poster or QR is the
+  // legacy name-derived code — printing that promotes the partner's name into body copy on a
+  // public page and keeps it there for the life of the cookie. Fold it to v2 for display and
+  // for the enrol form's default; both are resolved through partner_code_aliases downstream,
+  // so the referral and its commission are unaffected.
+  const partnerPublicCode = partnerRow ? publicPartnerCode(partnerRow) : ''
   const mrp          = Number(course.mrp)
   const gstPct       = Number(course.gst_percent ?? 18) / 100
   const netBeforeGst = Math.round(mrp / (1 + gstPct))
@@ -244,7 +252,7 @@ export default async function CoursePage({
     price:             mrp,
     discountPct,
     partnerName,
-    defaultPartnerCode: isPartnerReferred ? partnerCode : '',
+    defaultPartnerCode: isPartnerReferred ? partnerPublicCode : '',
     defaultEmail:      sqEmail ?? '',
     defaultName:       sqName ?? '',
     defaultMobile:     sqMobile ?? '',
@@ -266,7 +274,7 @@ export default async function CoursePage({
         {/* 1. Hero — 2-col layout, sticky enrol card */}
         <CourseHero
           course={course} mrp={mrp} gstAmount={gstAmount} netBeforeGst={netBeforeGst}
-          discountPct={discountPct} partner={isPartnerReferred ? partnerCode : undefined} partnerName={partnerName} enrolProps={enrolProps}
+          discountPct={discountPct} partner={isPartnerReferred ? partnerPublicCode : undefined} partnerName={partnerName} enrolProps={enrolProps}
           nextBatchStart={nextBatchStart} ongoingSince={ongoingSince}
         />
 

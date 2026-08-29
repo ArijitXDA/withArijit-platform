@@ -19,7 +19,7 @@ const FALLBACK: any = {
   founder: { name: 'Arijit Chowdhury', bio: 'Founder of oStaran; CAIO, AI researcher, IIT Bombay guest lecturer. Teaches every live session personally.' },
   contacts: { email: 'ai@ostaran.com', whatsapp: 'https://wa.me/919930051053' },
   urls: { masterclass: 'ostaran.com/masterclass', courses: '/courses', group_enrol: 'ostaran.com/group-enrol', partner_programme: 'partner.ostaran.com', certificate_verify: 'ostaran.com/certificate-verification', free_webinar: 'https://webinar.ostaran.com', membership: '/courses/quantum-ai-continued', expert_consultation: '/expert-consultation' },
-  house_partner_code: 'ARIBOMBAY-0326',
+  house_partner_code: 'OS9617805',
   pricing: {
     ai_masterclass: 'Paid live session at ₹3,999 — Arijit teaches it personally.',
     quantum_ai_continued_membership: '₹2,999/month rolling membership; enrol at /courses/quantum-ai-continued.',

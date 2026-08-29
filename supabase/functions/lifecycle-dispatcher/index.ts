@@ -292,7 +292,7 @@ async function resolveWebinarRegisterUrl(supabase: SupabaseClient, ctx: Record<s
     const { data } = await supabase.from('qr_landing_registrations').select('utm_source').eq('email', email.toLowerCase()).not('utm_source', 'is', null).neq('utm_source', '').order('created_at', { ascending: false }).limit(1).maybeSingle();
     if (data?.utm_source) code = String(data.utm_source).trim();
   }
-  if (!code) code = 'ARIBOMBAY-0326';
+  if (!code) code = 'OS9617805';  // house/root partner, opaque form (the legacy string was the founder's name)
   const params = new URLSearchParams({ utm_source: code, utm_medium: 'email', utm_campaign: `lifecycle_${seqShort}` });
   return `https://webinar.ostaran.com/?${params.toString()}`;
 }
@@ -307,7 +307,7 @@ async function resolveMasterclassPaymentUrl(supabase: SupabaseClient, ctx: Recor
     const { data } = await supabase.from('qr_landing_registrations').select('utm_source').eq('email', email.toLowerCase()).not('utm_source', 'is', null).neq('utm_source', '').order('created_at', { ascending: false }).limit(1).maybeSingle();
     if (data?.utm_source) code = String(data.utm_source).trim();
   }
-  if (!code) code = 'ARIBOMBAY-0326';
+  if (!code) code = 'OS9617805';  // house/root partner, opaque form (the legacy string was the founder's name)
   const params = new URLSearchParams({ utm_source: code, utm_medium: 'whatsapp', utm_campaign: 'lifecycle_s2_wa_payment' });
   return `https://www.ostaran.com/masterclass?${params.toString()}`;
 }
@@ -368,8 +368,14 @@ async function buildS6PartnerVars(supabase: SupabaseClient, ctx: Record<string, 
 }
 
 async function resolvePartnerProfileVars(supabase: SupabaseClient, email: string, ctx: Record<string, unknown>, vars: Record<string, string>): Promise<void> {
-  const { data: p } = await supabase.from('partners').select('partner_code, qr_code_url, commission_rate, cascade_rate, total_network_size, full_name').eq('email', email.toLowerCase()).maybeSingle();
-  const partnerCode = p?.partner_code || (ctx.partner_code as string) || '';
+  // ⚠ partner_code_v2 FIRST. This function overrides whatever the enrolment context held,
+  // so reading the legacy `partner_code` column made every partner-track message render the
+  // partner's name-derived code — and hand them a ?utm_source=<name> share link — for all 58
+  // pre-cutover partners, on live cron, no matter what the rest of the product had been
+  // switched to. Old codes still resolve via partner_code_aliases, so nothing already shared
+  // stops crediting them.
+  const { data: p } = await supabase.from('partners').select('partner_code, partner_code_v2, qr_code_url, commission_rate, cascade_rate, total_network_size, full_name').eq('email', email.toLowerCase()).maybeSingle();
+  const partnerCode = p?.partner_code_v2 || p?.partner_code || (ctx.partner_code as string) || '';
   if (partnerCode) {
     vars.partner_code = partnerCode;
     if (!vars.partner_share_url) vars.partner_share_url = `https://webinar.ostaran.com/?utm_source=${encodeURIComponent(partnerCode)}`;
@@ -446,7 +452,14 @@ async function buildVars(supabase: SupabaseClient, enrolment: { id: string; emai
         // their name to every lead they ever referred, on a drip, for weeks. Hidden partners
         // fall back to the same brand string an unresolvable code already uses, so the
         // sentence still reads and nothing about attribution or the cascade changes.
-        const { data: pn } = await supabase.from('partners').select('full_name, hide_identity').eq('partner_code', vars.partner_code).maybeSingle();
+        // Alias-aware. vars.partner_code is now the OPAQUE code, and .eq() on the legacy
+        // column would miss every pre-cutover partner — silently degrading the live s6/s8
+        // student nudge to "Message from your AI Partner: AIwithArijit".
+        const pcode = String(vars.partner_code).trim().toUpperCase();
+        const { data: pid } = await supabase.rpc('resolve_partner_code', { p_code: pcode });
+        const { data: pn } = pid
+          ? await supabase.from('partners').select('full_name, hide_identity').eq('id', pid).maybeSingle()
+          : { data: null };
         vars.partner_name = pn?.hide_identity === true
           ? 'AIwithArijit'
           : ((pn?.full_name || '').trim() || 'AIwithArijit');

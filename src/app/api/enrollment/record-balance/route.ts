@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient }        from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { publicPartnerCode } from '@/lib/partnerCode'
 
 /**
  * POST /api/enrollment/record-balance
@@ -77,10 +78,10 @@ export async function POST(req: NextRequest) {
     if (enrolment.partner_id) {
       const { data: partner } = await service
         .from('partners')
-        .select('partner_code')
+        .select('partner_code, partner_code_v2')
         .eq('id', enrolment.partner_id)
         .maybeSingle()
-      partnerCode = partner?.partner_code ?? null
+      partnerCode = publicPartnerCode(partner) || null
     }
 
     // ── 3. Create payment_transactions invoice (uses existing RPC) ─────────

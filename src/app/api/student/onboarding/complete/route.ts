@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { publicPartnerCode, resolvePartnerByCode } from '@/lib/partnerCode'
 
 // POST /api/student/onboarding/complete  { full_name?, mobile?, partner_code? }
 //
@@ -23,7 +24,11 @@ import { createServiceClient } from '@/lib/supabase/service'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const HOUSE_CODE = 'ARIBOMBAY-0326'
+// The house/root partner, opaque form. 'ARIBOMBAY-0326' was the founder's own name and is
+// still stored on every profile attributed before the cutover, so BOTH count as "the house"
+// when deciding whether a student may still pick their own partner.
+const HOUSE_CODE   = 'OS9617805'
+const HOUSE_CODES  = ['OS9617805', 'ARIBOMBAY-0326']
 
 const firstName = (full: string | null | undefined, email: string) => {
   const n = (full || '').trim().split(/\s+/)[0]
@@ -52,20 +57,19 @@ export async function POST(req: NextRequest) {
 
     // ── Partner attribution ────────────────────────────────────────────────────
     const current = existing?.referred_by_partner_code ?? null
-    const changeable = current === null || current === HOUSE_CODE
+    const changeable = current === null || HOUSE_CODES.includes(current)
     let code   = current
     let source = existing ? undefined : 'house_default'
 
     if (wantCode && changeable) {
       // Validate against a real, active partner. Codes are stored uppercase, so .eq is exact —
       // ilike would treat a typed '_' or '%' as a wildcard and could attach the wrong partner.
-      const { data: p } = await svc
-        .from('partners')
-        .select('partner_code, status')
-        .eq('partner_code', wantCode)
-        .maybeSingle()
+      // Resolved through partner_code_aliases so a student who types the code off an OLD
+      // printed poster attaches to the same partner as one who scans a new QR. What gets
+      // STORED is the current opaque code; historical rows keep whatever they already hold.
+      const p = await resolvePartnerByCode(svc, wantCode, 'id, partner_code, partner_code_v2, status')
       if (p && p.status !== 'suspended' && p.status !== 'inactive') {
-        code = p.partner_code
+        code = publicPartnerCode(p)
         source = 'self_selected'
       }
     }

@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { EnrollPageClient } from './EnrollPageClient'
+import { resolvePartnerByCode } from '@/lib/partnerCode'
 
 interface Props {
   params: Promise<{ courseSlug: string }>
@@ -89,12 +90,12 @@ export default async function EnrollPage({ params, searchParams }: Props) {
   let partnerValid = false
   if (partnerCode) {
     const service = createServiceClient()
-    const { data: partnerRow } = await service
-      .from('partners')
-      .select('full_name, hide_identity')
-      .eq('partner_code', partnerCode)
-      .eq('status', 'active')
-      .maybeSingle()
+    // Alias-aware: the link may carry the partner's OLD printed code or the new opaque
+    // one, and refusing to validate one of them would show a price the checkout then
+    // contradicts.
+    const partnerRow = await resolvePartnerByCode(
+      service, partnerCode, 'full_name, hide_identity, status')
+      .then((r: any) => (r && r.status === 'active' ? r : null))
     // HIDE MODE (partners.hide_identity): the partner is still VALID — the discount, the
     // attribution and the commission are untouched — but the page must not name them.
     // Every hidden partner's poster and QR lands a stranger on exactly this URL, so

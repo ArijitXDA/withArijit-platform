@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { publicPartnerCode } from '@/lib/partnerCode'
 
 // GET /api/partners/search?q=... — powers the "who referred you?" picker shown to a first-time app
 // installer during onboarding.
@@ -35,8 +36,8 @@ export async function GET(req: NextRequest) {
   const svc = createServiceClient()
   const { data } = await svc
     .from('partners')
-    .select('partner_code, full_name, status')
-    .or(`partner_code.ilike.%${safe}%,full_name.ilike.%${safe}%`)
+    .select('partner_code, partner_code_v2, full_name, status')
+    .or(`partner_code.ilike.%${safe}%,partner_code_v2.ilike.%${safe}%,full_name.ilike.%${safe}%`)
     .limit(MAX_RESULTS * 3) // over-fetch, then filter status in code
 
   const partners = (data ?? [])
@@ -47,7 +48,10 @@ export async function GET(req: NextRequest) {
       const display = parts.length > 1
         ? `${parts[0]} ${parts[parts.length - 1][0]}.`
         : (parts[0] || 'Partner')
-      return { partner_code: p.partner_code, display_name: display }
+      // The OPAQUE code, always: this picker is student-facing and the legacy code is the
+      // partner's own name. Both codes are searchable above, so someone typing a code off an
+      // old poster still finds the right partner.
+      return { partner_code: publicPartnerCode(p), display_name: display }
     })
 
   return NextResponse.json({ partners })

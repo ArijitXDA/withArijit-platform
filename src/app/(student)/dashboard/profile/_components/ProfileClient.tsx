@@ -153,7 +153,7 @@ function EnrolmentCard({ enrolment, webinarReg }: { enrolment: any; webinarReg: 
             <p className={lbl}>Referred / Enrolled by Partner</p>
             <p className="font-semibold text-sm mt-1" style={{ color: T.textPrimary }}>{partner.full_name}</p>
             <p className="text-xs mt-0.5" style={{ color: T.textSec }}>
-              Code: <span className="font-mono" style={{ color: T.indigo }}>{partner.partner_code}</span>
+              Code: <span className="font-mono" style={{ color: T.indigo }}>{partner.partner_code_v2 || partner.partner_code}</span>
             </p>
             {partner.mobile && <p className="text-xs" style={{ color: T.textMuted }}>{partner.mobile}</p>}
             {partner.email  && <p className="text-xs" style={{ color: T.textMuted }}>{partner.email}</p>}

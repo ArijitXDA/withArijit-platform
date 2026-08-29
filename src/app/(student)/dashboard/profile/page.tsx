@@ -3,8 +3,11 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import ProfileClient from './_components/ProfileClient'
 import OnboardingSheet from './_components/OnboardingSheet'
+import { publicPartnerCode } from '@/lib/partnerCode'
 
-const HOUSE_CODE = 'ARIBOMBAY-0326'
+// Opaque house code; the legacy 'ARIBOMBAY-0326' is still stored on pre-cutover profiles
+// and resolves to the same partner, so both must read as "the house".
+const HOUSE_CODES = ['OS9617805', 'ARIBOMBAY-0326']
 
 export default async function ProfilePage({
   searchParams,
@@ -37,7 +40,7 @@ export default async function ProfilePage({
         id, created_at, course_name, enrolment_type, amount_paid, payment_date,
         course:course_id(name, short_name, total_sessions, session_duration_mins, slug),
         batch:batch_id(label, day_of_week, start_time, start_date, meeting_link, meeting_platform, instructor_name, batch_code, total_sessions, duration_mins, variant),
-        partner:partner_id(full_name, partner_code, mobile, email)
+        partner:partner_id(full_name, partner_code, partner_code_v2, mobile, email)
       `)
       .eq('student_email', email)
       .eq('is_active', true)
@@ -68,8 +71,20 @@ export default async function ProfilePage({
   const needsOnboarding = sp?.onboarding === 'true' || !profile
 
   // A real partner already owns this referral — never offer to change it (anti-poaching).
-  const attributedCode = (profile as any)?.referred_by_partner_code ?? null
-  const partnerLocked  = !!attributedCode && attributedCode !== HOUSE_CODE
+  const storedCode     = (profile as any)?.referred_by_partner_code ?? null
+  const partnerLocked  = !!storedCode && !HOUSE_CODES.includes(storedCode)
+
+  // The stored code is whatever was current when the attribution was written, so it can be
+  // the partner's OLD name-derived code. Show the opaque one instead — this string is
+  // rendered to the student. Nothing in the DB is rewritten; only the display is folded.
+  let attributedCode = storedCode
+  if (storedCode) {
+    const { data: pid } = await service.rpc('resolve_partner_code', { p_code: String(storedCode).toUpperCase() })
+    if (pid) {
+      const { data: pr } = await service.from('partners').select('partner_code, partner_code_v2').eq('id', pid).maybeSingle()
+      if (pr) attributedCode = publicPartnerCode(pr) || storedCode
+    }
+  }
 
   return (
     <>

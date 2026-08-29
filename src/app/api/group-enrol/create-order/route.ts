@@ -4,6 +4,7 @@ import { getRazorpay } from '@/lib/razorpay'
 import { getFxRates } from '@/lib/fxRates'
 import { toOrderAmount } from '@/lib/orderCurrency'
 import { isCurrency } from '@/lib/currency-config'
+import { resolvePartnerIdByCode } from '@/lib/partnerCode'
 
 // ── POST /api/group-enrol/create-order ────────────────────────────────────────
 // 1. Validates all inputs server-side (course, quantity, coupon, batch capacity)
@@ -151,15 +152,11 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 5. Resolve partner_id if partner_code provided ────────────────────────
-    let resolvedPartnerId: string | null = null
-    if (partner_code?.trim()) {
-      const { data: partner } = await supabase
-        .from('partners')
-        .select('id')
-        .eq('partner_code', partner_code.trim().toUpperCase())
-        .maybeSingle()
-      resolvedPartnerId = partner?.id ?? null
-    }
+    // Alias-aware — a purchaser can paste either the partner's legacy printed code or the
+    // new opaque one, and an unresolved id means the group enrolment earns nobody anything.
+    const resolvedPartnerId: string | null = partner_code?.trim()
+      ? await resolvePartnerIdByCode(supabase, partner_code)
+      : null
 
     // ── 6. Create Razorpay order ──────────────────────────────────────────────
     // Guard: reject placeholder keys before hitting Razorpay API

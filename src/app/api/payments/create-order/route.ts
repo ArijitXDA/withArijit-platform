@@ -5,6 +5,7 @@ import { paymentOrderSchema } from '@/lib/validations/payment'
 import { getFxRates } from '@/lib/fxRates'
 import { toOrderAmount } from '@/lib/orderCurrency'
 import { isCurrency } from '@/lib/currency-config'
+import { publicPartnerCode, resolvePartnerByCode } from '@/lib/partnerCode'
 
 export async function POST(request: NextRequest) {
   try {
@@ -92,16 +93,15 @@ export async function POST(request: NextRequest) {
     if (autoDiscountPct === 0 && resolvedPartnerCode) {
       const code = String(resolvedPartnerCode).trim()
       if (code) {
-        const { data: partner } = await supabase
-          .from('partners')
-          .select('partner_code')
-          .eq('partner_code', code)
-          .eq('status', 'active')
-          .maybeSingle()
-        if (partner) {
+        // Alias-aware: the code on the link may be the partner's OLD printed code or the
+        // new opaque one. A single-column match would refuse the referral discount for
+        // half the traffic and drop the attribution the webhook later books on.
+        const partner = await resolvePartnerByCode(
+          supabase, code, 'id, partner_code, partner_code_v2, status')
+        if (partner && partner.status === 'active') {
           autoDiscountPct     = courseDiscountPct
           autoDiscountLabel   = `Partner Referral Discount (${Math.round(courseDiscountPct * 100)}% off)`
-          resolvedPartnerCode = partner.partner_code
+          resolvedPartnerCode = publicPartnerCode(partner)
         }
       }
     }

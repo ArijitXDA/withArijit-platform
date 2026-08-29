@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { attributeBroadcast } from '@/lib/broadcastAttribution'
 import { notifyPartner, type PartnerNotice } from '@/lib/notifyPartner'
 import { allocateCascade } from '@/lib/cascade'
+import { publicPartnerCode, resolvePartnerByCode, resolvePartnerIdByCode } from '@/lib/partnerCode'
 
 // Commission amounts are unrounded fractions of the net, so they are shown to the paisa. The
 // shared formatCurrency() fixes 0 decimals, which would tell a partner they earned 4,408 when
@@ -26,11 +27,12 @@ async function creditPartnerCommission(
   // avoids writing meaningless zero-amount rows for any future non-commissionable product.
   if (!(partnerPoolPct > 0)) return
 
-  const { data: enroller } = await supabase
-    .from('partners')
-    .select('id, partner_code, full_name, parent_partner_id')
-    .eq('partner_code', partnerCode)
-    .single()
+  // Resolved through partner_code_aliases. `partnerCode` here is whatever the enrolment
+  // was attributed with — a legacy name-derived code off a printed poster, or the new
+  // opaque one. A .eq('partner_code', …) would find only the first, and the enroller not
+  // being found means NO commission ledger row is ever written.
+  const enroller = await resolvePartnerByCode(
+    supabase, partnerCode, 'id, partner_code, partner_code_v2, full_name, parent_partner_id')
 
   if (!enroller) {
     console.warn(`[commission] Partner not found: ${partnerCode}`)
@@ -221,10 +223,10 @@ async function runBackgroundWork(params: {
     try {
       const { data: partnerRow } = await supabase
         .from('partners')
-        .select('partner_code')
+        .select('partner_code, partner_code_v2')
         .eq('id', finalPartnerId)
         .maybeSingle()
-      if (partnerRow?.partner_code) finalPartnerCode = partnerRow.partner_code
+      if (partnerRow) finalPartnerCode = publicPartnerCode(partnerRow) || null
     } catch (e: any) {
       console.warn('[bg] partner_code lookup failed (non-fatal):', e.message)
     }
@@ -498,15 +500,14 @@ export async function POST(request: NextRequest) {
       if (reg?.utm_source) resolvedPartnerCode = reg.utm_source
     }
 
-    let resolvedPartnerId: string | null = null
-    if (resolvedPartnerCode) {
-      const { data: partner } = await supabase
-        .from('partners')
-        .select('id')
-        .eq('partner_code', resolvedPartnerCode)
-        .maybeSingle()
-      resolvedPartnerId = partner?.id ?? null
-    }
+    // ⚠ MONEY PATH. Resolved through partner_code_aliases so BOTH the old name-derived
+    // code (still printed on collateral and stored in every historical utm_source) and the
+    // new opaque code land on the same partner. Matching one column would leave
+    // resolvedPartnerId null for half the traffic → commissionPct 0 → the partner is never
+    // paid for that enrolment. resolvedPartnerCode itself is stored exactly as it arrived.
+    const resolvedPartnerId: string | null = resolvedPartnerCode
+      ? await resolvePartnerIdByCode(supabase, resolvedPartnerCode)
+      : null
 
     const commissionPct    = resolvedPartnerId ? partnerPoolPct : 0
     const commissionAmount = resolvedPartnerId ? Number((netTaxable * partnerPoolPct).toFixed(2)) : 0

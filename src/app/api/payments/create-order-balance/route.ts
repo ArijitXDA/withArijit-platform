@@ -4,6 +4,7 @@ import { createClient }        from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { toOrderAmount }       from '@/lib/orderCurrency'
 import { isCurrency, type FxRates } from '@/lib/currency-config'
+import { publicPartnerCode } from '@/lib/partnerCode'
 
 /**
  * POST /api/payments/create-order-balance
@@ -77,10 +78,10 @@ export async function POST(req: NextRequest) {
     if (enrolment.partner_id) {
       const { data: partner } = await service
         .from('partners')
-        .select('partner_code')
+        .select('partner_code, partner_code_v2')
         .eq('id', enrolment.partner_id)
         .maybeSingle()
-      partnerCode = partner?.partner_code ?? ''
+      partnerCode = publicPartnerCode(partner)
     }
 
     // ── Currency snapshot: charge the balance in the SAME currency at the SAME

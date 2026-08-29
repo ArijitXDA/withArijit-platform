@@ -163,7 +163,12 @@ export default async function CoursePage({
     partnerCode
       // hide_identity rides along so the referral banner can credit the partner without
       // naming them — see the partnerName line below.
-      ? supabase.from('partners').select('full_name, hide_identity').eq('partner_code', partnerCode).eq('status', 'active').maybeSingle()
+      // Alias-aware — see src/lib/partnerCode.ts. Both the legacy printed code and the
+      // opaque one must validate, or the referral discount vanishes for half the links.
+      ? supabase.rpc('resolve_partner_code', { p_code: partnerCode.toUpperCase() })
+          .then(async ({ data: pid }: any) => pid
+            ? await supabase.from('partners').select('full_name, hide_identity').eq('id', pid).eq('status', 'active').maybeSingle()
+            : { data: null })
       : Promise.resolve({ data: null }),
 
     // Mentor course: pull the mentor's trainer photo (and partner link) as a live

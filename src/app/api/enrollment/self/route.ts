@@ -637,6 +637,39 @@ export async function POST(request: NextRequest) {
 
     const enrolmentId = enrolmentRow!.id
 
+    // ── Claim the distribution seat this coupon represents ────────────────────
+    // Serialised inventory: the code identifies ONE unit, tracked since oStaran issued it.
+    // The claim is a conditional UPDATE inside the database, so two simultaneous redemptions
+    // cannot both win — exactly one sees a row and the other is refused. It also binds the
+    // code to the learner's email, so a code forwarded to a friend does not work for them.
+    //
+    // Runs AFTER the enrolment insert because the claim records which enrolment consumed the
+    // seat. If it loses (the code was already spent, or the emails differ) the learner has
+    // still paid their Rs 1, so the enrolment stands and the conflict is written to
+    // payment_recovery_log for a human rather than failing silently.
+    if (isNnwdSeat) {
+      try {
+        const { data: claim } = await supabase.rpc('nnwd_claim_seat', {
+          p_code: String(discount_code).trim().toUpperCase(),
+          p_enrolment_id: enrolmentId,
+          p_email: email.toLowerCase(),
+        })
+        if (!claim?.ok) {
+          console.error(`[nnwd] seat claim refused for enrolment ${enrolmentId}: ${claim?.reason}`)
+          await supabase.from('payment_recovery_log').insert({
+            razorpay_payment_id: payment_id,
+            razorpay_order_id:   order_id,
+            student_email:       email.toLowerCase(),
+            course_id,
+            amount,
+            failure_reason: `NNWD seat claim refused (${claim?.reason ?? 'unknown'}) for code ${discount_code}`,
+          }).then(() => {}, () => {})
+        }
+      } catch (e: any) {
+        console.error('[nnwd] seat claim errored (non-fatal):', e?.message)
+      }
+    }
+
     // ── 5. Write payment_transactions record (CRITICAL PATH) ─────────────────
     // This MUST complete before returning 200 — it's what the student's
     // /dashboard/payments page reads. Moved out of runBackgroundWork because

@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
       const now = new Date()
       const { data: discount } = await supabase
         .from('discount_codes')
-        .select('code, label, type, discount_value, valid_from, valid_to, max_uses, uses_count, is_stackable, course_id')
+        .select('code, label, type, discount_value, valid_from, valid_to, max_uses, uses_count, is_stackable, course_id, config')
         .eq('code', discount_code.trim().toUpperCase())
         .eq('status', 'active')
         .single()
@@ -132,6 +132,18 @@ export async function POST(request: NextRequest) {
         // Course-scoped codes (course_id set) apply ONLY to that course.
         // Codes with course_id null apply to every course (unchanged behaviour).
         const courseMatches = !discount.course_id || discount.course_id === course_id
+
+        // A distribution coupon is issued to ONE named learner for ONE seat. Checking it
+        // here means a forwarded code is refused BEFORE anyone pays, rather than after —
+        // the enrolment path also claims the seat atomically, but by then the learner has
+        // already been charged.
+        const cfg: any = discount.config ?? {}
+        const issuedFor = cfg.source === 'nnwd' ? String(cfg.learner_email ?? '') : ''
+        if (issuedFor && email && issuedFor.toLowerCase() !== String(email).toLowerCase()) {
+          return NextResponse.json({
+            error: `This enrolment code was issued for ${issuedFor.replace(/^(.).*(@.*)$/, '$1***$2')}. Please enrol using that email address, or ask your distributor to reissue it.`,
+          }, { status: 400 })
+        }
 
         if (withinWindow && withinUsage && courseMatches) {
           if (discount.type === 'percentage') {

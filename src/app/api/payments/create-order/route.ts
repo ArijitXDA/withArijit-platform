@@ -138,6 +138,17 @@ export async function POST(request: NextRequest) {
             manualDiscountApplied = finalAmount * (Number(discount.discount_value) / 100)
           } else if (discount.type === 'fixed') {
             manualDiscountApplied = Math.min(Number(discount.discount_value), finalAmount)
+          } else if (discount.type === 'final_price') {
+            // Sets the payable OUTRIGHT rather than discounting off it. Used by the NNWD
+            // distribution channel, where the seat is already paid for twice — the learner
+            // paid the distributor, and the distributor paid oStaran wholesale — so the Rs 1
+            // here is a payment-rail token, not a price. Razorpay rejects a zero-value order.
+            //
+            // It has to set the amount rather than subtract one, because a subtraction lands
+            // on a different number depending on whether the partner referral auto-discount
+            // also applied, and on a referred learner a large flat amount clamps to zero.
+            const target = Math.max(1, Number(discount.discount_value))
+            manualDiscountApplied = Math.max(0, finalAmount - target)
           }
           manualDiscountLabel = discount.label ?? discount.code
           finalAmount = Math.max(0, finalAmount - manualDiscountApplied)

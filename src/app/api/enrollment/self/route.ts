@@ -202,6 +202,14 @@ async function runBackgroundWork(params: {
   enrollerShare:        number
   upstreamShare:        number
   discountCode:         string | undefined
+  /**
+   * True when the enrolment was unlocked by an NNWD distribution coupon. The seat was bought
+   * wholesale and resold by a distributor, so oStaran's revenue was booked at the wholesale
+   * purchase and there is no referral commission to pay on top. Crediting a cascade here
+   * would pay twice for one seat and mis-attribute the learner to a referral partner who had
+   * nothing to do with the sale.
+   */
+  isNnwdSeat:           boolean
   body:                 any
 }) {
   const {
@@ -210,7 +218,7 @@ async function runBackgroundWork(params: {
     normEnrolmentType, netTaxable, gstAmount,
     resolvedPartnerCode, resolvedPartnerId,
     partnerPoolPct, enrollerShare, upstreamShare,
-    discountCode, body,
+    discountCode, isNnwdSeat, body,
   } = params
 
   // ── 1. Commission cascade ─────────────────────────────────────────────────
@@ -232,7 +240,12 @@ async function runBackgroundWork(params: {
     }
   }
 
-  if (finalPartnerCode && finalPartnerId) {
+  // A wholesale seat never pays a cascade — see isNnwdSeat above.
+  if (isNnwdSeat && finalPartnerCode) {
+    console.log(`[bg] NNWD seat ${enrolmentId} — wholesale, no commission cascade`)
+  }
+
+  if (finalPartnerCode && finalPartnerId && !isNnwdSeat) {
     try {
       // Idempotency guard: skip if commission already recorded for this enrolment
       const { count } = await supabase
@@ -529,8 +542,24 @@ export async function POST(request: NextRequest) {
     // For 50-50 plan: full_discounted_price = 2 × amount (first instalment)
     // For full payment: full_discounted_price = amount
     // Falls back to amount if not provided (backward compat)
+    // Is this seat being unlocked by an NNWD distribution coupon? Read from the coupon
+    // itself rather than trusted from the request body, so a learner cannot claim a
+    // wholesale seat by passing a flag.
+    let isNnwdSeat = false
+    if (discount_code) {
+      const { data: dc } = await supabase
+        .from('discount_codes')
+        .select('config')
+        .eq('code', String(discount_code).trim().toUpperCase())
+        .maybeSingle()
+      isNnwdSeat = (dc?.config as any)?.source === 'nnwd'
+    }
+
     const resolvedFullPrice  = Number(full_discounted_price ?? amount)
-    const resolvedBalanceDue = normEnrolmentType === 'monthly'
+    // A wholesale seat is paid in full to the distributor before the coupon is even issued,
+    // so nothing is outstanding here. Without this a membership-tenure course would book a
+    // balance against a learner who has already paid the distributor in full.
+    const resolvedBalanceDue = (normEnrolmentType === 'monthly' && !isNnwdSeat)
       ? Number((resolvedFullPrice - amount).toFixed(2))
       : 0
     // discount is based on MRP vs full discounted price (not just the instalment)
@@ -687,6 +716,7 @@ export async function POST(request: NextRequest) {
       enrollerShare,
       upstreamShare,
       discountCode:        discount_code,
+      isNnwdSeat,
       body,
     })
 

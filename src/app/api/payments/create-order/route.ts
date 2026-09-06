@@ -133,17 +133,12 @@ export async function POST(request: NextRequest) {
         // Codes with course_id null apply to every course (unchanged behaviour).
         const courseMatches = !discount.course_id || discount.course_id === course_id
 
-        // A distribution coupon is issued to ONE named learner for ONE seat. Checking it
-        // here means a forwarded code is refused BEFORE anyone pays, rather than after —
-        // the enrolment path also claims the seat atomically, but by then the learner has
-        // already been charged.
-        const cfg: any = discount.config ?? {}
-        const issuedFor = cfg.source === 'nnwd' ? String(cfg.learner_email ?? '') : ''
-        if (issuedFor && email && issuedFor.toLowerCase() !== String(email).toLowerCase()) {
-          return NextResponse.json({
-            error: `This enrolment code was issued for ${issuedFor.replace(/^(.).*(@.*)$/, '$1***$2')}. Please enrol using that email address, or ask your distributor to reissue it.`,
-          }, { status: 400 })
-        }
+        // A distribution coupon is a BEARER instrument by design: whoever holds it may
+        // enrol, the way a gift voucher works. It is deliberately NOT matched against the
+        // email the distributor captured at sale — that is kept as a reference only.
+        // One seat still equals one enrolment; that is guaranteed by single use
+        // (max_uses/uses_count here, an atomic claim and a unique index on the seat's
+        // enrolment_id downstream), not by who presents the code.
 
         if (withinWindow && withinUsage && courseMatches) {
           if (discount.type === 'percentage') {

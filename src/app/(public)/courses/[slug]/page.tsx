@@ -129,11 +129,19 @@ export default async function CoursePage({
   // on audience_category, so any course without its own entry silently advertised another
   // course's syllabus — a five-week bootcamp was showing a 26-session programme. Where a
   // course has a real published curriculum in the database, that wins.
-  const { data: dbCurriculum } = await supabase
+  const { data: rawCurriculum } = await supabase
     .from('course_curriculum')
     .select('session_num, title, description')
     .eq('course_id', course.id).eq('is_published', true)
     .order('session_num')
+
+  // The curated category maps ARE the 26-session programmes, and each of those courses also
+  // has 26 rows here — so only a course of a DIFFERENT shape needs its own curriculum. Decide
+  // that on the server and pass an empty list otherwise: these are client components, so the
+  // prop is serialised into the page payload whether it is rendered or not, and shipping 26
+  // unused session rows to every course page is pure weight.
+  const dbCurriculum =
+    (rawCurriculum?.length && rawCurriculum.length !== 26) ? rawCurriculum : []
 
   // Courses sold only through the distribution channel ship no physical AI Kit — nothing is
   // dispatched to a learner who bought from a distributor — so the kit section and its FAQ

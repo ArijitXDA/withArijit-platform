@@ -276,8 +276,13 @@ export function CourseCurriculum({
   sessions?: { session_num: number; title: string; description: string | null }[]
 }) {
   const key = getCurriculumKey(category)
-  // A course that has published its own curriculum must never advertise another course's.
-  const modules: Module[] = sessions.length
+  // The curated maps above describe the 26-session flagship programmes, and every one of
+  // those courses also has 26 rows in course_curriculum — so "database wins" would replace
+  // curated marketing copy with operational session titles on nine live sales pages. Use the
+  // course's own curriculum only when it is NOT that standard shape, which is exactly the
+  // case the maps cannot describe.
+  const useOwn = sessions.length > 0 && sessions.length !== 26
+  const modules: Module[] = useOwn
     ? sessions.map((s, i) => ({
         num: s.session_num,
         title: s.title,

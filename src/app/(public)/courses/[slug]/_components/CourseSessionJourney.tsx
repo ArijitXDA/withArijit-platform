@@ -82,7 +82,11 @@ export function CourseSessionJourney({
   const isQuantum = category === 'quantum'
   // The generic journey is 26 sessions long. Showing it on a five-week bootcamp described a
   // programme the learner is not buying, so a real curriculum takes precedence.
-  const fromDb: SessionRow[] = sessions.map(s => ({ num: s.session_num, title: s.title }))
+  // Same rule as CourseCurriculum: the generic journey IS the 26-session programme, so only
+  // a course of a different shape needs its own.
+  const fromDb: SessionRow[] = (sessions.length && sessions.length !== 26)
+    ? sessions.map(s => ({ num: s.session_num, title: s.title }))
+    : []
   const ALL_SESSIONS = fromDb.length ? fromDb : (isQuantum ? QUANTUM_SESSIONS : SESSIONS)
   // The 9w/26w toggle only applies to the standard 26-session curriculum.
   const canToggle = !isQuantum && !fromDb.length && ALL_SESSIONS.length === 26

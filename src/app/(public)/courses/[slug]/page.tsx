@@ -135,6 +135,15 @@ export default async function CoursePage({
     .eq('course_id', course.id).eq('is_published', true)
     .order('session_num')
 
+  // Courses sold only through the distribution channel ship no physical AI Kit — nothing is
+  // dispatched to a learner who bought from a distributor — so the kit section and its FAQ
+  // must not appear, or the page promises something that will never arrive.
+  const { data: nnwdTerms } = await supabase
+    .from('nnwd_course_terms')
+    .select('is_channel_exclusive')
+    .eq('course_id', course.id).maybeSingle()
+  const isChannelExclusive = Boolean(nnwdTerms?.is_channel_exclusive)
+
   // ── Fetch all supporting data in parallel ─────────────────────────────────
   const category = course.audience_category ?? 'general'
   const filters  = CATEGORY_FILTER[category] ?? []
@@ -295,7 +304,7 @@ export default async function CoursePage({
         {isMentor ? <MentorWhatYouGet items={lc.whatYouGet} /> : <CourseWhatYouGet course={course} />}
 
         {/* 4. AI Kit — oStaran courses only */}
-        {!isMentor && <CourseAIKit />}
+        {!isMentor && !isChannelExclusive && <CourseAIKit />}
 
         {/* 5. Real projects */}
         {isMentor
@@ -331,7 +340,8 @@ export default async function CoursePage({
         <CourseComparison mrp={mrp} />
 
         {/* 14. FAQs */}
-        {isMentor ? <MentorFAQ faqs={lc.faqs} /> : <CourseFAQ course={course} />}
+        {isMentor ? <MentorFAQ faqs={lc.faqs} />
+                  : <CourseFAQ course={course} faqs={lc.faqs} shipsKit={!isChannelExclusive} />}
 
         {/* 15. Bottom CTA */}
         <CourseBottomCTA course={course} enrolProps={enrolProps} nextBatchStart={nextBatchStart} />

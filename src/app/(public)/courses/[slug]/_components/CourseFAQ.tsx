@@ -135,12 +135,27 @@ const AUDIENCE_FAQS: Record<string, { q: string; a: string }[]> = {
   ],
 }
 
-export function CourseFAQ({ course }: { course: any }) {
+export function CourseFAQ({
+  course,
+  faqs,
+  shipsKit = true,
+}: {
+  course: any
+  /** A course's own FAQ set (landing_content.faqs). Replaces the category list entirely. */
+  faqs?: { q: string; a: string }[]
+  /** False for distribution-channel courses, which dispatch no physical kit. */
+  shipsKit?: boolean
+}) {
   const [open, setOpen] = useState<number | null>(null)
 
-  const category   = course.audience_category ?? 'default'
-  const audienceFaqs = AUDIENCE_FAQS[category] ?? AUDIENCE_FAQS.default
-  const allFaqs    = [...audienceFaqs, ...SHARED_FAQS]
+  const category     = course.audience_category ?? 'default'
+  const audienceFaqs = (Array.isArray(faqs) && faqs.length)
+    ? faqs
+    : (AUDIENCE_FAQS[category] ?? AUDIENCE_FAQS.default)
+  // The shared list carries "What is the AI Kit and when does it arrive?", which would
+  // promise a dispatch that never happens on a channel-exclusive course.
+  const shared = shipsKit ? SHARED_FAQS : SHARED_FAQS.filter(f => !/AI Kit/i.test(f.q))
+  const allFaqs = [...audienceFaqs, ...shared]
 
   return (
     <section className="py-16 px-4" style={{ background: '#070812' }}>

@@ -71,18 +71,28 @@ function weekendBlocks(sessions: SessionRow[]): WeekendBlock[] {
   return out
 }
 
-export function CourseSessionJourney({ category = 'default' }: { category?: string }) {
+export function CourseSessionJourney({
+  category = 'default',
+  sessions = [],
+}: {
+  category?: string
+  /** The course's OWN published curriculum; overrides the generic 26-session journey. */
+  sessions?: { session_num: number; title: string; description: string | null }[]
+}) {
   const isQuantum = category === 'quantum'
-  const ALL_SESSIONS = isQuantum ? QUANTUM_SESSIONS : SESSIONS
+  // The generic journey is 26 sessions long. Showing it on a five-week bootcamp described a
+  // programme the learner is not buying, so a real curriculum takes precedence.
+  const fromDb: SessionRow[] = sessions.map(s => ({ num: s.session_num, title: s.title }))
+  const ALL_SESSIONS = fromDb.length ? fromDb : (isQuantum ? QUANTUM_SESSIONS : SESSIONS)
   // The 9w/26w toggle only applies to the standard 26-session curriculum.
-  const canToggle = !isQuantum && ALL_SESSIONS.length === 26
+  const canToggle = !isQuantum && !fromDb.length && ALL_SESSIONS.length === 26
   const [track, setTrack]       = useState<'9w' | '26w'>('9w')
   const [expanded, setExpanded] = useState(false)
 
   const showBlocks = canToggle && track === '9w'
   const blocks     = showBlocks ? weekendBlocks(ALL_SESSIONS) : []
-  const showExpand = !isQuantum && (!canToggle || track === '26w')
-  const visible    = (expanded || isQuantum) ? ALL_SESSIONS : ALL_SESSIONS.slice(0, SHOW_INITIAL)
+  const showExpand = !isQuantum && !fromDb.length && (!canToggle || track === '26w')
+  const visible    = (expanded || isQuantum || fromDb.length) ? ALL_SESSIONS : ALL_SESSIONS.slice(0, SHOW_INITIAL)
 
   return (
     <section className="py-16 px-4" style={{ background: '#06080f' }}>

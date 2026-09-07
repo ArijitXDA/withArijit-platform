@@ -257,15 +257,35 @@ function getCurriculumKey(category: string): keyof typeof CURRICULUM {
   return 'default'   // covers working_professionals, college, cxo, default, general
 }
 
+const DB_PALETTE = [
+  { color: 'rgba(99,102,241,0.12)',  accent: '#818cf8' },
+  { color: 'rgba(236,72,153,0.12)',  accent: '#f472b6' },
+  { color: 'rgba(34,197,94,0.12)',   accent: '#4ade80' },
+  { color: 'rgba(249,115,22,0.12)',  accent: '#fb923c' },
+  { color: 'rgba(14,165,233,0.12)',  accent: '#38bdf8' },
+]
+
 export function CourseCurriculum({
   subjects,
   category = 'default',
+  sessions = [],
 }: {
   subjects: string[]
   category?: string
+  /** The course's OWN published curriculum. When present it wins over the category map. */
+  sessions?: { session_num: number; title: string; description: string | null }[]
 }) {
   const key = getCurriculumKey(category)
-  const modules = CURRICULUM[key]
+  // A course that has published its own curriculum must never advertise another course's.
+  const modules: Module[] = sessions.length
+    ? sessions.map((s, i) => ({
+        num: s.session_num,
+        title: s.title,
+        sessions: `Session ${s.session_num}`,
+        topics: s.description ? [s.description] : [],
+        ...DB_PALETTE[i % DB_PALETTE.length],
+      }))
+    : CURRICULUM[key]
   const [openIdx, setOpenIdx] = useState<number | null>(0)
 
   return (

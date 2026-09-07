@@ -125,6 +125,16 @@ export default async function CoursePage({
   const isMentor = !!course.owner_mentor_id
   const lc = (course.landing_content ?? {}) as any
 
+  // The curriculum and session-journey sections were driven ENTIRELY by hardcoded maps keyed
+  // on audience_category, so any course without its own entry silently advertised another
+  // course's syllabus — a five-week bootcamp was showing a 26-session programme. Where a
+  // course has a real published curriculum in the database, that wins.
+  const { data: dbCurriculum } = await supabase
+    .from('course_curriculum')
+    .select('session_num, title, description')
+    .eq('course_id', course.id).eq('is_published', true)
+    .order('session_num')
+
   // ── Fetch all supporting data in parallel ─────────────────────────────────
   const category = course.audience_category ?? 'general'
   const filters  = CATEGORY_FILTER[category] ?? []
@@ -296,11 +306,13 @@ export default async function CoursePage({
         {isMentor
           ? <MentorCurriculum highlights={lc.curriculumHighlights} />
           : (course.subjects && Array.isArray(course.subjects) && course.subjects.length > 0 && (
-              <CourseCurriculum subjects={course.subjects as string[]} category={category} />
+              <CourseCurriculum subjects={course.subjects as string[]} category={category}
+                                sessions={dbCurriculum ?? []} />
             ))}
 
         {/* 7. Session journey */}
-        {isMentor ? <MentorSessions sessions={lc.sessions} /> : <CourseSessionJourney category={category} />}
+        {isMentor ? <MentorSessions sessions={lc.sessions} />
+                  : <CourseSessionJourney category={category} sessions={dbCurriculum ?? []} />}
 
         {/* 8. What You Walk Away With */}
         <CourseAfterOutcomes category={category} />

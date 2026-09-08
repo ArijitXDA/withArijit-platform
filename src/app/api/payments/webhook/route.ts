@@ -86,6 +86,12 @@ export async function POST(request: NextRequest) {
   const mobile          = notes.mobile
   const paymentFreq     = notes.payment_frequency ?? 'full'
   const partnerCode     = notes.partner_code ?? null
+  // ⚠ CHANNEL IDENTITY. create-order stamps the coupon into the order notes, and
+  // /api/enrollment/self decides Udaan-vs-referral solely from this field. Omitting it here
+  // made a wholesale redemption that completed via the webhook (learner closes the tab after
+  // paying) look like a referral sale: it paid a commission cascade, never burned the seat,
+  // and left the ₹1 coupon reusable. Forward it.
+  const discountCode    = notes.discount_code || null
   // Use the INR-equivalent stamped by create-order (notes.inr_amount) for internal
   // accounting — NOT amountRaw/100, which for a USD/EUR order is the FOREIGN major
   // unit (cents/100 = dollars) and would record the sale at ~1/rate of its value.
@@ -134,6 +140,7 @@ export async function POST(request: NextRequest) {
         // writer (the client sends this too).
         full_discounted_price: paymentFreq === 'half' ? amount * 2 : amount,
         partner_code:   partnerCode,
+        discount_code:  discountCode ?? undefined,
         enrolment_type: paymentFreq === 'full' ? 'full_course' : 'monthly',
         currency,
         amount_charged: Number.isFinite(amountCharged) && amountCharged > 0 ? amountCharged : amount,

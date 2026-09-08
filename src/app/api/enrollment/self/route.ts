@@ -210,6 +210,12 @@ async function runBackgroundWork(params: {
    * nothing to do with the sale.
    */
   isNnwdSeat:           boolean
+  /**
+   * True when the coupon lookup itself failed, so the channel could not be established.
+   * Treated exactly like a wholesale seat for the cascade: withholding a commission is
+   * recoverable by hand, whereas paying one on a wholesale seat is silent and irreversible.
+   */
+  channelUnknown:       boolean
   body:                 any
 }) {
   const {
@@ -218,7 +224,7 @@ async function runBackgroundWork(params: {
     normEnrolmentType, netTaxable, gstAmount,
     resolvedPartnerCode, resolvedPartnerId,
     partnerPoolPct, enrollerShare, upstreamShare,
-    discountCode, isNnwdSeat, body,
+    discountCode, isNnwdSeat, channelUnknown, body,
   } = params
 
   // ── 1. Commission cascade ─────────────────────────────────────────────────
@@ -242,10 +248,14 @@ async function runBackgroundWork(params: {
 
   // A wholesale seat never pays a cascade — see isNnwdSeat above.
   if (isNnwdSeat && finalPartnerCode) {
-    console.log(`[bg] NNWD seat ${enrolmentId} — wholesale, no commission cascade`)
+    console.log(`[bg] Udaan seat ${enrolmentId} — wholesale, no commission cascade`)
+  }
+  if (channelUnknown && finalPartnerCode) {
+    console.error(`[bg] enrolment ${enrolmentId} — channel undetermined, commission WITHHELD `
+      + `pending manual review (partner ${finalPartnerCode})`)
   }
 
-  if (finalPartnerCode && finalPartnerId && !isNnwdSeat) {
+  if (finalPartnerCode && finalPartnerId && !isNnwdSeat && !channelUnknown) {
     try {
       // Idempotency guard: skip if commission already recorded for this enrolment
       const { count } = await supabase
@@ -337,7 +347,11 @@ async function runBackgroundWork(params: {
   // Only count the use if the code actually applies to this course: a
   // course-scoped code (course_id set) must match; null-scoped codes apply
   // everywhere. Prevents a scoped code from burning uses on the wrong course.
-  if (discountCode) {
+  //
+  // Skipped for a Udaan seat: nnwd_claim_seat has already burned that coupon
+  // (status → 'expired', uses_count → 1) as part of consuming the seat, so
+  // incrementing again would leave uses_count = 2 on a max_uses = 1 code.
+  if (discountCode && !isNnwdSeat) {
     try {
       const { data: dc } = await supabase
         .from('discount_codes')
@@ -522,8 +536,46 @@ export async function POST(request: NextRequest) {
       ? await resolvePartnerIdByCode(supabase, resolvedPartnerCode)
       : null
 
-    const commissionPct    = resolvedPartnerId ? partnerPoolPct : 0
-    const commissionAmount = resolvedPartnerId ? Number((netTaxable * partnerPoolPct).toFixed(2)) : 0
+    // ── Which sales channel is this? ─────────────────────────────────────────
+    // Read from the coupon record, never from the request body, so a learner cannot claim a
+    // wholesale seat by passing a flag. Resolved HERE, above the commission maths, because a
+    // Udaan seat must not be stamped with a commission that will never be paid.
+    //
+    // Validated the way create-order validates it. Without these checks an expired, spent or
+    // wrong-course Udaan code still flipped the flag — silently killing a genuine referral
+    // commission AND burning a live distributor seat the seller still owned.
+    let isNnwdSeat     = false
+    let channelUnknown = false
+    if (discount_code) {
+      const { data: dc, error: dcErr } = await supabase
+        .from('discount_codes')
+        .select('status, valid_from, valid_to, max_uses, uses_count, course_id, config')
+        .eq('code', String(discount_code).trim().toUpperCase())
+        .maybeSingle()
+
+      if (dcErr) {
+        // Fail CLOSED on money. We could not establish the channel, so neither credit a
+        // cascade nor consume a seat — both are recoverable by hand, whereas a commission
+        // paid on a wholesale seat is silent and leaves the coupon reusable.
+        channelUnknown = true
+        console.error('[enrol] channel lookup failed — commission withheld:', dcErr.message)
+      } else if ((dc?.config as any)?.source === 'nnwd') {
+        const nowIso = now.toISOString()
+        isNnwdSeat =
+          dc!.status === 'active' &&
+          (!dc!.valid_from || nowIso >= dc!.valid_from) &&
+          (!dc!.valid_to   || nowIso <= dc!.valid_to) &&
+          (!dc!.max_uses   || (dc!.uses_count ?? 0) < dc!.max_uses) &&
+          (!dc!.course_id  || dc!.course_id === course_id)
+      }
+    }
+
+    // A wholesale seat earns nobody a referral commission — the distributor already took
+    // their margin on resale. Zeroing it here keeps the enrolment ROW honest; the cascade
+    // itself is skipped separately in the background block.
+    const paysCommission   = !!resolvedPartnerId && !isNnwdSeat && !channelUnknown
+    const commissionPct    = paysCommission ? partnerPoolPct : 0
+    const commissionAmount = paysCommission ? Number((netTaxable * partnerPoolPct).toFixed(2)) : 0
     const oiAmount         = Number((netTaxable - commissionAmount).toFixed(2))
 
     // ── 3. Count existing enrolments (for sequence number) ───────────────────
@@ -542,19 +594,8 @@ export async function POST(request: NextRequest) {
     // For 50-50 plan: full_discounted_price = 2 × amount (first instalment)
     // For full payment: full_discounted_price = amount
     // Falls back to amount if not provided (backward compat)
-    // Is this seat being unlocked by an NNWD distribution coupon? Read from the coupon
-    // itself rather than trusted from the request body, so a learner cannot claim a
-    // wholesale seat by passing a flag.
-    let isNnwdSeat = false
-    if (discount_code) {
-      const { data: dc } = await supabase
-        .from('discount_codes')
-        .select('config')
-        .eq('code', String(discount_code).trim().toUpperCase())
-        .maybeSingle()
-      isNnwdSeat = (dc?.config as any)?.source === 'nnwd'
-    }
-
+    // isNnwdSeat is resolved above, before the commission maths — see "Which sales channel
+    // is this?". It must not be recomputed here.
     const resolvedFullPrice  = Number(full_discounted_price ?? amount)
     // A wholesale seat is paid in full to the distributor before the coupon is even issued,
     // so nothing is outstanding here. Without this a membership-tenure course would book a
@@ -597,6 +638,14 @@ export async function POST(request: NextRequest) {
         is_active:          true,
         enrolment_seq:      enrolmentSeq,
         enrolment_status:   'active',
+        // Stamp the channel in the SAME insert that creates the row — not in a follow-up RPC
+        // that is allowed to fail — so a wholesale enrolment is permanently distinguishable
+        // from a referral one. This is the key the isolation check reconciles against:
+        //   select * from student_enrolments e join commission_ledger c on c.enrolment_id = e.id
+        //    where e.enrolment_source = 'udaan';   -- must always be empty
+        // Referral enrolments are left to the column default ('self_paid'), so their
+        // behaviour is byte-identical to before.
+        ...(isNnwdSeat ? { enrolment_source: 'udaan' as const } : {}),
         batch_id:           carryBatchId,         // carried on a monthly renewal; null otherwise (select-batch sets it)
         access_start_date:  monthlyAccessStart,   // null for one-time courses (unchanged)
         access_end_date:    monthlyAccessEnd,     // null for one-time courses (unchanged)
@@ -750,6 +799,7 @@ export async function POST(request: NextRequest) {
       upstreamShare,
       discountCode:        discount_code,
       isNnwdSeat,
+      channelUnknown,
       body,
     })
 

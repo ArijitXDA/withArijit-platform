@@ -462,13 +462,23 @@ async function verifyPaymentIsReal(args: {
     }
     return { ok: true, how: 'lookup' }
   } catch (e: any) {
-    // Razorpay unreachable, or keys unset. We cannot prove the payment either way. Allowing
-    // is the lesser harm: rejecting during a Razorpay outage would strand a learner who has
-    // genuinely paid, and this is the pre-existing behaviour, not a new hole. Logged loudly
-    // so it is visible rather than silent.
-    console.error(`[enrol] PAYMENT UNVERIFIED (lookup failed: ${e?.message}) — allowing `
-      + `order=${orderId} payment=${paymentId}; review this enrolment`)
-    return { ok: true, how: 'unverified_lookup_failed' }
+    const status = Number(e?.statusCode ?? e?.status ?? 0)
+
+    // A 4xx is Razorpay ANSWERING us: no such payment, or it is not ours. That is a
+    // definitive negative and must be rejected. The Razorpay SDK throws for this exactly as
+    // it throws for a network failure, and treating the two alike is precisely how a forged
+    // request with an invented payment id got through in testing.
+    if (status >= 400 && status < 500) {
+      return { ok: false, how: 'lookup', reason: 'That payment could not be found.' }
+    }
+
+    // No status, or 5xx: Razorpay is unreachable, or the keys are unset. We genuinely cannot
+    // tell. Allowing is the lesser harm — rejecting during a Razorpay outage would strand a
+    // learner who has actually paid — and it is the pre-existing behaviour, not a new hole.
+    // Logged loudly so it is visible rather than silent.
+    console.error(`[enrol] PAYMENT UNVERIFIED (lookup unavailable, status=${status || 'none'}: `
+      + `${e?.message}) — allowing order=${orderId} payment=${paymentId}; review this enrolment`)
+    return { ok: true, how: 'unverified_lookup_unavailable' }
   }
 }
 

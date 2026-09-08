@@ -295,6 +295,10 @@ export function PaymentModal({
               body:    JSON.stringify({
                 payment_id:          response.razorpay_payment_id,
                 order_id:            response.razorpay_order_id,
+                // Forwarded so the enrolment route can verify the payment itself. It used to
+                // trust /api/payments/verify-payment having been called first — a separate
+                // endpoint an attacker simply skips.
+                razorpay_signature:  response.razorpay_signature,
                 course_id:           courseId,
                 name, email, mobile,
                 amount:              displayAmount ?? Math.round(basePrice),

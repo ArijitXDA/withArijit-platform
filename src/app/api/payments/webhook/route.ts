@@ -23,7 +23,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyWebhookSignature } from '@/lib/razorpay'
+import { verifyWebhookSignature, internalEnrolmentSignature } from '@/lib/razorpay'
 import { createServiceClient } from '@/lib/supabase/service'
 
 export async function POST(request: NextRequest) {
@@ -126,7 +126,14 @@ export async function POST(request: NextRequest) {
     const appUrl     = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.ostaran.com'
     const enrolRes   = await fetch(`${appUrl}/api/enrollment/self`, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'x-webhook-source': 'razorpay' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-webhook-source': 'razorpay',
+        // A header alone proves nothing — anyone can send it. This HMAC is over
+        // internal|order|payment with a secret only our servers hold, so the enrolment
+        // route can trust this hop without a Razorpay round-trip.
+        'x-internal-signature': internalEnrolmentSignature(String(orderId), String(paymentId)),
+      },
       body: JSON.stringify({
         payment_id:     paymentId,
         order_id:       orderId,

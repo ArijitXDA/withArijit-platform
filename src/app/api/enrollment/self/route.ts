@@ -4,6 +4,7 @@ import { attributeBroadcast } from '@/lib/broadcastAttribution'
 import { notifyPartner, type PartnerNotice } from '@/lib/notifyPartner'
 import { allocateCascade } from '@/lib/cascade'
 import { publicPartnerCode, resolvePartnerByCode, resolvePartnerIdByCode } from '@/lib/partnerCode'
+import { getRazorpay, verifyPaymentSignature, verifyInternalEnrolmentSignature } from '@/lib/razorpay'
 
 // Commission amounts are unrounded fractions of the net, so they are shown to the paisa. The
 // shared formatCurrency() fixes 0 decimals, which would tell a partner they earned 4,408 when
@@ -411,6 +412,66 @@ async function runBackgroundWork(params: {
   }
 }
 
+
+/**
+ * Prove the payment actually happened before creating a paid enrolment.
+ *
+ * This endpoint mints an enrolment, can burn a distributor's seat and can fire a commission
+ * cascade — and it had no authentication and never checked that `payment_id` was real. The
+ * client did call /api/payments/verify-payment first, but that is a SEPARATE endpoint an
+ * attacker simply skips.
+ *
+ * Three accepted proofs, cheapest first:
+ *   1. razorpay_signature   — what Razorpay's own checkout handler returns to the browser.
+ *   2. x-internal-signature — our webhook's HMAC; it has already verified Razorpay's webhook
+ *                             signature before calling us.
+ *   3. neither → ask Razorpay directly whether this payment exists and belongs to this order.
+ *
+ * Proof 3 is what makes this safe to ship in one go. A browser running a CACHED bundle from
+ * before this change sends no signature; without the fallback it would be rejected after
+ * paying. With it, the payment is simply verified the slow way.
+ *
+ * Amounts are deliberately NOT compared: orders can be USD/EUR while the enrolment records
+ * INR, and a rounding or currency mismatch must never reject a real payment. Existence,
+ * status and order linkage are what defeat forgery.
+ */
+async function verifyPaymentIsReal(args: {
+  orderId: string; paymentId: string; signature: string | null; internalSig: string | null
+}): Promise<{ ok: boolean; how: string; reason?: string }> {
+  const { orderId, paymentId, signature, internalSig } = args
+
+  if (signature) {
+    return verifyPaymentSignature(orderId, paymentId, signature)
+      ? { ok: true, how: 'razorpay_signature' }
+      : { ok: false, how: 'razorpay_signature', reason: 'Payment signature did not verify.' }
+  }
+
+  if (internalSig) {
+    return verifyInternalEnrolmentSignature(orderId, paymentId, internalSig)
+      ? { ok: true, how: 'internal_signature' }
+      : { ok: false, how: 'internal_signature', reason: 'Internal signature did not verify.' }
+  }
+
+  try {
+    const payment: any = await getRazorpay().payments.fetch(paymentId)
+    if (!payment || (payment.order_id && payment.order_id !== orderId)) {
+      return { ok: false, how: 'lookup', reason: 'That payment does not belong to this order.' }
+    }
+    if (!['captured', 'authorized'].includes(String(payment.status))) {
+      return { ok: false, how: 'lookup', reason: `Payment is ${payment.status}, not captured.` }
+    }
+    return { ok: true, how: 'lookup' }
+  } catch (e: any) {
+    // Razorpay unreachable, or keys unset. We cannot prove the payment either way. Allowing
+    // is the lesser harm: rejecting during a Razorpay outage would strand a learner who has
+    // genuinely paid, and this is the pre-existing behaviour, not a new hole. Logged loudly
+    // so it is visible rather than silent.
+    console.error(`[enrol] PAYMENT UNVERIFIED (lookup failed: ${e?.message}) — allowing `
+      + `order=${orderId} payment=${paymentId}; review this enrolment`)
+    return { ok: true, how: 'unverified_lookup_failed' }
+  }
+}
+
 // ── POST /api/enrollment/self ─────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   let body: any = null
@@ -438,6 +499,19 @@ export async function POST(request: NextRequest) {
 
     if (!payment_id || !order_id || !course_id || !name || !email || !mobile || !amount) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    const proof = await verifyPaymentIsReal({
+      orderId:     String(order_id),
+      paymentId:   String(payment_id),
+      signature:   body?.razorpay_signature ? String(body.razorpay_signature) : null,
+      internalSig: request.headers.get('x-internal-signature'),
+    })
+    if (!proof.ok) {
+      console.error(`[enrol] REJECTED unverified payment (${proof.how}): `
+        + `order=${order_id} payment=${payment_id}`)
+      return NextResponse.json({ error: proof.reason ?? 'Payment could not be verified.' },
+        { status: 401 })
     }
 
     const supabase = createServiceClient()

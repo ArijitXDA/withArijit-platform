@@ -96,78 +96,213 @@ async function creditPartnerCommission(
   // allocations[0] is the enroller (layerInChain 1); the engine leaves its partnerId blank.
   if (allocations.length) allocations[0].partnerId = enroller.id
 
-  const enrollerAmount = allocations[0]?.amount ?? 0
-  const enrollerLayer  = uplineIds.length + 1
+  const enrollerLayer = uplineIds.length + 1
+  const layerOf = new Map<string, number>(allocations.map(a => [a.partnerId, a.layerInChain] as [string, number]))
 
-  // ONE statement for the whole chain. Inserting row-by-row made the cascade non-atomic:
-  // supabase-js RESOLVES on a Postgres error rather than throwing, so a failed upline row was
-  // silently swallowed — while the RPC below still credited that partner's aggregate, leaving
-  // an "earned" total that no ledger row backs and payouts can never pay. Worse, the
-  // idempotency guard keys off the ENROLLER's row, so a freeze after row 1 made every retry
-  // short-circuit and the uplines stayed uncredited forever.
-  const { error: ledgerErr } = await supabase.from('commission_ledger').insert(
-    allocations.map(a => ({
+  // ── EMPLOYEE REMITTANCE (post-cascade — does NOT touch allocateCascade) ───────────────
+  // A sub-partner may be an EMPLOYEE of their sponsor: the employer keeps (1 - keep) of
+  // EVERYTHING the employee earns on this enrolment, redirected UPWARD. This is the mirror of
+  // the downward partner_downline_sharing dial, kept out of the cascade engine so the
+  // 700k-verified geometry is never perturbed. When nobody in the chain is an employee (the
+  // overwhelming majority) every map below stays empty and this collapses to exactly the
+  // original cascade behaviour: finalCascade === the raw allocations, and no remittance rows.
+  //
+  // Employee data is resolved for every chain member AND transitively up each employer line, so
+  // an employee who is themselves an employer forwards their share on again — an employee who
+  // builds a team also feeds their own employer from the team's sales.
+  const r2 = (n: number) => Math.round(n * 100) / 100
+  const clamp01 = (n: number) => Math.min(1, Math.max(0, Number.isFinite(n) ? n : 1))
+  const empData = new Map<string, { employerId: string; keep: number; name: string }>()
+  {
+    const resolved = new Set<string>()
+    let frontier = new Set<string>(allocations.map(a => a.partnerId))
+    for (let i = 0; i < 24 && frontier.size; i++) {
+      const ids = [...frontier].filter(id => id && !resolved.has(id))
+      ids.forEach(id => resolved.add(id))
+      frontier = new Set<string>()
+      if (!ids.length) break
+      const { data: emps } = await supabase
+        .from('partners')
+        .select('id, employee_of, employee_keep_fraction, full_name')
+        .in('id', ids)
+        .eq('employee_status', 'active')
+        .not('employee_of', 'is', null)
+      for (const e of emps ?? []) {
+        if (!e.employee_of) continue
+        empData.set(e.id, {
+          employerId: e.employee_of as string,
+          keep: clamp01(Number(e.employee_keep_fraction ?? 1)),
+          name: (e.full_name as string) ?? 'Employee',
+        })
+        if (!resolved.has(e.employee_of as string)) frontier.add(e.employee_of as string)
+      }
+    }
+  }
+
+  // finalCascade[p] = a chain member's commission AFTER their own employee-share is removed.
+  const finalCascade = new Map<string, number>(allocations.map(a => [a.partnerId, a.amount] as [string, number]))
+  const remitCredit  = new Map<string, number>()   // employer id → total remittance credited to them
+  const remitRows: { employerId: string; amount: number; sourceEmployeeId: string; sourceName: string }[] = []
+
+  const pushRemit = (employerId: string, amt: number, srcId: string, srcName: string) => {
+    if (!(amt > 0)) return
+    remitRows.push({ employerId, amount: amt, sourceEmployeeId: srcId, sourceName: srcName })
+    remitCredit.set(employerId, r2((remitCredit.get(employerId) ?? 0) + amt))
+  }
+  // Send `amount` up from `sourceEmployeeId`. Each intervening employer that is ITSELF an
+  // employee keeps their fraction and forwards the rest; the last (non-employee) employer keeps
+  // the remainder. Every credit is positive, and the per-hop splits telescope so they sum to
+  // EXACTLY `amount` — no paise is minted or lost.
+  const redirectUp = (startEmployerId: string, amount: number, sourceEmployeeId: string, sourceName: string) => {
+    let cur: string | null = startEmployerId
+    let flowing = r2(amount)
+    const guard = new Set<string>([sourceEmployeeId])
+    let hops = 0
+    while (flowing > 0 && cur && !guard.has(cur) && hops < 24) {
+      guard.add(cur); hops++
+      const e = empData.get(cur)
+      if (e && e.employerId) {
+        const kept = r2(e.keep * flowing)
+        pushRemit(cur, kept, sourceEmployeeId, sourceName)
+        flowing = r2(flowing - kept)
+        cur = e.employerId
+      } else {
+        pushRemit(cur, flowing, sourceEmployeeId, sourceName)   // terminal employer keeps the rest
+        flowing = 0
+        cur = null
+      }
+    }
+    if (flowing > 0) pushRemit(startEmployerId, flowing, sourceEmployeeId, sourceName)  // cycle/cap fallback
+  }
+
+  // For each employee in the chain, redirect (1 - keep) of THEIR OWN cascade share upward.
+  // (Redirects they RECEIVE from a downline employee are split inside redirectUp above, so a
+  // partner's keep applies to all their earnings.) Snapshot what was applied for the ledger.
+  const empReduction = new Map<string, { keep: number; remit: number }>()
+  for (const a of allocations) {
+    const e = empData.get(a.partnerId)
+    if (!e) continue
+    const redirect = r2((1 - e.keep) * a.amount)
+    empReduction.set(a.partnerId, { keep: e.keep, remit: redirect })
+    if (!(redirect > 0)) continue
+    finalCascade.set(a.partnerId, r2(a.amount - redirect))
+    redirectUp(e.employerId, redirect, a.partnerId, e.name)
+  }
+
+  const enrollerAmount = finalCascade.get(enroller.id) ?? 0
+
+  // ── Book the whole chain in ONE insert (atomicity) ───────────────────────────────────
+  // Cascade rows carry the ENGINE's snapshot untouched (entitlement/received/forgone/keep); an
+  // employee's commission_amount is the reduced take, with the employee-share in its own two
+  // columns. Remittance rows are SEPARATE POSITIVE credits to the employer — every consumer
+  // filters commission_amount > 0, so a contra/negative row would be dropped and cause a double
+  // payout. These must stay positive; sum across all rows is still exactly the pool.
+  const cascadeLedger = allocations.map(a => {
+    const er = empReduction.get(a.partnerId)
+    const amt = finalCascade.get(a.partnerId) ?? a.amount
+    return {
       enrolment_id:           enrolmentId,
       partner_id:             a.partnerId,
       partner_level_in_chain: a.layerInChain,
       direct_partner_id:      enroller.id,
       base_amount:            netTaxable,
-      commission_rate:        netTaxable > 0 ? a.amount / netTaxable : 0,
-      commission_amount:      a.amount,
+      commission_rate:        netTaxable > 0 ? amt / netTaxable : 0,
+      commission_amount:      amt,
       commission_model:       'cascade',
       enroller_layer:         enrollerLayer,
       upstream_layer_index:   a.layerInChain > 1 ? a.layerInChain - 1 : null,
       total_upstream_count:   uplineIds.length,
       course_id:              courseId,
       status:                 'pending',
-      // Snapshot the maths so a partner moving their slider later can never rewrite history.
+      // Snapshot the cascade maths so a partner moving a slider later can never rewrite history.
       entitlement_amount:     a.entitlement,
       received_amount:        a.received,
       keep_fraction_applied:  a.keepFraction,
       forgone_amount:         a.forgone,
-    })),
-  )
+      // Employee-share snapshot — null for ordinary (non-employee) partners.
+      employee_keep_applied:  er ? er.keep : null,
+      employee_remit_amount:  er ? er.remit : null,
+    }
+  })
+  const remitLedger = remitRows.map(r => ({
+    enrolment_id:           enrolmentId,
+    partner_id:             r.employerId,
+    partner_level_in_chain: layerOf.get(r.employerId) ?? 0,
+    direct_partner_id:      enroller.id,
+    base_amount:            netTaxable,
+    commission_rate:        netTaxable > 0 ? r.amount / netTaxable : 0,
+    commission_amount:      r.amount,
+    commission_model:       'employee_remittance',
+    enroller_layer:         enrollerLayer,
+    upstream_layer_index:   null,
+    total_upstream_count:   uplineIds.length,
+    course_id:              courseId,
+    status:                 'pending',
+    source_employee_id:     r.sourceEmployeeId,
+    notes:                  `Employee remittance from ${r.sourceName}`,
+  }))
+
+  const { error: ledgerErr } = await supabase
+    .from('commission_ledger')
+    .insert([...cascadeLedger, ...remitLedger])
   // Throw so the caller's catch records a payment_recovery_log entry — a commission that
   // failed to book must never fail silently.
   if (ledgerErr) throw new Error(`commission_ledger insert failed: ${ledgerErr.message}`)
 
-  // Update partner aggregate totals atomically.
-  // The DB trigger trg_cascade_commissions was dropped to prevent double-writes.
-  // This RPC is now the sole updater of partner commission totals.
+  // ── Aggregates. NET amounts only, so a partner's totals match their ledger rows ──────
+  // The DB trigger trg_cascade_commissions was dropped to prevent double-writes; this RPC is
+  // the sole updater of partner commission totals.
   await supabase.rpc('increment_partner_commission', {
     p_partner_id:      enroller.id,
     p_commission:      enrollerAmount,
     p_count_enrolment: true,
   })
 
-  // Queued, not sent inline: each notifyPartner is a Supabase round-trip plus an FCM OAuth
-  // exchange and one HTTP call per device. Awaiting those between ledger inserts would stretch the
-  // cascade by seconds per layer inside a background task that is not awaited by the response —
-  // the longer it runs, the more chance the lambda is frozen mid-chain, leaving upstream layers
-  // uncredited. Money first, then notify.
-  const notices: PartnerNotice[] = [{
-    partnerId: enroller.id,
-    kind:      'enrolment_commission',
-    title:     '🎓 New enrolment — commission earned',
-    body:      `You earned ${money(enrollerAmount)} on a new enrolment.`,
-    link:      '/dashboard/income',
-  }]
+  // Queued, not sent inline (each notify is an FCM round-trip); money first, then notify.
+  const notices: PartnerNotice[] = []
+  if (enrollerAmount > 0) {
+    notices.push({
+      partnerId: enroller.id,
+      kind:      'enrolment_commission',
+      title:     '🎓 New enrolment — commission earned',
+      body:      `You earned ${money(enrollerAmount)} on a new enrolment.`,
+      link:      '/dashboard/income',
+    })
+  }
 
-  // Upstream partners earn on their downline's work without ever seeing it happen — this is
-  // the notification that makes the network visible to them. A partner who set their dial to
-  // 0 earns nothing here, so they are not notified about a zero credit.
+  // Upstream partners earn on their downline's work. A partner on dial/keep 0 earns nothing
+  // here, so they are not notified about a zero credit.
   for (const a of allocations.slice(1)) {
-    if (!(a.amount > 0)) continue
+    const amt = finalCascade.get(a.partnerId) ?? 0
+    if (!(amt > 0)) continue
     await supabase.rpc('increment_partner_commission', {
       p_partner_id:      a.partnerId,
-      p_commission:      a.amount,
+      p_commission:      amt,
       p_count_enrolment: false,
     })
     notices.push({
       partnerId: a.partnerId,
       kind:      'enrolment_commission',
       title:     '📈 Your network earned you a commission',
-      body:      `${enroller.full_name} closed an enrolment — ${money(a.amount)} credited to you.`,
+      body:      `${enroller.full_name} closed an enrolment — ${money(amt)} credited to you.`,
+      link:      '/dashboard/income',
+    })
+  }
+
+  // The employer's cut of their employees' sales — a positive credit on top of any network
+  // slice they already earn as an upline.
+  for (const [employerId, credit] of remitCredit) {
+    if (!(credit > 0)) continue
+    await supabase.rpc('increment_partner_commission', {
+      p_partner_id:      employerId,
+      p_commission:      credit,
+      p_count_enrolment: false,
+    })
+    notices.push({
+      partnerId: employerId,
+      kind:      'enrolment_commission',
+      title:     '👥 Your team earned you a commission',
+      body:      `An employee in your team closed a sale — ${money(credit)} credited to you.`,
       link:      '/dashboard/income',
     })
   }

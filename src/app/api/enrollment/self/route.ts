@@ -464,7 +464,7 @@ export async function POST(request: NextRequest) {
     // ── 1. Fetch course pricing ───────────────────────────────────────────────
     const { data: course } = await supabase
       .from('awa_courses')
-      .select('id, name, mrp, gst_percent, discount_percent, partner_pool_percent, enroller_share, upstream_share, tenure_type')
+      .select('id, name, mrp, gst_percent, discount_percent, partner_pool_percent, enroller_share, upstream_share, tenure_type, audience_category')
       .eq('id', course_id)
       .single()
 
@@ -570,6 +570,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ── Minors: consent must be RECORDED, not assumed (DPDP s.9) ─────────────
+    // PaymentModal blocks submission without it, but that is a browser check: the API
+    // accepted and stored whatever it was handed, so a direct POST could enrol a 9-year-old
+    // with guardian_consent_at null. audience_category was never read here at all.
+    //
+    // We WITHHOLD ACCESS rather than reject. Rejecting would orphan a payment that has
+    // already succeeded — worst of all for the backup webhook path, which cannot forward the
+    // guardian fields (they never reach create-order, so they are not in the Razorpay notes).
+    // is_active = false is the gate the whole student dashboard already keys on, so the seat
+    // exists and is paid for, but nothing opens until consent is on file and an admin
+    // reactivates it.
+    const isMinorAudience   = course?.audience_category === 'school'
+    const hasGuardianConsent = guardian_consent === true
+      && !!String(guardian_name ?? '').trim()
+      && !!String(guardian_email ?? '').trim()
+    const withholdForConsent = isMinorAudience && !hasGuardianConsent
+    if (withholdForConsent) {
+      console.error(`[enrol] minors course ${course_id} enrolled without recorded guardian `
+        + `consent — access withheld pending review (${email})`)
+    }
+
     // A wholesale seat earns nobody a referral commission — the distributor already took
     // their margin on resale. Zeroing it here keeps the enrolment ROW honest; the cascade
     // itself is skipped separately in the background block.
@@ -635,7 +656,7 @@ export async function POST(request: NextRequest) {
         commission_pct:     commissionPct,
         commission_amount:  commissionAmount,
         oi_amount:          oiAmount,
-        is_active:          true,
+        is_active:          !withholdForConsent,
         enrolment_seq:      enrolmentSeq,
         enrolment_status:   'active',
         // Stamp the channel in the SAME insert that creates the row — not in a follow-up RPC

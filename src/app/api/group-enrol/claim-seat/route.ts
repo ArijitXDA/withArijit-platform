@@ -55,6 +55,22 @@ export async function POST(req: NextRequest) {
 
     if (!ge) return NextResponse.json({ error: 'Group enrolment not found' }, { status: 404 })
 
+    // Minors (DPDP s.9): a group seat is claimed by the invitee, and nothing on this path
+    // ever collects parent/guardian consent. Mirrors /api/enrollment/self — the seat is
+    // still created (the purchaser has already paid for it) but access is withheld until a
+    // guardian consents, rather than silently opening a minors course with no consent on
+    // file. Non-school courses are untouched.
+    const { data: claimCourse } = await service
+      .from('awa_courses')
+      .select('audience_category')
+      .eq('id', ge.course_id)
+      .maybeSingle()
+    const withholdForConsent = claimCourse?.audience_category === 'school'
+    if (withholdForConsent) {
+      console.error(`[group-claim] minors course ${ge.course_id} claimed without guardian `
+        + `consent — access withheld pending review (${user.email})`)
+    }
+
     // ── 5. Check if already enrolled in this course (duplicate guard) ─────────
     const { data: existingEnrolment } = await service
       .from('student_enrolments')
@@ -97,7 +113,7 @@ export async function POST(req: NextRequest) {
           payment_date:       new Date().toISOString().split('T')[0],
           payment_reference:  `group_${ge.id}`,
           batch_id:           ge.batch_id ?? null,
-          is_active:          true,
+          is_active:          !withholdForConsent,
           enrolment_status:   'active',
           balance_due:        0,
         })

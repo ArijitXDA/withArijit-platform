@@ -90,6 +90,10 @@ export function CourseSessionJourney({
   const ALL_SESSIONS = fromDb.length ? fromDb : (isQuantum ? QUANTUM_SESSIONS : SESSIONS)
   // The 9w/26w toggle only applies to the standard 26-session curriculum.
   const canToggle = !isQuantum && !fromDb.length && ALL_SESSIONS.length === 26
+  // A course with its OWN published curriculum is by definition NOT the 26-session two-format
+  // programme, so the "Two Formats / 9-week / 26-week" framing (badge, intro, format cards) must
+  // not appear on it. This is the case for the 5-week Udaan bootcamps.
+  const custom = fromDb.length > 0
   const [track, setTrack]       = useState<'9w' | '26w'>('9w')
   const [expanded, setExpanded] = useState(false)
 
@@ -106,13 +110,22 @@ export function CourseSessionJourney({
         <div className="text-center mb-8">
           <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-4"
             style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)' }}>
-            Full Curriculum · Two Formats
+            {custom ? 'Live · Session by Session' : 'Full Curriculum · Two Formats'}
           </span>
           <h2 className="text-3xl font-extrabold text-white mb-3">Session by Session</h2>
           <p className="text-slate-500 text-sm max-w-2xl mx-auto">
-            Same curriculum, your pace. The <strong className="text-indigo-300">9-week weekend intensive</strong> merges the 26
-            one-hour sessions into <strong className="text-indigo-300">9 two-hour weekend blocks</strong>; the{' '}
-            <strong className="text-slate-300">26-week long track</strong> runs them one hour at a time. Every session live and hands-on.
+            {custom ? (
+              <>
+                {ALL_SESSIONS.length} sessions, one a week — every one <strong className="text-indigo-300">live and hands-on</strong>,
+                taught by <strong className="text-slate-300">Arijit Chowdhury</strong> himself, and you finish by building something you keep.
+              </>
+            ) : (
+              <>
+                Same curriculum, your pace. The <strong className="text-indigo-300">9-week weekend intensive</strong> merges the 26
+                one-hour sessions into <strong className="text-indigo-300">9 two-hour weekend blocks</strong>; the{' '}
+                <strong className="text-slate-300">26-week long track</strong> runs them one hour at a time. Every session live and hands-on.
+              </>
+            )}
           </p>
         </div>
 
@@ -206,7 +219,12 @@ export function CourseSessionJourney({
 
         {/* Key callouts */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-8">
-          {(isQuantum ? [
+          {(custom ? [
+            { label: `${ALL_SESSIONS.length} Live Sessions`, sub: 'Hands-on, never recorded' },
+            { label: 'Taught Live',           sub: 'By Arijit Chowdhury' },
+            { label: 'Real Project',          sub: 'Built live, yours to keep' },
+            { label: 'Verifiable Certificate', sub: 'On completion, LinkedIn-ready' },
+          ] : isQuantum ? [
             { label: '9-Week Intensive', sub: '9 × 2-hour weekend sessions' },
             { label: 'or Long Track',    sub: 'gentler weekly pace' },
             { label: '1 Project', sub: 'Built live, yours to keep' },

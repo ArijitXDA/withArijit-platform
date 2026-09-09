@@ -9,7 +9,13 @@ const ITEMS = [
   { emoji: '🧾', title: 'GST Invoice',                  sub: 'Tax-deductible for businesses · Claimable as professional development' },
 ]
 
-export function CourseWhatYouGet({ course }: { course: any }) {
+export function CourseWhatYouGet({ course, items }: {
+  course: any
+  /** A course's own list (landing_content.whatYouGet). Replaces the default set entirely — used
+   *  by the 5-week Udaan bootcamps, whose deliverables differ from the 26-session programme. */
+  items?: { emoji: string; title: string; sub: string }[]
+}) {
+  const list = Array.isArray(items) && items.length ? items : ITEMS
   return (
     <section className="py-16 px-4 bg-white">
       <div className="max-w-6xl mx-auto">
@@ -20,7 +26,7 @@ export function CourseWhatYouGet({ course }: { course: any }) {
           <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900">What You Get</h2>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {ITEMS.map(({ emoji, title, sub }) => (
+          {list.map(({ emoji, title, sub }) => (
             <div key={title}
               className="group flex flex-col gap-3 p-5 rounded-2xl border border-gray-100 bg-white hover:border-indigo-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
               style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>

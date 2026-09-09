@@ -139,12 +139,19 @@ export function CourseFAQ({
   course,
   faqs,
   shipsKit = true,
+  channelExclusive = false,
 }: {
   course: any
   /** A course's own FAQ set (landing_content.faqs). Replaces the category list entirely. */
   faqs?: { q: string; a: string }[]
   /** False for distribution-channel courses, which dispatch no physical kit. */
   shipsKit?: boolean
+  /** True for the Udaan bootcamps. These are 5-week courses sold by a partner at their own
+   *  price, so the shared FAQ list — written for the 26-session AI Mastery programme (Session-13
+   *  interim certificate, the 50-50 plan, the 10%/month fee rise, oStaran-direct group enrolment)
+   *  — does not apply and would contradict the course. Keep only the universally-true shared
+   *  answers; the course supplies the rest through landing_content.faqs. */
+  channelExclusive?: boolean
 }) {
   const [open, setOpen] = useState<number | null>(null)
 
@@ -154,7 +161,14 @@ export function CourseFAQ({
     : (AUDIENCE_FAQS[category] ?? AUDIENCE_FAQS.default)
   // The shared list carries "What is the AI Kit and when does it arrive?", which would
   // promise a dispatch that never happens on a channel-exclusive course.
-  const shared = shipsKit ? SHARED_FAQS : SHARED_FAQS.filter(f => !/AI Kit/i.test(f.q))
+  const KEEP_ON_EXCLUSIVE = new Set([
+    'What if I miss a class?',
+    'Who owns the projects I build?',
+    'Is the certificate recognised internationally?',
+  ])
+  const shared = channelExclusive
+    ? SHARED_FAQS.filter(f => KEEP_ON_EXCLUSIVE.has(f.q))
+    : (shipsKit ? SHARED_FAQS : SHARED_FAQS.filter(f => !/AI Kit/i.test(f.q)))
   const allFaqs = [...audienceFaqs, ...shared]
 
   return (

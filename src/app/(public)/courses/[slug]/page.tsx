@@ -309,7 +309,7 @@ export default async function CoursePage({
         <CourseOutcomes category={category} />
 
         {/* 3. What you get (mentor: from landing_content, AI-Kit card omitted) */}
-        {isMentor ? <MentorWhatYouGet items={lc.whatYouGet} /> : <CourseWhatYouGet course={course} />}
+        {isMentor ? <MentorWhatYouGet items={lc.whatYouGet} /> : <CourseWhatYouGet course={course} items={lc.whatYouGet} />}
 
         {/* 4. AI Kit — oStaran courses only */}
         {!isMentor && !isChannelExclusive && <CourseAIKit />}
@@ -349,7 +349,7 @@ export default async function CoursePage({
 
         {/* 14. FAQs */}
         {isMentor ? <MentorFAQ faqs={lc.faqs} />
-                  : <CourseFAQ course={course} faqs={lc.faqs} shipsKit={!isChannelExclusive} />}
+                  : <CourseFAQ course={course} faqs={lc.faqs} shipsKit={!isChannelExclusive} channelExclusive={isChannelExclusive} />}
 
         {/* 15. Bottom CTA */}
         <CourseBottomCTA course={course} enrolProps={enrolProps} nextBatchStart={nextBatchStart} />

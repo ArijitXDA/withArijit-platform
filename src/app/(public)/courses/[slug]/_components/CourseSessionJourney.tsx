@@ -74,10 +74,13 @@ function weekendBlocks(sessions: SessionRow[]): WeekendBlock[] {
 export function CourseSessionJourney({
   category = 'default',
   sessions = [],
+  isOneDay = false,
 }: {
   category?: string
   /** The course's OWN published curriculum; overrides the generic 26-session journey. */
   sessions?: { session_num: number; title: string; description: string | null }[]
+  /** A single-day bootcamp: the curriculum rows are the day's blocks, not weekly sessions. */
+  isOneDay?: boolean
 }) {
   const isQuantum = category === 'quantum'
   // The generic journey is 26 sessions long. Showing it on a five-week bootcamp described a
@@ -110,11 +113,17 @@ export function CourseSessionJourney({
         <div className="text-center mb-8">
           <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-4"
             style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)' }}>
-            {custom ? 'Live · Session by Session' : 'Full Curriculum · Two Formats'}
+            {custom ? (isOneDay ? 'Live · One Full Day' : 'Live · Session by Session') : 'Full Curriculum · Two Formats'}
           </span>
-          <h2 className="text-3xl font-extrabold text-white mb-3">Session by Session</h2>
+          <h2 className="text-3xl font-extrabold text-white mb-3">{custom && isOneDay ? 'The Day, Block by Block' : 'Session by Session'}</h2>
           <p className="text-slate-500 text-sm max-w-2xl mx-auto">
-            {custom ? (
+            {custom && isOneDay ? (
+              <>
+                One full day, <strong className="text-indigo-300">10 AM to 4 PM IST</strong> — {ALL_SESSIONS.length} back-to-back
+                hands-on blocks, taught live by <strong className="text-slate-300">Arijit Chowdhury</strong>, and you finish by building
+                something you keep. Choose the Tuesday or Wednesday batch.
+              </>
+            ) : custom ? (
               <>
                 {ALL_SESSIONS.length} sessions, one a week — every one <strong className="text-indigo-300">live and hands-on</strong>,
                 taught by <strong className="text-slate-300">Arijit Chowdhury</strong> himself, and you finish by building something you keep.
@@ -219,7 +228,12 @@ export function CourseSessionJourney({
 
         {/* Key callouts */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-8">
-          {(custom ? [
+          {(custom && isOneDay ? [
+            { label: 'One Full Day', sub: '10 AM–4 PM IST · Tue/Wed' },
+            { label: 'Fully Hands-On', sub: 'You build all day' },
+            { label: 'Real Project', sub: 'Built live, yours to keep' },
+            { label: '50-Mark Evaluation', sub: '+ verifiable certificate' },
+          ] : custom ? [
             { label: `${ALL_SESSIONS.length} Live Sessions`, sub: 'Hands-on, never recorded' },
             { label: 'Taught Live',           sub: 'By Arijit Chowdhury' },
             { label: 'Real Project',          sub: 'Built live, yours to keep' },

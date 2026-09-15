@@ -154,6 +154,7 @@ export default async function CoursePage({
 
   // ── Fetch all supporting data in parallel ─────────────────────────────────
   const category = course.audience_category ?? 'general'
+  const isOneDay = course.tenure_type === 'single_session' || Number(course.total_sessions) === 1
   const filters  = CATEGORY_FILTER[category] ?? []
 
   // Audience courses (Working Professionals, Students, …) carry no batches of their own —
@@ -329,7 +330,7 @@ export default async function CoursePage({
 
         {/* 7. Session journey */}
         {isMentor ? <MentorSessions sessions={lc.sessions} />
-                  : <CourseSessionJourney category={category} sessions={dbCurriculum ?? []} />}
+                  : <CourseSessionJourney category={category} sessions={dbCurriculum ?? []} isOneDay={isOneDay} />}
 
         {/* 8. What You Walk Away With */}
         <CourseAfterOutcomes category={category} />

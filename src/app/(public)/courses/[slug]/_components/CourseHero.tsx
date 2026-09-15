@@ -40,6 +40,9 @@ export function CourseHero({
 }) {
   const tagKey  = SLUG_AUDIENCE[course.slug] ?? course.audience_category ?? 'general'
   const tag     = AUDIENCE_TAG[tagKey] ?? AUDIENCE_TAG.general
+  // One-day bootcamps don't have weekend/26-week tracks, a couriered kit, a monthly fee ramp, or a
+  // 6th-session 50-50 plan — the flagship hero copy would contradict them, so swap/hide those bits.
+  const isOneDay = course.tenure_type === 'single_session' || Number(course.total_sessions) === 1
 
   const discountAmt   = Math.round(mrp * discountPct / 100)
   const finalPrice    = mrp - discountAmt
@@ -146,27 +149,34 @@ export function CourseHero({
               )}
             </div>
 
-            {/* Urgency */}
-            <div className="inline-flex items-center gap-2 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 px-4 py-2 rounded-xl mb-8">
-              ⚠️ <strong>Fee increases ~10% every month</strong> — enrol today to lock in this price
-            </div>
+            {/* Urgency (flagship courses only — a one-day bootcamp has no monthly fee ramp) */}
+            {!isOneDay && (
+              <div className="inline-flex items-center gap-2 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 px-4 py-2 rounded-xl mb-8">
+                ⚠️ <strong>Fee increases ~10% every month</strong> — enrol today to lock in this price
+              </div>
+            )}
 
             {/* Mobile: show price card inline */}
             <div className="lg:hidden mb-8">
               <PriceCard mrp={mrp} finalPrice={finalPrice} finalGst={finalGst} finalNet={finalNet}
-                discountPct={discountPct} discountAmt={discountAmt}
+                discountPct={discountPct} discountAmt={discountAmt} isOneDay={isOneDay}
                 enrolProps={enrolProps} partner={partner} partnerName={partnerName} />
             </div>
 
-            {/* Quick stats row — lead with the 9-week weekend intensive */}
+            {/* Quick stats row — one-day bootcamp vs the flagship weekend/long-track */}
             <div className="flex flex-wrap gap-6 text-sm">
-              {[
+              {(isOneDay ? [
+                ['⚡', 'One full day · 10 AM–4 PM IST'],
+                ['📅', 'Tuesday & Wednesday batches'],
+                ['🛠️', 'Fully hands-on'],
+                ['📜', 'Certificate + 50-mark evaluation'],
+              ] : [
                 ['🔥', '9-Week Weekend Intensive'],
                 ['📅', 'or 26-Week Long Track'],
                 ['🌍', 'Weekends only · multi-timezone'],
                 ['♾️', 'Lifetime recordings'],
                 ['🎁', 'AI Kit couriered'],
-              ].map(([icon, text]) => (
+              ]).map(([icon, text]) => (
                 <div key={text as string} className="flex items-center gap-1.5 text-slate-400">
                   <span>{icon}</span> <span>{text}</span>
                 </div>
@@ -186,7 +196,7 @@ export function CourseHero({
   )
 }
 
-function PriceCard({ mrp, finalPrice, finalGst, finalNet, discountPct, discountAmt, enrolProps, partner, partnerName }: any) {
+function PriceCard({ mrp, finalPrice, finalGst, finalNet, discountPct, discountAmt, enrolProps, partner, partnerName, isOneDay }: any) {
   return (
     <div className="rounded-3xl border overflow-hidden" style={{ background: '#0d0d1f', borderColor: 'rgba(139,92,246,0.25)' }}>
       <div className="h-1" style={{ background: 'linear-gradient(90deg, #7c3aed, #4f46e5)' }} />
@@ -218,14 +228,16 @@ function PriceCard({ mrp, finalPrice, finalGst, finalNet, discountPct, discountA
           </div>
         )}
 
-        {/* 50-50 plan */}
-        <div className="rounded-xl p-3 mb-4 border border-indigo-500/20 bg-indigo-500/05 text-xs">
-          <p className="text-indigo-300 font-semibold mb-1">💳 50-50 Payment Plan</p>
-          <p className="text-slate-400">
-            Pay <strong className="text-white"><Price inr={Math.round((discountPct > 0 ? finalPrice : mrp) / 2)} /></strong> now
-            · <strong className="text-white"><Price inr={Math.round((discountPct > 0 ? finalPrice : mrp) / 2)} /></strong> before your 6th session
-          </p>
-        </div>
+        {/* 50-50 plan — flagship multi-session courses only (a one-day bootcamp has no 6th session) */}
+        {!isOneDay && (
+          <div className="rounded-xl p-3 mb-4 border border-indigo-500/20 bg-indigo-500/05 text-xs">
+            <p className="text-indigo-300 font-semibold mb-1">💳 50-50 Payment Plan</p>
+            <p className="text-slate-400">
+              Pay <strong className="text-white"><Price inr={Math.round((discountPct > 0 ? finalPrice : mrp) / 2)} /></strong> now
+              · <strong className="text-white"><Price inr={Math.round((discountPct > 0 ? finalPrice : mrp) / 2)} /></strong> before your 6th session
+            </p>
+          </div>
+        )}
 
         {/* CTA */}
         <PaymentModalTrigger

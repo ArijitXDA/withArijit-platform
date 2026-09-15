@@ -65,6 +65,7 @@ interface Enrolment {
   student_email?: string | null; student_name?: string | null; student_mobile?: string | null
   sessions: Session[]
   scheduleToken?: string | null   // consultation: slot-picker token while batch not yet chosen
+  exam?: { enabled: boolean; attempts?: number; best_score?: number | null; max_score?: number }
 }
 
 // ── Sessions panel — shows ALL sessions: past (unlocked) + future (locked) ────
@@ -618,6 +619,15 @@ function CourseCard({ enrolment }: { enrolment: Enrolment }) {
           style={{ color: T.indigo }}>
           <BookOpen size={12} /> Study Materials
         </Link>
+        {enrolment.exam?.enabled && (
+          <Link href={`/dashboard/exam/${enrolment.id}`}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-white"
+            style={{ background: T.indigo }}>
+            📝 {(enrolment.exam.attempts ?? 0) > 0
+              ? `Evaluation ${enrolment.exam.best_score}/${enrolment.exam.max_score} · Retake`
+              : 'Take 50-mark evaluation'}
+          </Link>
+        )}
         {course?.slug && (
           <Link href={`/courses/${course.slug}`}
             className="flex items-center gap-1.5 text-xs transition-colors ml-auto"

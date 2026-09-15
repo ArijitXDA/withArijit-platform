@@ -191,9 +191,35 @@ export default async function CoursesPage() {
     (c: any) => !enrolledCourseIds.includes(c.id)
   )
 
+  // 50-mark MCQ evaluation: which enrolled courses have an active exam, and this student's best
+  // score per enrolment (retakes allowed, so we surface the best).
+  const { data: examCourses } = await service.from('exam_questions').select('course_id').eq('is_active', true)
+  const examCourseIds = new Set((examCourses ?? []).map((r: any) => r.course_id))
+  const dedupIds = (dedupedEnrolments as any[]).map((e: any) => e.id)
+  const attemptsByEnrol: Record<string, { best: number; count: number; max: number }> = {}
+  if (dedupIds.length) {
+    const { data: exAtt } = await service.from('exam_attempts')
+      .select('enrolment_id, score, max_score').in('enrolment_id', dedupIds)
+    for (const a of exAtt ?? []) {
+      const cur = attemptsByEnrol[a.enrolment_id] ?? { best: 0, count: 0, max: 50 }
+      cur.best = Math.max(cur.best, Number(a.score) || 0)
+      cur.count += 1
+      cur.max = Number(a.max_score) || cur.max
+      attemptsByEnrol[a.enrolment_id] = cur
+    }
+  }
+  const enrolmentsWithExam = (dedupedEnrolments as any[]).map((e: any) => ({
+    ...e,
+    exam: examCourseIds.has(e.course?.id)
+      ? { enabled: true, attempts: attemptsByEnrol[e.id]?.count ?? 0,
+          best_score: attemptsByEnrol[e.id] ? attemptsByEnrol[e.id].best : null,
+          max_score: attemptsByEnrol[e.id]?.max ?? 50 }
+      : { enabled: false },
+  }))
+
   return (
     <CoursesClient
-      enrolments={dedupedEnrolments as any}
+      enrolments={enrolmentsWithExam as any}
       legacyUser={legacyUser as any}
       unenrolledCourses={unenrolledCourses as any}
     />

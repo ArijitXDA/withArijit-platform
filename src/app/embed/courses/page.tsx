@@ -371,10 +371,11 @@ var els=[];sel.forEach(function(s){ox.querySelectorAll(s).forEach(function(e){e.
 if(!els.length)return;
 ox.classList.add('ox-reveal-ready');
 function show(e){e.classList.add('ox-in');}
-if(!('IntersectionObserver' in window)){els.forEach(show);return;}
-var io=new IntersectionObserver(function(en){en.forEach(function(x){if(x.isIntersecting){show(x.target);io.unobserve(x.target);}});},{rootMargin:'0px 0px -8% 0px',threshold:0.05});
-els.forEach(function(e){io.observe(e);});
-setTimeout(function(){els.forEach(function(e){if(!e.classList.contains('ox-in')&&e.getBoundingClientRect().top<(window.innerHeight||800))show(e);});},450);
+var io=('IntersectionObserver' in window)?new IntersectionObserver(function(en){en.forEach(function(x){if(x.isIntersecting){show(x.target);io.unobserve(x.target);}});},{rootMargin:'0px 0px -8% 0px',threshold:0.05}):null;
+if(io){els.forEach(function(e){io.observe(e);});}else{els.forEach(show);}
+setTimeout(function(){els.forEach(function(e){if(!e.classList.contains('ox-in')&&e.getBoundingClientRect().top<(window.innerHeight||800))show(e);});},400);
+// Hard safety net — whatever happens with the observer or viewport, nothing stays hidden.
+setTimeout(function(){els.forEach(show);},1600);
 }catch(e){}})();
 `
 

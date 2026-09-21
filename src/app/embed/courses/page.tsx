@@ -153,7 +153,9 @@ export default async function EmbedCourses({
 
         {/* TRAINER */}
         <section className="ox-trainer">
-          <img className="ox-face" src="/arijit-image.png" alt="Arijit Chowdhury" width={92} height={92} loading="lazy" />
+          {/* The trainer's face is the widget's key trust element on a partner's site — load it
+              eagerly so it never flashes an empty box on first paint inside a tall iframe. */}
+          <img className="ox-face" src="/arijit-image.png" alt="Arijit Chowdhury" width={92} height={92} loading="eager" fetchPriority="high" decoding="async" />
           <div className="ox-tr-body">
             <span className="ox-eyebrow" style={{ color: accent }}>YOUR TRAINER</span>
             <h2 className="ox-tr-name">Arijit Chowdhury</h2>

@@ -55,6 +55,18 @@ const mix = (a: string, b: string, t: number) => { const A = _rgb(a), B = _rgb(b
 const _lum = (h: string) => { const c = _rgb(h).map((v) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4) }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2] }
 const contrast = (a: string, b: string) => { const x = _lum(a), y = _lum(b), hi = Math.max(x, y), lo = Math.min(x, y); return (hi + 0.05) / (lo + 0.05) }
 const bestBW = (bg: string) => (contrast('#ffffff', bg) >= contrast('#0b0b0b', bg) ? '#ffffff' : '#0b0b0b')
+/** Nudge a foreground colour toward black/white until it meets a contrast target on bg (best-effort). */
+function tune(fg: string, bg: string, target: number): string {
+  if (contrast(fg, bg) >= target) return fg
+  const dir = _lum(bg) > 0.5 ? '#000000' : '#ffffff'
+  let best = fg, bestC = contrast(fg, bg)
+  for (let t = 0.12; t <= 1.0001; t += 0.12) {
+    const c = mix(fg, dir, t), cc = contrast(c, bg)
+    if (cc > bestC) { best = c; bestC = cc }
+    if (cc >= target) return c
+  }
+  return best
+}
 
 type Pal = { bg: string; card: string; surf: string; ink: string; ink2: string; line: string }
 const PRESETS: Record<string, Pal> = {
@@ -73,19 +85,24 @@ function resolvePalette(theme: string, bgOv: string, surfOv: string, textOv: str
   if (textOv) p.ink = textOv
   if (bgOv) p.bg = bgOv
   if (surfOv) p.card = surfOv
-  // Legibility floor — never let text vanish into the background.
-  if (contrast(p.ink, p.bg) < 4.5) p.ink = bestBW(p.bg)
   const isLight = _lum(p.bg) > 0.45
-  // Re-derive text-dependent tokens whenever bg or text was overridden.
-  if (bgOv || textOv) {
+  // Surfaces first, so cards stay lifted above the page on any custom bg.
+  if (bgOv && !surfOv) p.card = isLight ? p.bg : mix(p.bg, '#ffffff', 0.07)
+  if (bgOv || surfOv) p.surf = isLight ? mix(p.bg, p.ink, 0.05) : mix(p.bg, '#ffffff', 0.035)
+  // Primary text must be legible on EVERY surface it lands on — the page, a card and an inset —
+  // not just the background (a `surface` override otherwise puts clamped-for-bg text on a very
+  // different card). Pick the ink that maximises the WORST contrast across all three.
+  const surfaces = [p.bg, p.card, p.surf]
+  const minC = (fg: string) => Math.min(...surfaces.map((s) => contrast(fg, s)))
+  if (minC(p.ink) < 4.5) p.ink = minC('#ffffff') >= minC('#0b0b0b') ? '#ffffff' : '#0b0b0b'
+  // Secondary text + hairline, derived from the FINAL ink when anything was overridden
+  // (untouched presets keep their hand-tuned values). Step ink2 down until it clears AA.
+  if (bgOv || textOv || surfOv) {
     let ink2 = mix(p.ink, p.bg, 0.34)
-    if (contrast(ink2, p.bg) < 3) ink2 = mix(p.ink, p.bg, 0.18)
+    for (const w of [0.34, 0.22, 0.12]) { ink2 = mix(p.ink, p.bg, w); if (contrast(ink2, p.bg) >= 4.5) break }
     p.ink2 = ink2
     p.line = mix(p.ink, p.bg, 0.86)
   }
-  // Re-derive surfaces so cards stay lifted above the page on any custom bg.
-  if (bgOv && !surfOv) p.card = isLight ? p.bg : mix(p.bg, '#ffffff', 0.07)
-  if (bgOv || surfOv) p.surf = isLight ? mix(p.bg, p.ink, 0.05) : mix(p.bg, '#ffffff', 0.035)
   return p
 }
 
@@ -147,6 +164,11 @@ export default async function EmbedCourses({
   const pal = resolvePalette(theme, hexAccent(sp.bg, ''), hexAccent(sp.surface, ''), hexAccent(sp.text, ''))
   const isLight = _lum(pal.bg) > 0.45
   const onacc = bestBW(accent)
+  // Accent used as TEXT (the trainer eyebrow + stat numbers) needs its own legibility floor —
+  // a pale accent on a light card, or the default blue on a dark card, is otherwise below AA.
+  // Nudged toward legibility on whichever of card/inset it sits on; the raw accent still fills
+  // CTAs/borders/bullets, where --onacc already guarantees readable text.
+  const accentInk = tune(accent, contrast(accent, pal.card) <= contrast(accent, pal.surf) ? pal.card : pal.surf, 4.5)
 
   // Effects (whitelist only)
   const fxset = new Set(String(sp.fx ?? '').split(',').map((s) => s.trim().toLowerCase()))
@@ -201,7 +223,7 @@ export default async function EmbedCourses({
   } as React.CSSProperties
 
   return (
-    <div className={`ox${fxClass ? ' ' + fxClass : ''}`} style={oxStyle}>
+    <div className={`ox${!isLight ? ' ox-dark' : ''}${fxClass ? ' ' + fxClass : ''}`} style={oxStyle}>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       {/* html/body live outside .ox, so their background is injected as a literal (hex-validated). */}
       <style dangerouslySetInnerHTML={{ __html: `html{color-scheme:${isLight ? 'light' : 'dark'}}html,body{background:${pal.bg}!important}` }} />
@@ -237,7 +259,7 @@ export default async function EmbedCourses({
               eagerly so it never flashes an empty box on first paint inside a tall iframe. */}
           <img className="ox-face" src="/arijit-image.png" alt="Arijit Chowdhury" width={92} height={92} loading="eager" fetchPriority="high" decoding="async" />
           <div className="ox-tr-body">
-            <span className="ox-eyebrow" style={{ color: accent }}>YOUR TRAINER</span>
+            <span className="ox-eyebrow" style={{ color: accentInk }}>YOUR TRAINER</span>
             <h2 className="ox-tr-name">Arijit Chowdhury</h2>
             <p className="ox-tr-title">CAIO · AI Researcher · Educator · Founder, oStaran</p>
             <p className="ox-tr-bio">
@@ -247,7 +269,7 @@ export default async function EmbedCourses({
             </p>
             <div className="ox-tr-stats">
               {TRAINER_STATS.map(([n, l]) => (
-                <div className="ox-stat" key={l}><span className="ox-stat-n" style={{ color: accent }}>{n}</span><span className="ox-stat-l">{l}</span></div>
+                <div className="ox-stat" key={l}><span className="ox-stat-n" style={{ color: accentInk }}>{n}</span><span className="ox-stat-l">{l}</span></div>
               ))}
             </div>
           </div>
@@ -432,19 +454,25 @@ html,body{margin:0!important;padding:0!important}
 .ox-mq-item{display:inline-flex;align-items:center;padding:8px 0;font-size:12.5px;font-weight:700;color:var(--ink)}
 .ox-mq-item::after{content:"•";margin:0 18px;color:var(--ox);font-weight:700}
 @media(prefers-reduced-motion:reduce){.ox-mq-dup{display:none}.ox-mq-track{flex-wrap:wrap;width:auto;white-space:normal;justify-content:center;padding:2px 10px}.ox-mq-item{padding:4px 0}.ox-mq-item::after{margin:0 12px}}
-/* ── effects: hover-lift + shadow ── */
+/* ── effects: hover-lift + shadow (shadows always; the movement is motion-gated below) ── */
 .ox.fx-lift .ox-card,.ox.fx-lift .ox-trainer,.ox.fx-lift .ox-lg{box-shadow:0 4px 16px rgba(3,12,34,.08)}
-.ox.fx-lift .ox-card{transition:transform .18s ease,box-shadow .18s ease}
-.ox.fx-lift .ox-card:hover{transform:translateY(-4px);box-shadow:0 16px 34px rgba(3,12,34,.17)}
 .ox.fx-lift .ox-hero{box-shadow:0 12px 30px rgba(3,12,34,.20)}
+.ox.fx-lift .ox-card:hover{box-shadow:0 16px 34px rgba(3,12,34,.17)}
 /* ── effects: animated hero gradient ── */
 .ox.fx-hero .ox-hero{background:linear-gradient(120deg,#0b1a3e,#16306f,#0b1a3e,#20337a);background-size:280% 280%}
 /* ── effects: reveal (hidden state applied by JS only, via .ox-reveal-ready) ── */
 .ox.ox-reveal-ready .ox-rv{opacity:0;transform:translateY(16px);transition:opacity .55s ease,transform .55s ease}
 .ox.ox-reveal-ready .ox-rv.ox-in{opacity:1;transform:none}
+/* dark/navy themes: recolour the fixed light badges so they read as tints, not bright stickers */
+.ox.ox-dark .ox-t{color:#bfdbfe;background:rgba(59,130,246,.16)}
+.ox.ox-dark .ox-card.ox-kids .ox-t{color:#e9d5ff;background:rgba(139,92,246,.20)}
+.ox.ox-dark .ox-chip-ok{color:#6ee7b7;background:rgba(16,185,129,.14);border-color:rgba(16,185,129,.30)}
 @media(prefers-reduced-motion:no-preference){
   .ox.fx-hero .ox-hero{animation:oxHero 16s ease infinite}
   .ox.fx-marquee .ox-mq-track{animation:oxMq 30s linear infinite}
+  /* Declared AFTER the reveal end-state, so the hover rise wins the specificity tie when reveal is on too. */
+  .ox.fx-lift .ox-card{transition:transform .18s ease,box-shadow .18s ease}
+  .ox.fx-lift .ox-card:hover{transform:translateY(-4px)}
 }
 @keyframes oxHero{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
 @keyframes oxMq{from{transform:translateX(0)}to{transform:translateX(-50%)}}

@@ -6,13 +6,20 @@
  *           style="width:100%;height:2600px;border:0" loading="lazy"></iframe>
  *
  * Served by oStaran (so content updates centrally and each load is logged for the ND's "who has
- * embedded it" list), but presents as the PARTNER'S product: their brand heading + optional accent.
+ * embedded it" list), but presents as the PARTNER'S product: their brand heading + accent + theme.
  * Sections: partner-branded hero → the 4 Udaan courses they sell (enquiry CTA to THEM, they set the
  * price) → other oStaran courses (enrol direct with oStaran, partner-attributed) → the trainer
  * (Arijit Chowdhury) → the full "what you'll master" tools & topics. Consultations and the ₹2,999/mo
  * "Continued Up-skilling" subscription are deliberately excluded.
  *
- * Self-contained: bare route (no site chrome), own scoped styles, forced light, framable by any site
+ * Theming (all optional, backward-compatible — no params → the original light look):
+ *   theme=light|dark|navy|warm   a coherent preset (bg + surfaces + text)
+ *   bg / surface / text=<6-hex>   fine-tune overrides; primary text is contrast-clamped so it
+ *                                 can never become unreadable against the background
+ *   accent=<6-hex>                the existing accent colour
+ *   fx=marquee,lift,hero,reveal   visual effects (all respect prefers-reduced-motion)
+ *
+ * Self-contained: bare route (no site chrome), own scoped styles, framable by any site
  * (frame-ancestors * in next.config.ts). Node runtime — service-role key stays server-side.
  */
 import { headers } from 'next/headers'
@@ -23,9 +30,11 @@ export const dynamic = 'force-dynamic'
 
 const clean = (s: unknown, max: number) =>
   String(s ?? '').replace(/[<>]/g, '').replace(/\s+/g, ' ').slice(0, max).trim()
+// Strict 6-hex or the fallback. Every colour that reaches an injected <style> or an inline var
+// goes through this, so a query param can never inject CSS.
 const hexAccent = (s: unknown, fb: string) => {
   const v = String(s ?? '').trim().replace(/^#/, '')
-  return /^[0-9a-fA-F]{6}$/.test(v) ? `#${v}` : fb
+  return /^[0-9a-fA-F]{6}$/.test(v) ? `#${v.toLowerCase()}` : fb
 }
 const waDigits = (m: unknown) => {
   const d = String(m ?? '').replace(/\D/g, '')
@@ -36,6 +45,48 @@ function duration(c: any) {
   if (c?.tenure_type === 'single_session') return '1 full day · 10 AM–4 PM IST'
   const n = Number(c?.total_sessions) || 0, mins = Number(c?.session_duration_mins) || 0
   return `${n} live sessions · ${mins % 60 === 0 ? mins / 60 + ' hr' : mins + ' min'} each`
+}
+
+// ── Theming helpers (pure, server-side — theming needs no client JS) ──────────
+const _rgb = (h: string) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] }
+const _hex = (a: number[]) => '#' + a.map((x) => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, '0')).join('')
+/** mix a→b by weight t (0 = a, 1 = b). */
+const mix = (a: string, b: string, t: number) => { const A = _rgb(a), B = _rgb(b); return _hex([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t]) }
+const _lum = (h: string) => { const c = _rgb(h).map((v) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4) }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2] }
+const contrast = (a: string, b: string) => { const x = _lum(a), y = _lum(b), hi = Math.max(x, y), lo = Math.min(x, y); return (hi + 0.05) / (lo + 0.05) }
+const bestBW = (bg: string) => (contrast('#ffffff', bg) >= contrast('#0b0b0b', bg) ? '#ffffff' : '#0b0b0b')
+
+type Pal = { bg: string; card: string; surf: string; ink: string; ink2: string; line: string }
+const PRESETS: Record<string, Pal> = {
+  light: { bg: '#ffffff', card: '#ffffff', surf: '#f7f9fc', ink: '#0f1e3d', ink2: '#4b5563', line: '#e3e9f2' },
+  dark:  { bg: '#0b1220', card: '#1a2540', surf: '#131c30', ink: '#f1f5fb', ink2: '#aab6cb', line: '#2b3650' },
+  navy:  { bg: '#0d1a3a', card: '#1c2e59', surf: '#152549', ink: '#eaf0fb', ink2: '#adbfe0', line: '#2c4570' },
+  warm:  { bg: '#fbf7f1', card: '#ffffff', surf: '#f4ece0', ink: '#2a2118', ink2: '#6b5b49', line: '#e8dcc9' },
+}
+const THEME_KEYS = ['light', 'dark', 'navy', 'warm']
+const MARQUEE = ['🎓 Live & interactive', '🏅 Verifiable certificate', '🌍 India · USA · Canada timings', '💻 100% online', '🎯 Portfolio + real projects', '▶ Taught live — never a recording']
+
+/** Resolve a coherent palette from a preset plus optional bg/surface/text overrides.
+ *  Primary text is clamped to ≥4.5:1 against the background so it is always legible. */
+function resolvePalette(theme: string, bgOv: string, surfOv: string, textOv: string): Pal {
+  const p: Pal = { ...(PRESETS[theme] || PRESETS.light) }
+  if (textOv) p.ink = textOv
+  if (bgOv) p.bg = bgOv
+  if (surfOv) p.card = surfOv
+  // Legibility floor — never let text vanish into the background.
+  if (contrast(p.ink, p.bg) < 4.5) p.ink = bestBW(p.bg)
+  const isLight = _lum(p.bg) > 0.45
+  // Re-derive text-dependent tokens whenever bg or text was overridden.
+  if (bgOv || textOv) {
+    let ink2 = mix(p.ink, p.bg, 0.34)
+    if (contrast(ink2, p.bg) < 3) ink2 = mix(p.ink, p.bg, 0.18)
+    p.ink2 = ink2
+    p.line = mix(p.ink, p.bg, 0.86)
+  }
+  // Re-derive surfaces so cards stay lifted above the page on any custom bg.
+  if (bgOv && !surfOv) p.card = isLight ? p.bg : mix(p.bg, '#ffffff', 0.07)
+  if (bgOv || surfOv) p.surf = isLight ? mix(p.bg, p.ink, 0.05) : mix(p.bg, '#ffffff', 0.035)
+  return p
 }
 
 // ── Udaan courses the partner sells (order + framing); prices/names from DB ──
@@ -84,12 +135,23 @@ const LEARN: { h: string; items: string[] }[] = [
 
 export default async function EmbedCourses({
   searchParams,
-}: { searchParams: Promise<{ partner?: string; brand?: string; branding?: string; accent?: string }> }) {
+}: { searchParams: Promise<{ partner?: string; brand?: string; branding?: string; accent?: string; theme?: string; bg?: string; surface?: string; text?: string; fx?: string }> }) {
   const sp = await searchParams
   const partnerCode = String(sp.partner ?? '').trim().slice(0, 40)
   const brand = clean(sp.brand, 40)
   const minimal = sp.branding === 'min'
   const accent = hexAccent(sp.accent, '#2563EB')
+
+  // Theme + fine-tune overrides
+  const theme = THEME_KEYS.includes(String(sp.theme)) ? String(sp.theme) : 'light'
+  const pal = resolvePalette(theme, hexAccent(sp.bg, ''), hexAccent(sp.surface, ''), hexAccent(sp.text, ''))
+  const isLight = _lum(pal.bg) > 0.45
+  const onacc = bestBW(accent)
+
+  // Effects (whitelist only)
+  const fxset = new Set(String(sp.fx ?? '').split(',').map((s) => s.trim().toLowerCase()))
+  const fx = { marquee: fxset.has('marquee'), lift: fxset.has('lift'), hero: fxset.has('hero'), reveal: fxset.has('reveal') }
+  const fxClass = [fx.marquee && 'fx-marquee', fx.lift && 'fx-lift', fx.hero && 'fx-hero', fx.reveal && 'fx-reveal'].filter(Boolean).join(' ')
 
   const supabase = createServiceClient()
 
@@ -133,9 +195,16 @@ export default async function EmbedCourses({
   const otherCta = (c: any) => `https://www.ostaran.com/courses/${c.slug}?partner=${encodeURIComponent(partnerCode)}`
   const enquireLabel = wa ? 'Enquire on WhatsApp' : 'View details'
 
+  const oxStyle = {
+    '--ox': accent, '--onacc': onacc, '--bg': pal.bg, '--card': pal.card, '--surf': pal.surf,
+    '--ink': pal.ink, '--ink2': pal.ink2, '--line': pal.line, colorScheme: isLight ? 'light' : 'dark',
+  } as React.CSSProperties
+
   return (
-    <div className="ox" style={{ '--ox': accent } as React.CSSProperties}>
+    <div className={`ox${fxClass ? ' ' + fxClass : ''}`} style={oxStyle}>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      {/* html/body live outside .ox, so their background is injected as a literal (hex-validated). */}
+      <style dangerouslySetInnerHTML={{ __html: `html{color-scheme:${isLight ? 'light' : 'dark'}}html,body{background:${pal.bg}!important}` }} />
       <div className="ox-wrap">
         {/* HERO */}
         <header className="ox-hero">
@@ -150,6 +219,17 @@ export default async function EmbedCourses({
             <span>🌍 India · USA · Canada timings</span><span>💻 100% online</span>
           </div>
         </header>
+
+        {/* MARQUEE (optional) — a second, hidden copy makes the scroll seamless; it collapses to a
+            static wrapped strip under prefers-reduced-motion. */}
+        {fx.marquee ? (
+          <div className="ox-mq" aria-hidden="true">
+            <div className="ox-mq-track">
+              {MARQUEE.map((t, i) => <span className="ox-mq-item" key={'a' + i}>{t}</span>)}
+              {MARQUEE.map((t, i) => <span className="ox-mq-item ox-mq-dup" key={'b' + i}>{t}</span>)}
+            </div>
+          </div>
+        ) : null}
 
         {/* TRAINER */}
         <section className="ox-trainer">
@@ -248,6 +328,7 @@ export default async function EmbedCourses({
         </footer>
       </div>
       <script dangerouslySetInnerHTML={{ __html: RESIZE }} />
+      {fx.reveal ? <script dangerouslySetInnerHTML={{ __html: REVEAL }} /> : null}
     </div>
   )
 }
@@ -257,15 +338,33 @@ const RESIZE = `
 window.addEventListener('load',h);setTimeout(h,500);try{new ResizeObserver(h).observe(document.documentElement)}catch(e){}})();
 `
 
+// Scroll fade-in — progressive enhancement. The hidden state is applied by JS (the ox-reveal-ready
+// class), so if this never runs the content is simply visible. Respects reduced-motion.
+const REVEAL = `
+(function(){try{
+if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+var ox=document.querySelector('.ox.fx-reveal');if(!ox)return;
+var sel=['.ox-hero','.ox-mq','.ox-trainer','.ox-sec','.ox-sec-sub','.ox-card','.ox-lg','.ox-foot'];
+var els=[];sel.forEach(function(s){ox.querySelectorAll(s).forEach(function(e){e.classList.add('ox-rv');els.push(e);});});
+if(!els.length)return;
+ox.classList.add('ox-reveal-ready');
+function show(e){e.classList.add('ox-in');}
+if(!('IntersectionObserver' in window)){els.forEach(show);return;}
+var io=new IntersectionObserver(function(en){en.forEach(function(x){if(x.isIntersecting){show(x.target);io.unobserve(x.target);}});},{rootMargin:'0px 0px -8% 0px',threshold:0.05});
+els.forEach(function(e){io.observe(e);});
+setTimeout(function(){els.forEach(function(e){if(!e.classList.contains('ox-in')&&e.getBoundingClientRect().top<(window.innerHeight||800))show(e);});},450);
+}catch(e){}})();
+`
+
 const CSS = `
-html,body{background:#fff!important;margin:0!important;padding:0!important}
-.ox{--ink:#0F1E3D;--ink2:#4B5563;--line:#E3E9F2;--surf:#F7F9FC;--navy:#0B1A3E;
-  all:initial;display:block;background:#fff;color-scheme:light;
+html,body{margin:0!important;padding:0!important}
+.ox{--ink:#0F1E3D;--ink2:#4B5563;--line:#E3E9F2;--surf:#F7F9FC;--navy:#0B1A3E;--bg:#fff;--card:#fff;--onacc:#fff;
+  all:initial;display:block;background:var(--bg);
   font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Arial,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
 .ox *{box-sizing:border-box}
 .ox-wrap{max-width:1060px;margin:0 auto;padding:24px 18px 30px}
 /* hero */
-.ox-hero{background:linear-gradient(135deg,#0B1A3E,#14265a);color:#fff;border-radius:18px;padding:24px 24px 20px;margin-bottom:16px}
+.ox-hero{background:linear-gradient(135deg,#0B1A3E,#14265a);color:#fff;border-radius:18px;padding:24px 24px 20px;margin-bottom:16px;box-shadow:0 6px 22px rgba(3,12,34,.13)}
 .ox-brand{display:inline-block;font-weight:800;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#fff;
   background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:5px 13px;margin-bottom:11px}
 .ox-h1{margin:0 0 8px;font-size:clamp(22px,3.6vw,30px);font-weight:800;letter-spacing:-.02em;color:#fff}
@@ -273,14 +372,14 @@ html,body{background:#fff!important;margin:0!important;padding:0!important}
 .ox-facts{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12.5px;font-weight:600;color:#EAF0FB}
 /* trainer */
 .ox-trainer{display:flex;gap:16px;align-items:flex-start;background:var(--surf);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:20px}
-.ox-face{width:92px;height:92px;border-radius:14px;object-fit:cover;flex:0 0 auto;border:2px solid #fff;box-shadow:0 2px 10px rgba(15,30,61,.12)}
+.ox-face{width:92px;height:92px;border-radius:14px;object-fit:cover;flex:0 0 auto;border:2px solid var(--card);box-shadow:0 2px 10px rgba(15,30,61,.12)}
 .ox-eyebrow{font-size:10.5px;font-weight:800;letter-spacing:.14em}
 .ox-tr-name{margin:2px 0 1px;font-size:19px;font-weight:800;color:var(--ink)}
 .ox-tr-title{margin:0 0 7px;font-size:12.5px;font-weight:600;color:var(--ink2)}
 .ox-tr-bio{margin:0 0 11px;font-size:13px;color:var(--ink);max-width:78ch;line-height:1.5}
 .ox-tr-stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
 @media(max-width:760px){.ox-tr-stats{grid-template-columns:repeat(3,1fr)}.ox-trainer{flex-direction:column}}
-.ox-stat{text-align:center;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 4px}
+.ox-stat{text-align:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 4px}
 .ox-stat-n{display:block;font-size:15px;font-weight:800;line-height:1.1}
 .ox-stat-l{display:block;font-size:9.5px;color:var(--ink2);margin-top:2px}
 /* sections */
@@ -289,12 +388,12 @@ html,body{background:#fff!important;margin:0!important;padding:0!important}
 .ox-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0 0 22px}
 .ox-grid-3{grid-template-columns:1fr 1fr 1fr}
 @media(max-width:760px){.ox-grid,.ox-grid-3{grid-template-columns:1fr}}
-.ox-card{border:1px solid var(--line);border-radius:16px;padding:16px 16px 14px;background:#fff;border-top:3px solid var(--ox);display:flex;flex-direction:column}
+.ox-card{border:1px solid var(--line);border-radius:16px;padding:16px 16px 14px;background:var(--card);border-top:3px solid var(--ox);display:flex;flex-direction:column}
 .ox-card.ox-kids{border-top-color:#7C3AED}
-.ox-card.ox-kids .ox-cta{background:#7C3AED}
+.ox-card.ox-kids .ox-cta{background:#7C3AED;color:#fff}
 .ox-card.ox-kids .ox-t{color:#5B21B6;background:#F3EDFE}
 .ox-card.ox-kids .ox-hl li::before{background:#7C3AED}
-.ox-card-other{border-top-color:#B45309;background:linear-gradient(180deg,#FFFDF9,#fff)}
+.ox-card-other{border-top-color:#B45309;background:var(--card)}
 .ox-card-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 .ox-name{margin:0 0 3px;font-size:16.5px;font-weight:800;color:var(--ink);line-height:1.2}
 .ox-tag{margin:0;font-size:12.5px;color:var(--ink2)}
@@ -309,11 +408,11 @@ html,body{background:#fff!important;margin:0!important;padding:0!important}
 .ox-hl li::before{content:"";position:absolute;left:2px;top:6px;width:7px;height:7px;border-radius:50%;background:var(--ox)}
 .ox-tags{display:flex;flex-wrap:wrap;gap:5px;margin:2px 0 12px}
 .ox-t{font-size:11px;font-weight:600;color:#1E3A8A;background:#EAF1FE;border-radius:6px;padding:3px 8px}
-.ox-cta{margin-top:auto;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--ox);color:#fff;
+.ox-cta{margin-top:auto;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--ox);color:var(--onacc);
   font-weight:800;font-size:14px;text-decoration:none;border-radius:10px;padding:11px 16px;transition:filter .15s}
 .ox-cta:hover{filter:brightness(1.08)}
-.ox-cta-ghost{background:#fff;color:var(--navy);border:1.5px solid var(--navy);margin-top:12px}
-.ox-cta-ghost:hover{background:var(--navy);color:#fff;filter:none}
+.ox-cta-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ox);margin-top:12px}
+.ox-cta-ghost:hover{background:var(--ox);color:var(--onacc);filter:none}
 .ox-pricenote{margin:7px 0 0;font-size:11.5px;color:var(--ink2);text-align:center}
 /* learn */
 .ox-learn{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 22px}
@@ -321,10 +420,32 @@ html,body{background:#fff!important;margin:0!important;padding:0!important}
 .ox-lg{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surf)}
 .ox-lg-h{margin:0 0 8px;font-size:13px;font-weight:800;color:var(--ink)}
 .ox-lg-items{display:flex;flex-wrap:wrap;gap:5px}
-.ox-t2{font-size:11px;font-weight:600;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:6px;padding:3px 8px}
+.ox-t2{font-size:11px;font-weight:600;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:3px 8px}
 /* footer */
 .ox-foot{border-top:1px solid var(--line);padding-top:15px;text-align:center}
 .ox-foot-main{margin:0 0 4px;font-size:13px;color:var(--ink)}
 .ox-foot-sub{margin:0;font-size:11.5px;color:var(--ink2)}
 .ox-foot-min{margin:0;font-size:12px;color:var(--ink2)}
+/* ── marquee ── */
+.ox-mq{overflow:hidden;margin:-4px 0 18px;border:1px solid var(--line);background:var(--surf);border-radius:999px}
+.ox-mq-track{display:flex;width:max-content;white-space:nowrap;will-change:transform}
+.ox-mq-item{display:inline-flex;align-items:center;padding:8px 0;font-size:12.5px;font-weight:700;color:var(--ink)}
+.ox-mq-item::after{content:"•";margin:0 18px;color:var(--ox);font-weight:700}
+@media(prefers-reduced-motion:reduce){.ox-mq-dup{display:none}.ox-mq-track{flex-wrap:wrap;width:auto;white-space:normal;justify-content:center;padding:2px 10px}.ox-mq-item{padding:4px 0}.ox-mq-item::after{margin:0 12px}}
+/* ── effects: hover-lift + shadow ── */
+.ox.fx-lift .ox-card,.ox.fx-lift .ox-trainer,.ox.fx-lift .ox-lg{box-shadow:0 4px 16px rgba(3,12,34,.08)}
+.ox.fx-lift .ox-card{transition:transform .18s ease,box-shadow .18s ease}
+.ox.fx-lift .ox-card:hover{transform:translateY(-4px);box-shadow:0 16px 34px rgba(3,12,34,.17)}
+.ox.fx-lift .ox-hero{box-shadow:0 12px 30px rgba(3,12,34,.20)}
+/* ── effects: animated hero gradient ── */
+.ox.fx-hero .ox-hero{background:linear-gradient(120deg,#0b1a3e,#16306f,#0b1a3e,#20337a);background-size:280% 280%}
+/* ── effects: reveal (hidden state applied by JS only, via .ox-reveal-ready) ── */
+.ox.ox-reveal-ready .ox-rv{opacity:0;transform:translateY(16px);transition:opacity .55s ease,transform .55s ease}
+.ox.ox-reveal-ready .ox-rv.ox-in{opacity:1;transform:none}
+@media(prefers-reduced-motion:no-preference){
+  .ox.fx-hero .ox-hero{animation:oxHero 16s ease infinite}
+  .ox.fx-marquee .ox-mq-track{animation:oxMq 30s linear infinite}
+}
+@keyframes oxHero{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes oxMq{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 `

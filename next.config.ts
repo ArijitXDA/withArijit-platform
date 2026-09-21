@@ -66,6 +66,14 @@ const nextConfig: NextConfig = {
       { source: '/api/recruit/:path*', destination: 'https://partner.ostaran.com/api/recruit/:path*' },
     ]
   },
+  async headers() {
+    // The embeddable course widget (/embed/*) is added to partner websites as an <iframe>,
+    // so it must be framable cross-origin. frame-ancestors * allows any site; do NOT emit
+    // X-Frame-Options here (it has no "allow any" value — its mere presence blocks framing).
+    return [
+      { source: '/embed/:path*', headers: [{ key: 'Content-Security-Policy', value: 'frame-ancestors *;' }] },
+    ]
+  },
 };
 
 export default nextConfig;

@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Script from "next/script";
 import "./globals.css";
-import { CookieConsent } from "@/components/shared/CookieConsent";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ChromeExtras } from "./_ChromeExtras";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -94,9 +93,8 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider>
           {children}
-          <CookieConsent />
+          <ChromeExtras />
         </ThemeProvider>
-        <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
       </body>
     </html>
   );

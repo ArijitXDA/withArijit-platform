@@ -282,7 +282,7 @@ export default async function CoursePage({
   const ongoingSince   = (heroBatches ?? []).find(b => b.start_date && b.start_date < todayIST && (!b.end_date || b.end_date >= todayIST))?.start_date ?? null
 
   // All upcoming bookable slots for the hero — each open cohort's next occurrence (IST),
-  // rendered timezone-aware on the client. Dedupe by day+time, earliest date first, cap 6.
+  // rendered timezone-aware on the client. Dedupe by date+time, earliest date first, cap 6.
   const DOW_IDX = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
   const nextOccIST = (startDate: string, dow: string): string => {
     if (startDate >= todayIST) return startDate
@@ -301,7 +301,9 @@ export default async function CoursePage({
     .filter(b => b.is_open && b.start_date && b.day_of_week && b.start_time && (b.end_date ? b.end_date >= todayIST : true))
     .map(b => ({ date: nextOccIST(b.start_date as string, b.day_of_week as string), time: String(b.start_time).slice(0, 5), day: b.day_of_week as string }))
     .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
-    .filter(s => { const k = s.day + s.time; if (_slotSeen.has(k)) return false; _slotSeen.add(k); return true })
+    // Dedupe by DATE+time so distinct cohort start dates (e.g. a Dec 5 and a Feb 6
+    // Saturday-08:00 cohort) both surface as pickable options — not collapsed to one.
+    .filter(s => { const k = s.date + s.time; if (_slotSeen.has(k)) return false; _slotSeen.add(k); return true })
     .slice(0, 6)
 
   const enrolProps = {

@@ -292,7 +292,7 @@ async function resolveWebinarRegisterUrl(supabase: SupabaseClient, ctx: Record<s
     const { data } = await supabase.from('qr_landing_registrations').select('utm_source').eq('email', email.toLowerCase()).not('utm_source', 'is', null).neq('utm_source', '').order('created_at', { ascending: false }).limit(1).maybeSingle();
     if (data?.utm_source) code = String(data.utm_source).trim();
   }
-  if (!code) code = 'OS9617805';  // house/root partner, opaque form (the legacy string was the founder's name)
+  if (!code) code = 'ARIBOMBAY-0326';
   const params = new URLSearchParams({ utm_source: code, utm_medium: 'email', utm_campaign: `lifecycle_${seqShort}` });
   return `https://webinar.ostaran.com/?${params.toString()}`;
 }
@@ -307,22 +307,32 @@ async function resolveMasterclassPaymentUrl(supabase: SupabaseClient, ctx: Recor
     const { data } = await supabase.from('qr_landing_registrations').select('utm_source').eq('email', email.toLowerCase()).not('utm_source', 'is', null).neq('utm_source', '').order('created_at', { ascending: false }).limit(1).maybeSingle();
     if (data?.utm_source) code = String(data.utm_source).trim();
   }
-  if (!code) code = 'OS9617805';  // house/root partner, opaque form (the legacy string was the founder's name)
+  if (!code) code = 'ARIBOMBAY-0326';
   const params = new URLSearchParams({ utm_source: code, utm_medium: 'whatsapp', utm_campaign: 'lifecycle_s2_wa_payment' });
   return `https://www.ostaran.com/masterclass?${params.toString()}`;
 }
 
-async function resolveNoShowVars(supabase: SupabaseClient, email: string, registrationType: 'webinar' | 'masterclass', vars: Record<string, string>): Promise<void> {
+async function resolveNoShowVars(supabase: SupabaseClient, email: string, registrationType: 'webinar' | 'masterclass', vars: Record<string, string>, sessionType?: 'student' | 'partner'): Promise<boolean> {
   const { data: reg } = await supabase.from('qr_landing_registrations').select('course_id, join_token').eq('email', email.toLowerCase()).eq('registration_type', registrationType).order('created_at', { ascending: false }).limit(1).maybeSingle();
-  if (!reg) return;
-  if (reg.join_token) vars.join_link = `${JOIN_BASE}/${reg.join_token}?ref=lifecycle`;
-  if (!reg.course_id) return;
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const { data: nextSess } = await supabase.from('awa_webinar_sessions').select('webinar_date, webinar_time').eq('course_id', reg.course_id).eq('status', 'scheduled').gte('webinar_date', todayIso).order('webinar_date', { ascending: true }).order('webinar_time', { ascending: true }).limit(1).maybeSingle();
+  if (reg?.join_token) vars.join_link = `${JOIN_BASE}/${reg.join_token}?ref=lifecycle`;
+  let nextSess: any = null;
+  if (reg?.course_id) {
+    const todayIso = new Date().toISOString().slice(0, 10);
+    let q = supabase.from('awa_webinar_sessions').select('webinar_date, webinar_time').eq('course_id', reg.course_id).eq('status', 'scheduled').gte('webinar_date', todayIso);
+    if (sessionType) q = q.eq('session_type', sessionType);   // defend against student/partner session mixing
+    const res = await q.order('webinar_date', { ascending: true }).order('webinar_time', { ascending: true }).limit(1).maybeSingle();
+    nextSess = res.data;
+  }
   if (nextSess) {
     vars.next_webinar_date_display = fmtDate(nextSess.webinar_date);
     vars.next_webinar_time_display = fmtTime(nextSess.webinar_time);
+    return true;
   }
+  // No upcoming scheduled session for this course -> non-empty fallbacks so the no-show
+  // emails never hard-exit on missing vars (was 414 silent exits) or render raw {{placeholders}}.
+  vars.next_webinar_date_display = 'the next scheduled date';
+  vars.next_webinar_time_display = 'the usual time';
+  return false;
 }
 
 function joinLinkFromContext(ctx: Record<string, unknown>): string {
@@ -368,14 +378,8 @@ async function buildS6PartnerVars(supabase: SupabaseClient, ctx: Record<string, 
 }
 
 async function resolvePartnerProfileVars(supabase: SupabaseClient, email: string, ctx: Record<string, unknown>, vars: Record<string, string>): Promise<void> {
-  // ⚠ partner_code_v2 FIRST. This function overrides whatever the enrolment context held,
-  // so reading the legacy `partner_code` column made every partner-track message render the
-  // partner's name-derived code — and hand them a ?utm_source=<name> share link — for all 58
-  // pre-cutover partners, on live cron, no matter what the rest of the product had been
-  // switched to. Old codes still resolve via partner_code_aliases, so nothing already shared
-  // stops crediting them.
-  const { data: p } = await supabase.from('partners').select('partner_code, partner_code_v2, qr_code_url, commission_rate, cascade_rate, total_network_size, full_name').eq('email', email.toLowerCase()).maybeSingle();
-  const partnerCode = p?.partner_code_v2 || p?.partner_code || (ctx.partner_code as string) || '';
+  const { data: p } = await supabase.from('partners').select('partner_code, qr_code_url, commission_rate, cascade_rate, total_network_size, full_name').eq('email', email.toLowerCase()).maybeSingle();
+  const partnerCode = p?.partner_code || (ctx.partner_code as string) || '';
   if (partnerCode) {
     vars.partner_code = partnerCode;
     if (!vars.partner_share_url) vars.partner_share_url = `https://webinar.ostaran.com/?utm_source=${encodeURIComponent(partnerCode)}`;
@@ -428,7 +432,10 @@ async function buildVars(supabase: SupabaseClient, enrolment: { id: string; emai
       vars.post_webinar_intro    = "I hope yesterday's session sparked something. Most attendees walk away with one specific thing they want to try right away — what was it for you? Hit reply and tell me, I read every one.";
     } else {
       vars.post_webinar_headline = `We missed you, ${vars.first_name}`;
-      vars.post_webinar_intro    = "Life happened — no judgment. The next free session is this Sunday at 11 AM IST and your registration auto-rolls forward. Or if you'd rather catch a recap, just hit reply and I'll send you the highlights.";
+      const hasNext = await resolveNoShowVars(supabase, enrolment.email, 'webinar', vars, 'student');
+      vars.post_webinar_intro = hasNext
+        ? `Life happened — no judgment. The next free session for your course is ${vars.next_webinar_date_display} at ${vars.next_webinar_time_display} IST, and your registration auto-rolls forward. Or if you'd rather catch a recap, just hit reply and I'll send you the highlights.`
+        : `Life happened — no judgment. Your registration auto-rolls forward to the next session — I'll email you the exact date and time the moment it's scheduled. Or if you'd rather catch a recap now, just hit reply and I'll send you the highlights.`;
     }
   }
   if (templateKey.startsWith('em_s6_') || templateKey.startsWith('wa_s6_')) {
@@ -446,23 +453,8 @@ async function buildVars(supabase: SupabaseClient, enrolment: { id: string; emai
     vars.enrol_button_suffix = sp.toString();
     if (!vars.partner_name) {
       if (vars.partner_code) {
-        // HIDE MODE (partners.hide_identity). {{partner_name}} is rendered INTO the message
-        // that goes to the student — the live s6/s8 nudges close on "(Message from your AI
-        // Partner: {{partner_name}})". For a partner who switched Hide Mode on, that mails
-        // their name to every lead they ever referred, on a drip, for weeks. Hidden partners
-        // fall back to the same brand string an unresolvable code already uses, so the
-        // sentence still reads and nothing about attribution or the cascade changes.
-        // Alias-aware. vars.partner_code is now the OPAQUE code, and .eq() on the legacy
-        // column would miss every pre-cutover partner — silently degrading the live s6/s8
-        // student nudge to "Message from your AI Partner: AIwithArijit".
-        const pcode = String(vars.partner_code).trim().toUpperCase();
-        const { data: pid } = await supabase.rpc('resolve_partner_code', { p_code: pcode });
-        const { data: pn } = pid
-          ? await supabase.from('partners').select('full_name, hide_identity').eq('id', pid).maybeSingle()
-          : { data: null };
-        vars.partner_name = pn?.hide_identity === true
-          ? 'AIwithArijit'
-          : ((pn?.full_name || '').trim() || 'AIwithArijit');
+        const { data: pn } = await supabase.from('partners').select('full_name').eq('partner_code', vars.partner_code).maybeSingle();
+        vars.partner_name = (pn?.full_name || '').trim() || 'AIwithArijit';
       } else {
         vars.partner_name = 'AIwithArijit';
       }
@@ -478,7 +470,7 @@ async function buildVars(supabase: SupabaseClient, enrolment: { id: string; emai
     vars.course_name = 'your AI programme';
   }
   if (sequenceKey === 's3_paidmc_noshow_reengage') await resolveNoShowVars(supabase, enrolment.email, 'masterclass', vars);
-  else if (sequenceKey === 's7_free_webinar_noshow_recovery') await resolveNoShowVars(supabase, enrolment.email, 'webinar', vars);
+  else if (sequenceKey === 's7_free_webinar_noshow_recovery') await resolveNoShowVars(supabase, enrolment.email, 'webinar', vars, 'student');
   if (templateKey === 'wa_s2_complete_payment_v1') vars.masterclass_payment_url = await resolveMasterclassPaymentUrl(supabase, ctx, enrolment.email);
   if (sequenceKey === 'p1_partner_welcome_onboarding' || sequenceKey === 'p2_partner_first_student_referral' || sequenceKey === 'p3_partner_first_commission' || sequenceKey === 'p4_partner_weekly_pulse' || sequenceKey === 'p5_subpartner_added' || sequenceKey === 'p6_partner_dormancy_recovery' || sequenceKey === 'p7_first_referral_activation') {
     await resolvePartnerProfileVars(supabase, enrolment.email, ctx, vars);

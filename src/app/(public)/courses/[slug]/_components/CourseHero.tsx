@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { PaymentModalTrigger } from '@/components/shared/PaymentModalTrigger'
 import { Price } from '@/lib/currency'
+import { NextBatchSlots, type BatchSlot } from './NextBatchSlots'
 
 const AUDIENCE_TAG: Record<string, { label: string; color: string; emoji: string }> = {
   working_professionals: { label: 'Working Professionals',  color: '#4f46e5', emoji: '💼' },
@@ -32,11 +33,11 @@ function formatHeroDate(d: string) {
 
 export function CourseHero({
   course, mrp, gstAmount, netBeforeGst, discountPct, partner, partnerName, enrolProps,
-  nextBatchStart, ongoingSince,
+  nextBatchStart, ongoingSince, upcomingSlots,
 }: {
   course: any; mrp: number; gstAmount: number; netBeforeGst: number
   discountPct: number; partner?: string; partnerName?: string; enrolProps: any
-  nextBatchStart?: string | null; ongoingSince?: string | null
+  nextBatchStart?: string | null; ongoingSince?: string | null; upcomingSlots?: BatchSlot[]
 }) {
   const tagKey  = SLUG_AUDIENCE[course.slug] ?? course.audience_category ?? 'general'
   const tag     = AUDIENCE_TAG[tagKey] ?? AUDIENCE_TAG.general
@@ -135,9 +136,11 @@ export function CourseHero({
 
             {/* Batch dates — pulled live from awa_batches (date only, no time) */}
             <div className="mb-4 space-y-1.5">
-              <div className="flex items-center gap-2 text-sm text-emerald-400 font-semibold">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                {nextBatchStart
+              <div className="flex items-start gap-2 text-sm text-emerald-400 font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mt-1.5 shrink-0" />
+                {upcomingSlots && upcomingSlots.length
+                  ? <NextBatchSlots slots={upcomingSlots} />
+                  : nextBatchStart
                   ? <span>Next batch starts <span className="batch-date-neon text-base align-middle">{formatHeroDate(nextBatchStart)}</span></span>
                   : <span>Enrol in the upcoming batch now</span>}
               </div>

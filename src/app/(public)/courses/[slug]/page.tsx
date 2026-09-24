@@ -117,8 +117,15 @@ export default async function CoursePage({
   // Not public yet: allow ONLY with a valid signed preview token for this course
   // (mentor authoring / dev-admin review); otherwise redirect gracefully.
   const isPreview = !course.is_active && verifyPreviewToken(preview ?? null) === course.id
+
+  // A course with a redirect_slug has been moved off retail (e.g. a channel-exclusive
+  // wholesale/ND SKU like the Working-Professionals AI Mastery variant): send retail
+  // visitors to its replacement. Previously this only fired for INACTIVE courses, so an
+  // active wholesale-only SKU stayed publicly purchasable — this closes that gap.
+  if (course.redirect_slug && !isPreview) redirect(`/courses/${course.redirect_slug}`)
+
   if (!course.is_active && !isPreview) {
-    redirect(course.redirect_slug ? `/courses/${course.redirect_slug}` : '/courses')
+    redirect('/courses')
   }
 
   // Mentor course → render mentor-authored sections + hide AI-Kit/testimonials.
@@ -209,7 +216,7 @@ export default async function CoursePage({
     // Live batch dates for the hero — next upcoming + any in-progress cohort (date only).
     // Shared-group (audience) courses source the AI Mastery pool via heroBatchCourseIds.
     supabase.from('awa_batches')
-      .select('start_date, end_date, is_open')
+      .select('start_date, end_date, is_open, day_of_week, start_time')
       .in('course_id', heroBatchCourseIds)
       .eq('is_active', true)
       .order('start_date', { ascending: true }),
@@ -274,6 +281,29 @@ export default async function CoursePage({
   const nextBatchStart = (heroBatches ?? []).find(b => b.is_open && b.start_date && b.start_date >= todayIST)?.start_date ?? null
   const ongoingSince   = (heroBatches ?? []).find(b => b.start_date && b.start_date < todayIST && (!b.end_date || b.end_date >= todayIST))?.start_date ?? null
 
+  // All upcoming bookable slots for the hero — each open cohort's next occurrence (IST),
+  // rendered timezone-aware on the client. Dedupe by day+time, earliest date first, cap 6.
+  const DOW_IDX = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+  const nextOccIST = (startDate: string, dow: string): string => {
+    if (startDate >= todayIST) return startDate
+    const target = DOW_IDX.indexOf(dow)
+    if (target < 0) return startDate
+    const [y, m, d] = todayIST.split('-').map(Number)
+    const dt = new Date(Date.UTC(y, m - 1, d))
+    for (let i = 0; i < 7; i++) {
+      if (dt.getUTCDay() === target) return dt.toISOString().slice(0, 10)
+      dt.setUTCDate(dt.getUTCDate() + 1)
+    }
+    return startDate
+  }
+  const _slotSeen = new Set<string>()
+  const upcomingSlots = (heroBatches ?? [])
+    .filter(b => b.is_open && b.start_date && b.day_of_week && b.start_time && (b.end_date ? b.end_date >= todayIST : true))
+    .map(b => ({ date: nextOccIST(b.start_date as string, b.day_of_week as string), time: String(b.start_time).slice(0, 5), day: b.day_of_week as string }))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+    .filter(s => { const k = s.day + s.time; if (_slotSeen.has(k)) return false; _slotSeen.add(k); return true })
+    .slice(0, 6)
+
   const enrolProps = {
     courseId:          course.id,
     courseName:        course.name,
@@ -303,7 +333,7 @@ export default async function CoursePage({
         <CourseHero
           course={course} mrp={mrp} gstAmount={gstAmount} netBeforeGst={netBeforeGst}
           discountPct={discountPct} partner={isPartnerReferred ? partnerPublicCode : undefined} partnerName={partnerName} enrolProps={enrolProps}
-          nextBatchStart={nextBatchStart} ongoingSince={ongoingSince}
+          nextBatchStart={nextBatchStart} ongoingSince={ongoingSince} upcomingSlots={upcomingSlots}
         />
 
         {/* 2. Transformation outcomes */}

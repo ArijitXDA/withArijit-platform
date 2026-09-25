@@ -7,6 +7,7 @@ import { AudienceTabsSection }    from '@/components/marketing/AudienceTabsSecti
 import { CoursesSection }         from '@/components/marketing/CoursesSection'
 import { GetHiredSection }        from '@/components/marketing/GetHiredSection'
 import { HowItWorksSection }      from '@/components/marketing/HowItWorksSection'
+import { VideoShowcaseSection }   from '@/components/marketing/VideoShowcaseSection'
 import { MasterclassCTASection }  from '@/components/marketing/MasterclassCTASection'
 import { TestimonialsMarquee }    from '@/components/marketing/TestimonialsMarquee'
 import { PartnerSection }         from '@/components/marketing/PartnerSection'
@@ -73,6 +74,9 @@ export default async function HomePage() {
 
       {/* 6. How it works */}
       <HowItWorksSection />
+
+      {/* 6b. See oStaran in action — video showcase (click-to-load) */}
+      <VideoShowcaseSection />
 
       {/* 7. Masterclass CTA strip */}
       <MasterclassCTASection />

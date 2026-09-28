@@ -19,13 +19,13 @@ const FALLBACK: any = {
   founder: { name: 'Arijit Chowdhury', bio: 'Founder of oStaran; CAIO, AI researcher, IIT Bombay guest lecturer. Teaches every live session personally.' },
   contacts: { email: 'ai@ostaran.com', whatsapp: 'https://wa.me/919930051053' },
   urls: { masterclass: 'ostaran.com/masterclass', courses: '/courses', group_enrol: 'ostaran.com/group-enrol', partner_programme: 'partner.ostaran.com', certificate_verify: 'ostaran.com/certificate-verification', free_webinar: 'https://webinar.ostaran.com', membership: '/courses/quantum-ai-continued', expert_consultation: '/expert-consultation' },
-  house_partner_code: 'OS9617805',
+  house_partner_code: 'ARIBOMBAY-0326',
   pricing: {
     ai_masterclass: 'Paid live session at ₹3,999 — Arijit teaches it personally.',
     quantum_ai_continued_membership: '₹2,999/month rolling membership; enrol at /courses/quantum-ai-continued.',
-    note: 'Per-course MRPs are live in awa_courses — use the get_courses tool for course prices, never guess. Expert Consultation is priced separately (USD, or INR+GST for India) — never quote it from memory; point to /expert-consultation.',
+    note: 'Per-course MRPs are live in awa_courses — use the get_courses tool for course prices, never guess. Displayed prices auto-convert to the local currency (INR default; USD/EUR by geography) at live FX and are payable in that currency — never quote an exchange rate. Expert Consultation is priced separately (USD, or INR+GST for India) — never quote it from memory; point to /expert-consultation.',
   },
-  certificates: 'Interim Certificate after Session 13 + globally-recognised Completion certificate. Verifiable at ostaran.com/certificate-verification.',
+  certificates: 'Interim Certificate after Session 13 + globally-recognised Completion certificate, verifiable at ostaran.com/certificate-verification. Udaan 1-day bootcamps issue their certificate on passing the end-of-bootcamp 50-question MCQ exam.',
   ai_kit: 'Physical AI Kit couriered free in India after enrolling in a full-time course.',
   course_formats: '9-Week Weekend Intensive (9×2hr) or 26-Week Long Track (26×1hr) — same curriculum, certificate, price.',
   funnel: 'capture lead → FREE 90-min webinar → attend → enrol → Quantum & AI Continued membership.',
@@ -37,7 +37,7 @@ const FALLBACK: any = {
     for_students: 'Taught by the named professor (not Arijit) with the same oStaran rails.',
   },
   expert_consultation: 'Expert Consultation is a SEPARATE 1:1/small-team AI advisory for organisations, founders, leaders and CXOs. Booked at ostaran.com/expert-consultation, priced per hour in USD (India buyers pay INR + GST). NOT a cohort course and NOT partner-commissionable. Never quote a price from memory — point to ostaran.com/expert-consultation.',
-  invoicing: 'Invoices are from Star Analytix Pvt Ltd. India buyers: INR + 18% GST (GST tax invoice); international buyers: USD export of services (no GST). GSTIN currently "Applied For".',
+  invoicing: 'Invoices are from Star Analytix Pvt Ltd. India buyers: INR + 18% GST (GST tax invoice); international buyers: USD export of services (no GST). The displayed price is GST-INCLUSIVE — 18% GST is already inside it, not added on top. GSTIN currently "Applied For".',
 }
 
 let cache: { facts: any; at: number } | null = null

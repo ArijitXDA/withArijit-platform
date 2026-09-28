@@ -111,6 +111,7 @@ export function variantLabel(variant: string | null | undefined): string {
   if (variant === 'weekend9') return '9-Week Weekend Intensive'
   if (variant === 'long26')   return '26-Week Long Track'
   if (variant === 'rolling')  return 'Continued Up-skilling — Monthly Membership'
+  if (variant === 'bootcamp5') return 'Udaan Bootcamp'
   return 'Course'
 }
 
@@ -121,6 +122,8 @@ export function variantBlurb(variant: string | null | undefined): string {
     return '26 weekly weekend sessions × 60 min — the full curriculum, steady pace'
   if (variant === 'rolling')
     return 'One live 60-min session every week — ongoing, no end date'
+  if (variant === 'bootcamp5')
+    return 'Intensive Udaan certification bootcamp — hands-on; the 1-day bootcamp ends with a 50-question MCQ certification exam'
   return ''
 }
 

@@ -49,7 +49,7 @@ const ARI_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'get_next_sessions',
-    description: 'Get upcoming paid AI Masterclass sessions (live, instructor-led, Sunday classes) with dates, times, and course names.',
+    description: 'Get upcoming live AI session dates (the same schedule shown on the /masterclass page) with dates, times, and course names.',
     input_schema: { type: 'object' as const, properties: {
       audience: { type: 'string', description: 'Optional audience filter: working_professionals, school, college, tech, cxo' }
     }, required: [] },
@@ -106,27 +106,40 @@ async function executeTool(
     case 'get_courses': {
       const { data } = await supabase
         .from('awa_courses')
-        .select('name, description, mrp, target_audience, total_sessions, slug, audience_category')
+        .select('name, description, mrp, target_audience, total_sessions, slug, audience_category, tenure_type')
         .eq('is_active', true)
         .order('sort_order')
-      if (!data?.length) return 'No courses currently available.'
-      return data.map(c =>
-        `• **${c.name}** — ₹${Number(c.mrp).toLocaleString('en-IN')}\n  ${c.description ?? ''}\n  For: ${c.target_audience ?? 'All learners'} · ${c.total_sessions ?? 26} live sessions\n  URL: /courses/${c.slug}`
-      ).join('\n\n')
+      // Expert Consultation is USD-priced with an mrp=0 placeholder — never list it as ₹0 here
+      // (it lives on its own /expert-consultation page). Also skip any other zero-priced row.
+      const rows = (data ?? []).filter(c => c.slug !== 'expert-consultation' && Number(c.mrp) > 0)
+      if (!rows.length) return 'No courses currently available.'
+      return rows.map(c => {
+        // Only the genuine rolling membership (monthly tenure AND no fixed session count)
+        // is a "/month" product. A monthly-tenure course that still has sessions (e.g. the
+        // ₹70,000 Agentic AI flagship, 26 sessions) is a one-time price, not a membership.
+        const monthly = c.tenure_type === 'monthly' && c.total_sessions == null
+        const price = `₹${Number(c.mrp).toLocaleString('en-IN')}${monthly ? '/month' : ''}`
+        const sessions = monthly ? 'rolling monthly membership' : (c.total_sessions ? `${c.total_sessions} live sessions` : 'live sessions')
+        return `• **${c.name}** — ${price}\n  ${c.description ?? ''}\n  For: ${c.target_audience ?? 'All learners'} · ${sessions}\n  URL: /courses/${c.slug}`
+      }).join('\n\n')
     }
 
     case 'get_next_sessions': {
-      // Query paid Masterclass sessions from awa_webinar_sessions (NOT the free webinar QR table)
+      // Mirror the /masterclass page's own source (qr_landing_webinar_links) so the dates
+      // Ari lists match exactly what a visitor sees and can register for on that page.
+      const today = new Date().toISOString().split('T')[0]
       const { data } = await supabase
-        .from('awa_webinar_sessions')
-        .select('id, course_name, webinar_date, webinar_time, session_type')
-        .eq('status', 'scheduled')
-        .eq('session_type', 'student')
-        .gte('webinar_date', new Date().toISOString().split('T')[0])
+        .from('qr_landing_webinar_links')
+        .select('course_id, course_name, webinar_date, webinar_time')
+        .eq('is_active', true)
+        .gte('webinar_date', today)
         .order('webinar_date')
-        .limit(6)
-      if (!data?.length) return 'Next Masterclass sessions are being scheduled. Visit /masterclass to register and we\'ll notify you.'
-      return data.map(s =>
+        .order('webinar_time')
+      if (!data?.length) return 'Next sessions are being scheduled. Visit /masterclass to register and we\'ll notify you.'
+      // Earliest upcoming slot per course, so we don't list the same course many times.
+      const seen = new Set<number>()
+      const rows = data.filter(s => { if (seen.has(s.course_id)) return false; seen.add(s.course_id); return true })
+      return rows.slice(0, 6).map(s =>
         `• **${s.course_name}** — ${new Date(s.webinar_date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })} at ${String(s.webinar_time).slice(0, 5)} IST\n  Register at: ostaran.com/masterclass`
       ).join('\n\n')
     }
@@ -167,9 +180,9 @@ Perfect for corporate training, NGOs, colleges, and coaching institutes.`
         trainer: `**Arijit Chowdhury** — Founder of oStaran & Star Analytix Pvt Ltd.\n\n19 years of global experience at HSBC, Reliance, Yes Bank, Murugappa, and Qubit Microsystems. Currently CAIO at a Global Fintech firm. Guest Lecturer at IIT Bombay. Corporate coach for Deloitte, PwC, McKinsey, Capgemini, and Cognizant.\n\nResearcher in Agentic AI, AGI, Quantum Computing, Industrial AI, and AI Defence. He personally teaches every live session — no TAs, no pre-recorded content.`,
         certificate: `oStaran issues **two certificates** for full-time courses:\n\n1. **Interim Certificate** — after Session 13. Add it to LinkedIn immediately.\n2. **Completion Certificate** — globally recognised, issued after all sessions.\n\nBoth are verifiable online at ostaran.com/certificate-verification.`,
         ai_kit: `The **oStaran AI Kit** is a physical package couriered to your home address in India (no extra cost) after you enrol in a full-time course.\n\nIt includes:\n• AI Learning Roadmap Notebook\n• AI Handbook (desk reference)\n• Printed course curriculum\n• "I am an AI Guy/Girl" badge & stickers\n• "I am an AI Superstar" sticker\n• oStaran branded merchandise\n• oStaran Learner Card`,
-        partner: `The **oStaran Partner Programme** is free to join.\n\nEarn commissions on every student enrolment you refer. Build a 6-level deep partner network. The more partners you recruit, the more you earn — even while you sleep.\n\nJoin at partner.ostaran.com`,
-        unique: `What makes oStaran unique:\n\n• **100% live sessions** — Arijit teaches every class personally\n• **Real projects only** — no toy examples, no dummy data\n• **Physical AI Kit** couriered to your home\n• **Two certificates** — interim (Session 13) + completion\n• **Audience-specific** — 5 distinct tracks for different learners\n• **Weekend only** — no weekday disruption\n• **Group enrolment** — from 2 seats\n• **Profitable since 2020** — no VC, no compromise`,
-        about: `oStaran is an Indian AI education startup founded in April 2020 by Arijit Chowdhury. We've trained 50,000+ learners across India, USA, Canada, and Western Europe. We offer 9 AI programmes from beginner to advanced — all live, all hands-on, all on weekends. Operated by Star Analytix Pvt Ltd, Mumbai.`,
+        partner: `The **oStaran Partner Programme** is free to join.\n\nEarn commissions on every student enrolment you refer, and build a multi-level partner network. The more partners you bring in, the more you earn.\n\nJoin at partner.ostaran.com`,
+        unique: `What makes oStaran unique:\n\n• **100% live sessions** — Arijit teaches every class personally\n• **Real projects only** — no toy examples, no dummy data\n• **Physical AI Kit** couriered to your home\n• **Two certificates** — interim (Session 13) + completion\n• **Audience-specific** — distinct tracks for students, professionals, leaders and more\n• **Flexible formats** — flagship courses run on weekends; short Udaan bootcamps run on weekdays\n• **Group enrolment** — from 2 seats\n• **Profitable since 2020** — no VC, no compromise`,
+        about: `oStaran is an Indian AI education startup founded in April 2020 by Arijit Chowdhury. We've trained 50,000+ learners across India, USA, Canada, and Western Europe. We offer a wide range of live AI programmes from beginner to advanced — all live and hands-on, from short one-day bootcamps to full certification tracks. Operated by Star Analytix Pvt Ltd, Mumbai.`,
       }
       return INFO[topic] ?? INFO['about']
     }
@@ -217,6 +230,9 @@ In those cases, offer the free webinar as the no-cost FIRST STEP, then frame the
 
 ## Enterprise & 1:1 advisory — Expert Consultation (a SEPARATE track)
 Some visitors are companies, founders, senior leaders or CXOs who don't want a course — they want bespoke 1:1 or small-team help on their OWN AI project (Agentic AI, quantum AI, data-centre/governance, BI, or a custom build). For them, oStaran offers **Expert Consultation** at **ostaran.com/expert-consultation** — a paid advisory priced per hour in USD (India buyers pay in INR + GST). When a visitor clearly signals this (a company, a founder/leader, "consulting", "for my team", "a project", "advisory"), point them to that page. Keep the ₹3,999 Masterclass and the full courses as the default for individual learners. Do NOT quote a consultation price — it is custom / quote-based; send them to the page. It is separate from the partner programme and is NOT part of partner commissions.
+
+## Lower-cost entry options (for budget-conscious or younger visitors)
+Beyond the ₹3,999 Masterclass and the full certification courses, oStaran also runs lower-cost, hands-on **Udaan** bootcamps — a one-day bootcamp and short certification courses — that suit school/college students or price-sensitive visitors. Offer these when someone signals a tight budget or is a young student. Always pull the exact price and details from the get_courses tool — never quote a Udaan price from memory. Note that Udaan and some short programmes run on weekdays, not only weekends.
 
 ## Honesty about pricing
 - Always be upfront that the Masterclass is paid (₹3,999). Never imply it is free.

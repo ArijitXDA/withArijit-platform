@@ -3,7 +3,7 @@ import { createClient }        from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import Anthropic               from '@anthropic-ai/sdk'
 import {
-  generateSchedule, nextSessionOf, daysUntil,
+  generateSchedule, nextSessionOf, daysUntil, variantLabel,
   type ScheduleSession, type BatchLike,
 } from '@/lib/sessionSchedule'
 import { getPlatformFacts, platformFactsBlock } from '@/lib/platformFacts'
@@ -152,7 +152,7 @@ async function executeTool(
         const head = isW9
           ? `**Your Curriculum — 9-Week Weekend Intensive (${ctx.schedule.length} weekend sessions)**\n`
             + `_Each weekend covers about three curriculum topics — the full programme, intensive pace._\n`
-          : `**Your Curriculum — 26-Week Long Track (${ctx.schedule.length} sessions)**\n`
+          : `**Your Curriculum — ${variantLabel(ctx.variant)} (${ctx.schedule.length} session${ctx.schedule.length === 1 ? '' : 's'})**\n`
         return head + '\n' + ctx.schedule.map(s => {
           let line = `**Session ${s.n}: ${s.title}**`
           if (s.curriculumRange) line += `  _(${s.curriculumRange})_`

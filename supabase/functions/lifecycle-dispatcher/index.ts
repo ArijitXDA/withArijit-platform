@@ -1,8 +1,56 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+import {
+  ALERT_COOLDOWN_HOURS,
+  OUTAGE_DEFER_MINUTES,
+  PAUSE_CHECK_DEFER_MINUTES,
+  alertCooldownElapsed,
+  breakerOnOutage,
+  breakerOnSuccess,
+  buildOutageAlert,
+  classifyWaError,
+  clampToWindow,
+  deferTime,
+  failureTag,
+  isMissingFunctionError,
+  isMissingTableError,
+  isTimeCriticalWaStep,
+  isTooLate,
+  newBreaker,
+  outageDeferralExpired,
+  pauseBlocks,
+  sustainedOutage,
+  tooLateGraceMin,
+} from './guards.ts';
+import type { WaBreaker } from './guards.ts';
 
 /**
- * lifecycle-dispatcher v23 (+ in-app inbox mirror)
+ * lifecycle-dispatcher v25 (reliability + partner WhatsApp pause)
+ *
+ * v25: 1) WhatsApp send errors are CLASSIFIED (guards.ts classifyWaError):
+ *        PROVIDER_OUTAGE (402/WCC, 400 "No Plan active", 401/403, 429, 5xx, timeout/network, missing key)
+ *        -> never counted, never kills the enrolment; the step is deferred 15 min (clamped into its send
+ *        window) and an IN-MEMORY per-invocation breaker opens so the rest of the tick defers WhatsApp
+ *        steps WITHOUT calling AiSensy (one probe per 5-min tick; recovery is automatic). After 48h of
+ *        outage-deferral a step falls back to the old counting behaviour (safety valve). Account-level
+ *        errors open the breaker at once; transient ones (429/5xx/timeout) need 2 in a row, so a single
+ *        poisoned recipient cannot block WhatsApp for everyone.
+ *        RECIPIENT errors (Invalid Number...) are logged once and the step is ADVANCED (later steps live on).
+ *        CONFIG errors keep the 3-strike behaviour, tagged 'config_error'.
+ *      2) TOO-LATE guard: WhatsApp steps anchored to an event with offset <= 0 are skipped
+ *        ('too_late') when now > scheduled send time + 30 min (day-before steps, offset <= -3h: + 6h).
+ *      3) Retries/deferrals respect the step send window (old retry ignored it).
+ *      4) PARTNER PAUSE GATE: WhatsApp steps of track='partner' sequences consult
+ *        partner_wa_pause_state(email) -> NULL | 'promotional' | 'all'; blocked steps log
+ *        skip 'wa_paused' and advance (email steps continue). Missing RPC = not paused (warn once).
+ *      5) Sustained outage (3 probe ticks) -> lifecycle_engine_alerts row + ONE Resend email to the
+ *        active super_admin/dev_admin users (same recipients as the weekly digest), max 1 / 6h.
+ *      6) partner-track unsubscribe_url now uses the working host (www.ostaran.com).
+ *      7) AiSensy fetch has a 20s timeout so a hung provider cannot stall the tick.
+ *
+ * v24: no-show email copy resolves the next session per course (resolveNoShowVars).
+ *
+ * v23 (+ in-app inbox mirror)
  *
  * v23: WhatsApp inbox rows resolve the POSITIONAL {{1}}..{{n}} placeholders via
  *      aisensy_param_order. renderTemplate only matches named vars, so v22 filed WhatsApp rows
@@ -68,6 +116,9 @@ const LINK_BASE       = 'https://ostaran.com';
 const JOIN_BASE       = 'https://partner.ostaran.com/join';
 const MAX_FAILURES    = 3;
 const BACKOFF_MINUTES = [5, 30, 120];
+const WA_FETCH_TIMEOUT_MS = 20000;
+const OPS_SENDER      = 'oStaran Ops <ai@ostaran.com>'; // same sender as send-admin-weekly-digest
+const ALERT_KIND_WA_OUTAGE = 'wa_provider_outage';
 
 const AUDIENCE_TO_SLUG: Record<string, string> = {
   working_professional:    'ai-mastery-for-working-professionals',
@@ -182,23 +233,10 @@ function computeAnchorTime(ctx: Record<string, unknown>, anchor: string | null, 
   return null;
 }
 
+// v25: implementation moved verbatim to guards.ts (clampToWindow) so it is unit-tested and shared with
+// the retry/deferral paths. Kept as a thin wrapper so existing call sites are untouched.
 function applySendWindow(when: Date, windowStart: string, windowEnd: string): Date {
-  const istMs = when.getTime() + 5.5 * 3600 * 1000;
-  const ist = new Date(istMs);
-  const minOfDay = ist.getUTCHours() * 60 + ist.getUTCMinutes();
-  const [wsH, wsM] = windowStart.split(':').map(Number);
-  const [weH, weM] = windowEnd.split(':').map(Number);
-  const startMin = wsH * 60 + wsM;
-  const endMin   = weH * 60 + weM;
-  if (minOfDay >= startMin && minOfDay <= endMin) return when;
-  const newIst = new Date(istMs);
-  if (minOfDay < startMin) {
-    newIst.setUTCHours(wsH, wsM, 0, 0);
-  } else {
-    newIst.setUTCDate(newIst.getUTCDate() + 1);
-    newIst.setUTCHours(wsH, wsM, 0, 0);
-  }
-  return new Date(newIst.getTime() - 5.5 * 3600 * 1000);
+  return clampToWindow(when, windowStart, windowEnd);
 }
 
 function audienceSlug(ctx: Record<string, unknown>): string {
@@ -411,7 +449,10 @@ async function buildVars(supabase: SupabaseClient, enrolment: { id: string; emai
     if (v === null || v === undefined) continue;
     if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') vars[k] = String(v);
   }
-  vars.first_name            = firstName(fullName);
+  // p9 partner-webinar invites carry first_name in their context but no full_name; keep that first
+  // name rather than overwriting it with 'there' (fixed 2026-09-30; every other sequence is unchanged).
+  const ctxFirstName         = typeof ctx.first_name === 'string' ? ctx.first_name.trim() : '';
+  vars.first_name            = fullName ? firstName(fullName) : (ctxFirstName || firstName(fullName));
   vars.full_name             = fullName;
   vars.email                 = enrolment.email;
   vars.mobile                = enrolment.mobile || '';
@@ -422,9 +463,9 @@ async function buildVars(supabase: SupabaseClient, enrolment: { id: string; emai
   vars.partner_code          = (ctx.partner_code as string) || vars.partner_code || '';
   vars.join_link             = joinLinkFromContext(ctx);
   vars.enrol_url             = resolveEnrolUrl(ctx);
-  vars.unsubscribe_url       = sequenceKey.startsWith('p') && !sequenceKey.startsWith('phase_')
-    ? `https://partner.ostaran.com/unsubscribe/${enrolment.id}`
-    : unsubscribeUrl(enrolment.id);
+  // v25: partner-track sequences used https://partner.ostaran.com/unsubscribe/<id>, which 404s (the route
+  // exists only on www). The www page is keyed by enrolment id for every track, so use it for all.
+  vars.unsubscribe_url       = unsubscribeUrl(enrolment.id);
   if (templateKey === 'em_s1_post_webinar_v1' && webinarDate) {
     const branch = await lookupPostWebinarBranch(supabase, enrolment.email, webinarDate);
     if (branch === 'attended') {
@@ -520,9 +561,12 @@ async function alreadySent(supabase: SupabaseClient, enrolmentId: string, stepIn
 
 interface SendResult { ok: boolean; provider_id?: string; error?: string; }
 
-async function sendEmail(apiKey: string, from: string, to: string, subject: string, html: string, text: string | null): Promise<SendResult> {
+// v25: `to` may be an array (ops alerts go to all active admins) and `bcc` is overridable; defaults keep
+// every existing call byte-for-byte identical (single recipient, BCC to the archive mailbox).
+async function sendEmail(apiKey: string, from: string, to: string | string[], subject: string, html: string, text: string | null, bcc: string[] = [BCC_EMAIL]): Promise<SendResult> {
   try {
-    const body: Record<string, unknown> = { from, to: [to], bcc: [BCC_EMAIL], subject, html };
+    const body: Record<string, unknown> = { from, to: Array.isArray(to) ? to : [to], subject, html };
+    if (bcc.length > 0) body.bcc = bcc;
     if (text) body.text = text;
     const res = await fetch(RESEND_API_URL, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const data = await res.json().catch(() => ({}));
@@ -533,7 +577,9 @@ async function sendEmail(apiKey: string, from: string, to: string, subject: stri
 
 async function sendWhatsApp(apiKey: string, destination: string, userName: string, campaignName: string, templateParams: string[]): Promise<SendResult> {
   try {
-    const res = await fetch(AISENSY_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, campaignName, destination, userName: userName || 'Student', source: 'lifecycle_dispatcher', templateParams }) });
+    // v25: 20s timeout (was unbounded). A hung provider must not stall the whole tick; a timeout is
+    // classified as a transient provider_outage by classifyWaError().
+    const res = await fetch(AISENSY_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, campaignName, destination, userName: userName || 'Student', source: 'lifecycle_dispatcher', templateParams }), signal: AbortSignal.timeout(WA_FETCH_TIMEOUT_MS) });
     const data = await res.json().catch(() => ({}));
     if (res.ok) return { ok: true, provider_id: data?.submitted_message_id };
     return { ok: false, error: `AiSensy ${res.status}: ${JSON.stringify(data)}` };
@@ -671,7 +717,125 @@ async function exitEnrolment(supabase: SupabaseClient, enrolmentId: string, reas
   await supabase.from('lifecycle_sequence_enrolments').update({ status: 'exited', exit_reason: reason.slice(0, 200), next_send_at: null, updated_at: new Date().toISOString() }).eq('id', enrolmentId);
 }
 
-async function processEnrolment(supabase: SupabaseClient, resendKey: string, aiSensyKey: string | null, pushKey: string, enrolmentId: string, dryRun: boolean): Promise<ProcessResult> {
+// ── v25: per-invocation tick state + deferral / pause / alert helpers ────────────────────────────────
+// TickState is created fresh inside Deno.serve() for EVERY request. It must never be module-level: a warm
+// isolate is reused across ticks and a module-level breaker would stay open forever (never re-probing).
+interface TickState { breaker: WaBreaker }
+
+let pauseFnMissingWarned = false; // module-level is fine: it only rate-limits a console warning
+
+function stepWindow(step: any): [string, string] {
+  return [String(step.send_window_start || '00:00'), String(step.send_window_end || '23:59')];
+}
+
+// When did this step FIRST become due? No column stores it, and outage deferrals deliberately do NOT touch
+// last_attempt_at, so: the later of the step's own schedule (anchor incl. offset, or enrolled_at + delay) and
+// last_attempt_at (= when advanceStep made this step current). Used only by the 48h outage safety valve.
+function stepFirstDueMs(enrolment: any, step: any): number {
+  const anchored = step.absolute_anchor
+    ? computeAnchorTime((enrolment.context || {}) as Record<string, unknown>, step.absolute_anchor, step.anchor_offset_hours)
+    : null;
+  const scheduled = anchored ? anchored.getTime() : new Date(enrolment.enrolled_at).getTime() + (step.delay_hours || 0) * 3600 * 1000;
+  const advancedAt = enrolment.last_attempt_at ? new Date(enrolment.last_attempt_at).getTime() : 0;
+  return Math.max(scheduled, advancedAt);
+}
+
+// Defer without failing: next_send_at = now + minutes clamped into the step's send window. failure_count and
+// last_attempt_at are left untouched on purpose (the 48h valve reads last_attempt_at).
+async function deferEnrolment(supabase: SupabaseClient, enrolmentId: string, step: any, minutes: number, dryRun: boolean, detail: string): Promise<ProcessResult> {
+  const [ws, we] = stepWindow(step);
+  const retryAt = deferTime(Date.now(), minutes, ws, we);
+  if (!dryRun) {
+    const { error } = await supabase.from('lifecycle_sequence_enrolments').update({ next_send_at: retryAt.toISOString(), updated_at: new Date().toISOString() }).eq('id', enrolmentId);
+    if (error) console.error('[lifecycle-dispatcher] defer update failed:', enrolmentId, error.message);
+  }
+  return { enrolment_id: enrolmentId, outcome: 'deferred', detail, next_send_at: retryAt.toISOString() };
+}
+
+type PauseVerdict = { action: 'send' } | { action: 'skip'; state: string } | { action: 'defer'; error: string };
+
+// partner_wa_pause_state(p_email) -> NULL (not paused) | 'promotional' | 'all'.
+// Missing function (42883 / PGRST202) = not paused (the migration may not be applied yet); any OTHER error
+// defers the step (fail closed, no failure increment) so a paused partner is never messaged by accident.
+async function partnerWaPauseVerdict(supabase: SupabaseClient, email: string, commsClass: string | null | undefined): Promise<PauseVerdict> {
+  try {
+    const { data, error } = await supabase.rpc('partner_wa_pause_state', { p_email: email });
+    if (error) {
+      const code = String((error as { code?: string }).code ?? '');
+      if (isMissingFunctionError(code)) {
+        if (!pauseFnMissingWarned) {
+          pauseFnMissingWarned = true;
+          console.warn('[lifecycle-dispatcher] partner_wa_pause_state() not found - treating partners as NOT paused until the pause migration is applied');
+        }
+        return { action: 'send' };
+      }
+      return { action: 'defer', error: `${code}:${error.message}`.slice(0, 200) };
+    }
+    const state = data === null || data === undefined ? null : String(data);
+    return pauseBlocks(state, commsClass) ? { action: 'skip', state: state as string } : { action: 'send' };
+  } catch (err) {
+    return { action: 'defer', error: `rpc_exception:${(err as Error).message}`.slice(0, 200) };
+  }
+}
+
+// Same recipients as send-admin-weekly-digest (active super_admin + dev_admin). Falls back to the mailbox this
+// function already BCCs on every send; never an invented address.
+async function adminAlertRecipients(supabase: SupabaseClient): Promise<string[]> {
+  try {
+    const { data } = await supabase.from('admin_users').select('email').eq('status', 'active').in('role', ['super_admin', 'dev_admin']).not('email', 'is', null);
+    const list = (data ?? []).map((a: { email?: string | null }) => String(a.email ?? '').trim().toLowerCase()).filter((e: string) => e.includes('@'));
+    if (list.length > 0) return [...new Set<string>(list)];
+  } catch (err) { console.warn('[lifecycle-dispatcher] admin recipient lookup failed:', (err as Error).message); }
+  return [BCC_EMAIL];
+}
+
+// Called once at the end of a tick that saw a provider outage. Cheap by construction: only runs when this tick
+// had >= 1 real outage failure; 2 small queries, then (rarely) the alerts table + one email.
+//  - "3 consecutive ticks": probe failure rows (status='failed', skip_reason LIKE 'provider_outage%') in >= 3 distinct
+//    5-min buckets within the last hour, none of them older than the latest successful WhatsApp send.
+//  - once per 6h per kind, deduped through lifecycle_engine_alerts (claim the slot first, then email; the claim is
+//    released if the email fails so the next tick retries).
+//  - lifecycle_engine_alerts missing => warn + no email (no table = no dedupe = would spam every tick).
+async function maybeAlertWaOutage(supabase: SupabaseClient, resendKey: string, breaker: WaBreaker): Promise<string> {
+  const nowMs = Date.now();
+  const since = new Date(nowMs - 60 * 60 * 1000).toISOString();
+  const { data: probes, error: pErr } = await supabase.from('lifecycle_dispatch_log').select('attempted_at').eq('status', 'failed').like('skip_reason', 'provider_outage%').gte('attempted_at', since).order('attempted_at', { ascending: false }).limit(60);
+  if (pErr) { console.warn('[lifecycle-dispatcher] alert probe query failed:', pErr.message); return 'probe_query_failed'; }
+  const times = (probes ?? []).map((r: { attempted_at: string }) => Date.parse(r.attempted_at)).filter((t: number) => Number.isFinite(t));
+  // Most recent REAL WhatsApp send (an 'idempotent_skip' row is not proof the provider is up).
+  const { data: sentRows } = await supabase.from('lifecycle_dispatch_log').select('attempted_at, provider_message_id').eq('channel', 'whatsapp').eq('status', 'sent').gte('attempted_at', since).order('attempted_at', { ascending: false }).limit(5);
+  const lastSent = (sentRows ?? []).find((r: { provider_message_id?: string | null }) => r.provider_message_id !== 'idempotent_skip');
+  const lastSentMs = lastSent?.attempted_at ? Date.parse(lastSent.attempted_at as string) : null;
+  const verdict = sustainedOutage(times, lastSentMs !== null && Number.isFinite(lastSentMs) ? lastSentMs : null, nowMs);
+  if (!verdict.sustained) return `not_sustained(${verdict.ticks})`;
+
+  const { data: lastAlert, error: aErr } = await supabase.from('lifecycle_engine_alerts').select('created_at').eq('kind', ALERT_KIND_WA_OUTAGE).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (aErr) {
+    console.warn('[lifecycle-dispatcher] lifecycle_engine_alerts', isMissingTableError((aErr as { code?: string }).code) ? 'table missing - outage alert email suppressed:' : 'read failed:', aErr.message);
+    return 'alerts_table_unavailable';
+  }
+  const lastAlertMs = lastAlert?.created_at ? Date.parse(lastAlert.created_at as string) : null;
+  if (!alertCooldownElapsed(lastAlertMs !== null && Number.isFinite(lastAlertMs) ? lastAlertMs : null, nowMs, ALERT_COOLDOWN_HOURS)) return 'cooldown';
+
+  const claimId = crypto.randomUUID();
+  const detail = { reason: breaker.reason, ticks: verdict.ticks, first_at: verdict.firstMs ? new Date(verdict.firstMs).toISOString() : null, last_at: verdict.lastMs ? new Date(verdict.lastMs).toISOString() : null, deferred_this_tick: breaker.deferred, sample: breaker.sample };
+  const { error: iErr } = await supabase.from('lifecycle_engine_alerts').insert({ id: claimId, kind: ALERT_KIND_WA_OUTAGE, detail });
+  if (iErr) { console.warn('[lifecycle-dispatcher] alert insert failed:', iErr.message); return 'alert_insert_failed'; }
+
+  const mail = buildOutageAlert({ reason: breaker.reason || 'unknown', ticks: verdict.ticks, firstMs: verdict.firstMs, lastMs: verdict.lastMs, sample: breaker.sample, deferredThisTick: breaker.deferred });
+  const recipients = await adminAlertRecipients(supabase);
+  const bcc = recipients.includes(BCC_EMAIL.toLowerCase()) ? [] : [BCC_EMAIL];
+  const sent = await sendEmail(resendKey, OPS_SENDER, recipients, mail.subject, mail.html, mail.text, bcc);
+  if (!sent.ok) {
+    console.error('[lifecycle-dispatcher] outage alert email failed:', sent.error);
+    await supabase.from('lifecycle_engine_alerts').delete().eq('id', claimId); // release the slot so the next tick retries
+    return 'email_failed';
+  }
+  console.warn('[lifecycle-dispatcher] WA provider outage alert sent', JSON.stringify(detail));
+  return 'alerted';
+}
+
+async function processEnrolment(supabase: SupabaseClient, resendKey: string, aiSensyKey: string | null, pushKey: string, enrolmentId: string, dryRun: boolean, tick: TickState): Promise<ProcessResult> {
   const startTs = Date.now();
   const { data: enrolment } = await supabase.from('lifecycle_sequence_enrolments').select('*').eq('id', enrolmentId).maybeSingle();
   if (!enrolment) return { enrolment_id: enrolmentId, outcome: 'failed', detail: 'enrolment_not_found' };
@@ -714,6 +878,37 @@ async function processEnrolment(supabase: SupabaseClient, resendKey: string, aiS
   if (!(await consentOk(supabase, enrolment.email, channelKey))) {
     if (!dryRun) await supabase.from('lifecycle_dispatch_log').insert({ enrolment_id: enrolmentId, sequence_id: sequence.id, step_index: step.step_index, channel: channelKey, template_key: template.template_key, recipient_email: enrolment.email, recipient_mobile: enrolment.mobile, status: 'skipped', skip_reason: 'no_consent', duration_ms: Date.now() - startTs });
     return advanceStep(supabase, enrolment, sequence, step.step_index, dryRun, 'no_consent');
+  }
+  // v25 TOO-LATE guard. A WhatsApp step anchored to an event with offset <= 0 (-24h / -1h / live-now) has copy
+  // that is relative to send time ("starts in 1 hour", "we are live"). If we are more than 30 min past the step's
+  // own scheduled time (outage, dispatcher lag, window clamp), never send it late: skip and advance.
+  // (Long-lead "day before" steps, offset <= -3h, get a 6h grace instead - see guards.ts tooLateGraceMin.)
+  if (isTimeCriticalWaStep(channelKey, step.absolute_anchor, step.anchor_offset_hours)) {
+    const scheduledAt = computeAnchorTime((enrolment.context || {}) as Record<string, unknown>, step.absolute_anchor, step.anchor_offset_hours);
+    if (scheduledAt && isTooLate(Date.now(), scheduledAt.getTime(), tooLateGraceMin(step.anchor_offset_hours))) {
+      if (!dryRun) await supabase.from('lifecycle_dispatch_log').insert({ enrolment_id: enrolmentId, sequence_id: sequence.id, step_index: step.step_index, channel: 'whatsapp', template_key: template.template_key, recipient_email: enrolment.email, recipient_mobile: enrolment.mobile, status: 'skipped', skip_reason: 'too_late', duration_ms: Date.now() - startTs });
+      return advanceStep(supabase, enrolment, sequence, step.step_index, dryRun, 'too_late');
+    }
+  }
+  // v25 PARTNER PAUSE GATE (WhatsApp only; email steps of the same sequence continue). Placed before buildVars.
+  if (channelKey === 'whatsapp' && sequence.track === 'partner') {
+    const verdict = await partnerWaPauseVerdict(supabase, enrolment.email, (sequence.comms_class as string | null | undefined) ?? 'promotional');
+    if (verdict.action === 'skip') {
+      if (!dryRun) await supabase.from('lifecycle_dispatch_log').insert({ enrolment_id: enrolmentId, sequence_id: sequence.id, step_index: step.step_index, channel: 'whatsapp', template_key: template.template_key, recipient_email: enrolment.email, recipient_mobile: enrolment.mobile, status: 'skipped', skip_reason: 'wa_paused', duration_ms: Date.now() - startTs });
+      return advanceStep(supabase, enrolment, sequence, step.step_index, dryRun, 'wa_paused');
+    }
+    if (verdict.action === 'defer') {
+      console.error('[lifecycle-dispatcher]', enrolmentId, 'pause check failed, deferring', verdict.error);
+      return deferEnrolment(supabase, enrolmentId, step, PAUSE_CHECK_DEFER_MINUTES, dryRun, `pause_check_failed:${verdict.error}`);
+    }
+  }
+  // v25 BREAKER: an earlier WhatsApp send in THIS invocation hit a provider outage -> do not call AiSensy again,
+  // do not write a per-enrolment row, do not count a failure: just push the step out. A step deferred for outage
+  // reasons for > 48h since it first became due bypasses the breaker and is really attempted (old counting behaviour).
+  if (channelKey === 'whatsapp' && tick.breaker.open && !dryRun && !idemSent && enrolment.mobile
+      && !outageDeferralExpired(Date.now(), stepFirstDueMs(enrolment, step))) {
+    tick.breaker.deferred += 1;
+    return deferEnrolment(supabase, enrolmentId, step, OUTAGE_DEFER_MINUTES, dryRun, 'wa_breaker_open');
   }
   const vars = await buildVars(supabase, enrolment, template.template_key, sequence.sequence_key);
   const missing = validateRequiredVars(template.variables_declared as Record<string, unknown>, vars);
@@ -779,7 +974,13 @@ async function processEnrolment(supabase: SupabaseClient, resendKey: string, aiS
       result = await sendWhatsApp(aiSensyKey, destination, vars.full_name, campaignName, params);
     }
   }
-  await supabase.from('lifecycle_dispatch_log').insert({ enrolment_id: enrolmentId, sequence_id: sequence.id, step_index: step.step_index, channel: template.channel, template_key: template.template_key, recipient_email: enrolment.email, recipient_mobile: enrolment.mobile, status: result.ok ? 'sent' : 'failed', provider: template.channel === 'email' ? 'resend' : template.channel === 'push' ? 'fcm' : 'aisensy', provider_message_id: result.provider_id || null, error_message: result.error || null, duration_ms: Date.now() - startTs });
+  // v25: classify WhatsApp failures. error_message stays the raw provider text (existing consumers read it);
+  // the class goes in skip_reason on the FAILED row as `class:detail` (provider_outage:no_plan, recipient_error:...,
+  // config_error:...). (lifecycle_health_skip_reasons / admin KPIs only count status='skipped', so this cannot
+  // inflate them; admin filters use split_part(skip_reason, ':', 1).)
+  const waFail = channelKey === 'whatsapp' && !result.ok ? classifyWaError(result.error) : null;
+  if (channelKey === 'whatsapp' && result.ok && result.provider_id !== 'idempotent_skip') breakerOnSuccess(tick.breaker);
+  await supabase.from('lifecycle_dispatch_log').insert({ enrolment_id: enrolmentId, sequence_id: sequence.id, step_index: step.step_index, channel: template.channel, template_key: template.template_key, recipient_email: enrolment.email, recipient_mobile: enrolment.mobile, status: result.ok ? 'sent' : 'failed', skip_reason: waFail ? failureTag(waFail) : null, provider: template.channel === 'email' ? 'resend' : template.channel === 'push' ? 'fcm' : 'aisensy', provider_message_id: result.provider_id || null, error_message: result.error || null, duration_ms: Date.now() - startTs });
   if (sequence.track === 'partner') {
     try {
       await supabase.from('partner_comms_log').insert({ channel: template.channel, send_mode: 'lifecycle', template_slug: template.template_key, partner_code: vars.partner_code || null, aisensy_campaign: template.aisensy_campaign_name || null, triggered_by: 'lifecycle_dispatcher', triggered_at: new Date().toISOString(), status: result.ok ? 'sent' : 'failed', ref_id: enrolmentId, ref_type: 'lifecycle_enrolment', notes: result.error || null }); } catch (err) { console.warn('[lifecycle-dispatcher] partner_comms_log dual-write failed:', (err as Error).message); }
@@ -789,13 +990,28 @@ async function processEnrolment(supabase: SupabaseClient, resendKey: string, aiS
     if (result.provider_id !== 'idempotent_skip') await mirrorToInbox(supabase, template, vars, enrolment, sequence);
   }
   if (!result.ok) {
+    if (waFail && waFail.cls === 'provider_outage') {
+      // v25: provider outage. Open/advance the in-memory breaker (rest of the tick defers WA without calling
+      // AiSensy). Defer THIS step; do not count a failure and do not kill the enrolment (email steps live on).
+      // Safety valve: deferred > 48h since first due -> fall through to the old counting behaviour below.
+      breakerOnOutage(tick.breaker, waFail, Date.now(), result.error);
+      if (!outageDeferralExpired(Date.now(), stepFirstDueMs(enrolment, step))) {
+        return deferEnrolment(supabase, enrolmentId, step, OUTAGE_DEFER_MINUTES, dryRun, `provider_outage:${waFail.reason}: ${result.error}`);
+      }
+    } else if (waFail && waFail.cls === 'recipient') {
+      // v25: recipient error (bad / non-WhatsApp number). Logged once above; advance so later steps (esp. email) still run.
+      return advanceStep(supabase, enrolment, sequence, step.step_index, dryRun, 'wa_recipient_error');
+    }
+    // CONFIG errors, every non-WhatsApp failure, and a valve-expired outage: today's 3-strike behaviour.
     const newFailureCount = (enrolment.failure_count || 0) + 1;
     if (newFailureCount >= MAX_FAILURES) {
       await supabase.from('lifecycle_sequence_enrolments').update({ status: 'failed', exit_reason: `max_failures:${result.error?.slice(0, 100)}`, failure_count: newFailureCount, last_attempt_at: new Date().toISOString(), next_send_at: null, updated_at: new Date().toISOString() }).eq('id', enrolmentId);
       return { enrolment_id: enrolmentId, outcome: 'failed', detail: `max_failures: ${result.error}` };
     } else {
       const backoffMin = BACKOFF_MINUTES[Math.min(newFailureCount - 1, BACKOFF_MINUTES.length - 1)];
-      const retryAt = new Date(Date.now() + backoffMin * 60 * 1000);
+      // v25: retries respect the step's send window (the old retry could fire at 21:xx for a 09-19 window).
+      const [ws, we] = stepWindow(step);
+      const retryAt = deferTime(Date.now(), backoffMin, ws, we);
       await supabase.from('lifecycle_sequence_enrolments').update({ failure_count: newFailureCount, last_attempt_at: new Date().toISOString(), next_send_at: retryAt.toISOString(), updated_at: new Date().toISOString() }).eq('id', enrolmentId);
       return { enrolment_id: enrolmentId, outcome: 'deferred', detail: `retry_${backoffMin}min: ${result.error}`, next_send_at: retryAt.toISOString() };
     }
@@ -896,13 +1112,22 @@ Deno.serve(async (req: Request) => {
       dueIds = (due ?? []).map(r => r.id as string);
     }
     const results: ProcessResult[] = [];
+    // v25: fresh per invocation (see TickState). The breaker lives only for this tick, so each 5-min tick makes at
+    // most one probe (two for a transient error) and recovery is automatic on the first tick after the account is fixed.
+    const tick: TickState = { breaker: newBreaker() };
     for (const id of dueIds) {
-      try { results.push(await processEnrolment(supabase, resendKey, aiSensyKey, pushKey, id, dryRun)); }
+      try { results.push(await processEnrolment(supabase, resendKey, aiSensyKey, pushKey, id, dryRun, tick)); }
       catch (err) { console.error('[lifecycle-dispatcher]', id, (err as Error).message); results.push({ enrolment_id: id, outcome: 'failed', detail: (err as Error).message }); }
     }
+    let alertOutcome: string | null = null;
+    if (!dryRun && tick.breaker.probeFailures > 0) {
+      try { alertOutcome = await maybeAlertWaOutage(supabase, resendKey, tick.breaker); }
+      catch (err) { alertOutcome = 'alert_error'; console.error('[lifecycle-dispatcher] outage alert failed:', (err as Error).message); }
+    }
     const summary = { processed: results.length, sent: results.filter(r => r.outcome === 'sent').length, skipped: results.filter(r => r.outcome === 'skipped').length, exited: results.filter(r => r.outcome === 'exited').length, completed: results.filter(r => r.outcome === 'completed').length, deferred: results.filter(r => r.outcome === 'deferred').length, failed: results.filter(r => r.outcome === 'failed').length };
-    console.log('[lifecycle-dispatcher]', JSON.stringify(summary), `${Date.now() - startedAt}ms`);
-    return new Response(JSON.stringify({ success: true, dry_run: dryRun, duration_ms: Date.now() - startedAt, ...summary, results }), { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } });
+    const wa_breaker = { open: tick.breaker.open, reason: tick.breaker.reason, probe_failures: tick.breaker.probeFailures, deferred_without_call: tick.breaker.deferred, alert: alertOutcome };
+    console.log('[lifecycle-dispatcher]', JSON.stringify(summary), JSON.stringify(wa_breaker), `${Date.now() - startedAt}ms`);
+    return new Response(JSON.stringify({ success: true, dry_run: dryRun, duration_ms: Date.now() - startedAt, ...summary, wa_breaker, results }), { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } });
   } catch (err) {
     console.error('[lifecycle-dispatcher] unhandled:', (err as Error).message);
     return new Response(JSON.stringify({ error: (err as Error).message }), { status: 500, headers: CORS });

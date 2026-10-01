@@ -16,6 +16,7 @@ import {
   isMissingTableError,
   isTimeCriticalWaStep,
   isTooLate,
+  isPastSendBy,
   newBreaker,
   outageDeferralExpired,
   pauseBlocks,
@@ -25,6 +26,11 @@ import {
 import type { WaBreaker } from './guards.ts';
 
 /**
+ * lifecycle-dispatcher v26 (= v25 + context expiry)
+ *   v26: an event may carry `send_by` (ISO instant) in its metadata. Any step that comes due after it is skipped
+ *        ('context_expired') on every channel and the enrolment advances — a message about "tomorrow's session" can
+ *        never be delivered after the session. Opt-in: no `send_by` => no behaviour change (guards.ts isPastSendBy).
+ *
  * lifecycle-dispatcher v25 (reliability + partner WhatsApp pause)
  *
  * v25: 1) WhatsApp send errors are CLASSIFIED (guards.ts classifyWaError):
@@ -878,6 +884,13 @@ async function processEnrolment(supabase: SupabaseClient, resendKey: string, aiS
   if (!(await consentOk(supabase, enrolment.email, channelKey))) {
     if (!dryRun) await supabase.from('lifecycle_dispatch_log').insert({ enrolment_id: enrolmentId, sequence_id: sequence.id, step_index: step.step_index, channel: channelKey, template_key: template.template_key, recipient_email: enrolment.email, recipient_mobile: enrolment.mobile, status: 'skipped', skip_reason: 'no_consent', duration_ms: Date.now() - startTs });
     return advanceStep(supabase, enrolment, sequence, step.step_index, dryRun, 'no_consent');
+  }
+  // v26 CONTEXT EXPIRY. An event can carry `send_by` (ISO instant): after it the copy of every step is stale
+  // (e.g. "our live session is tomorrow 9:00" delivered after the session). Skip + advance on ANY channel; never
+  // send late. Opt-in: no `send_by` in the context => no effect (see guards.ts isPastSendBy).
+  if (isPastSendBy(((enrolment.context || {}) as Record<string, unknown>).send_by, Date.now())) {
+    if (!dryRun) await supabase.from('lifecycle_dispatch_log').insert({ enrolment_id: enrolmentId, sequence_id: sequence.id, step_index: step.step_index, channel: channelKey, template_key: template.template_key, recipient_email: enrolment.email, recipient_mobile: enrolment.mobile, status: 'skipped', skip_reason: 'context_expired', duration_ms: Date.now() - startTs });
+    return advanceStep(supabase, enrolment, sequence, step.step_index, dryRun, 'context_expired');
   }
   // v25 TOO-LATE guard. A WhatsApp step anchored to an event with offset <= 0 (-24h / -1h / live-now) has copy
   // that is relative to send time ("starts in 1 hour", "we are live"). If we are more than 30 min past the step's

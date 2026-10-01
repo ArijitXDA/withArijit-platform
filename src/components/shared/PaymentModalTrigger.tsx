@@ -18,6 +18,7 @@ interface PaymentModalTriggerProps {
   defaultEmail?: string
   defaultMobile?: string
   defaultPartnerCode?: string
+  defaultDiscountCode?: string   // pre-fills the discount box (e.g. a member-rate code from a renewal link)
   membership?: boolean
 }
 
@@ -33,6 +34,7 @@ export function PaymentModalTrigger({
   defaultEmail,
   defaultMobile,
   defaultPartnerCode,
+  defaultDiscountCode,
   membership = false,
 }: PaymentModalTriggerProps) {
   const [open, setOpen] = useState(false)
@@ -47,6 +49,10 @@ export function PaymentModalTrigger({
   const resolvedEmail       = defaultEmail       || urlEmail       || ''
   const resolvedName        = defaultName        || urlName        || ''
   const resolvedMobile      = defaultMobile      || urlMobile      || ''
+  // ?code=EXISTING (renewal / win-back links) pre-fills the discount box. Strictly sanitised: it is
+  // user-controlled URL input that is only ever shown in an input and sent to the validator.
+  const urlCode             = (searchParams.get('code') ?? '').trim().toUpperCase()
+  const resolvedDiscountCode = defaultDiscountCode || (/^[A-Z0-9_-]{3,32}$/.test(urlCode) ? urlCode : '')
 
   // Auto-open if ?enrol=1 in URL
   useEffect(() => {
@@ -85,6 +91,7 @@ export function PaymentModalTrigger({
         defaultEmail={resolvedEmail}
         defaultMobile={resolvedMobile}
         defaultPartnerCode={resolvedPartnerCode}
+        defaultDiscountCode={resolvedDiscountCode}
         membership={membership}
       />
     </>

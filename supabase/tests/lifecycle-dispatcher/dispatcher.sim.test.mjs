@@ -360,6 +360,37 @@ test('day-before WA (-24h): 50 min late (cron gap) is still sent; 7h late is ski
   assert.equal(aiCalls().length, 0); assert.equal(logs()[0].skip_reason, 'too_late'); assert.equal(E(b).current_step_index, 2);
 });
 
+// ── v26 context expiry (send_by) ─────────────────────────────────────────────────────────────────
+test('SEND_BY: a WhatsApp step due after ctx.send_by is skipped + advanced, never sent', async () => {
+  fresh(); setNow('2026-10-05T10:00:00+05:30');                   // class was 4 Oct 09:00 — a long outage later
+  const id = enrol({ seq: SEQ.gen, s: 0, ctx: { send_by: '2026-10-04T09:00:00+05:30' } });
+  await tick();
+  assert.equal(aiCalls().length, 0);
+  const row = logs()[0];
+  assert.equal(row.status, 'skipped'); assert.equal(row.skip_reason, 'context_expired'); assert.equal(row.channel, 'whatsapp');
+  assert.equal(E(id).current_step_index, 1); assert.equal(E(id).failure_count, 0);
+});
+
+test('SEND_BY: the email step is guarded too (channel-agnostic)', async () => {
+  fresh(); setNow('2026-10-05T10:00:00+05:30');
+  const id = enrol({ seq: SEQ.gen, s: 1, ctx: { send_by: '2026-10-04T09:00:00+05:30' } });
+  await tick();
+  assert.equal(fetchCalls.filter((c) => String(c.url).includes('resend')).length, 0, 'no email sent');
+  assert.equal(logs()[0].skip_reason, 'context_expired'); assert.equal(logs()[0].channel, 'email');
+  assert.equal(E(id).status, 'completed');
+});
+
+test('SEND_BY: in the future, absent or malformed => sent exactly as before', async () => {
+  fresh(); setNow('2026-10-03T18:05:00+05:30');
+  const a = enrol({ seq: SEQ.gen, s: 0, ctx: { send_by: '2026-10-04T09:00:00+05:30' } });
+  const b = enrol({ seq: SEQ.gen, s: 0, ctx: {} });
+  const c = enrol({ seq: SEQ.gen, s: 0, ctx: { send_by: 'garbage' } });
+  await tick();
+  assert.equal(aiCalls().length, 3);
+  for (const id of [a, b, c]) assert.equal(E(id).current_step_index, 1);
+  assert.equal(logs().filter((r) => r.skip_reason === 'context_expired').length, 0);
+});
+
 test('non-anchored WhatsApp steps are NEVER too-late (behaviour unchanged)', async () => {
   fresh();
   const id = enrol({ seq: SEQ.gen, dueMinAgo: 60 * 24 * 5, enrolled_at: iso(fakeNow - 9 * 86400000) });

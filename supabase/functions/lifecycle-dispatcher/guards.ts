@@ -175,6 +175,24 @@ export function isTooLate(nowMs: number, scheduledMs: number, graceMin: number =
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// (d2) Context expiry ("send_by")
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * An event may carry `send_by` (ISO-8601 instant, in its metadata -> enrolment context): the latest moment at
+ * which the copy of ANY of its steps is still true ("our next live session is tomorrow at 9:00", "your
+ * membership ends on 6 Oct"). A step that comes due after it is skipped on every channel, so an outage / long
+ * deferral can never deliver a message about something that has already happened.
+ * Absent or unparseable `send_by` never blocks a send (fully opt-in; every existing sequence is unaffected).
+ */
+export function isPastSendBy(sendBy: unknown, nowMs: number): boolean {
+  if (typeof sendBy !== 'string' || sendBy.trim() === '') return false;
+  const t = Date.parse(sendBy);
+  if (!Number.isFinite(t) || !Number.isFinite(nowMs)) return false;
+  return nowMs > t;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // (e) Send-window clamp + deferral time
 // ─────────────────────────────────────────────────────────────────────────────
 

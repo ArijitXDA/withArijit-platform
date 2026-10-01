@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,6 +20,7 @@ interface PaymentModalProps {
   defaultEmail?: string
   defaultMobile?: string
   defaultPartnerCode?: string
+  defaultDiscountCode?: string  // pre-filled + auto-previewed once a valid email is present
   membership?: boolean    // monthly-membership course: full-pay only, no 50-50 / gift
 }
 
@@ -49,6 +50,7 @@ export function PaymentModal({
   defaultEmail = '',
   defaultMobile = '',
   defaultPartnerCode = '',
+  defaultDiscountCode = '',
   membership = false,
 }: PaymentModalProps) {
   const [mode, setMode]                   = useState<'self' | 'gift'>('self')
@@ -57,7 +59,7 @@ export function PaymentModal({
   const [mobile, setMobile]               = useState(defaultMobile)
   const [friendEmail, setFriendEmail]     = useState('')
   const [frequency, setFrequency]         = useState<'full' | 'half'>('full')
-  const [discountCode, setDiscountCode]   = useState('')
+  const [discountCode, setDiscountCode]   = useState(defaultDiscountCode)
   const [loading, setLoading]             = useState(false)
   const [error, setError]                 = useState('')
   const [success, setSuccess]             = useState(false)
@@ -150,7 +152,9 @@ export function PaymentModal({
   // discount preview — clear it so the button falls back to the live base price and
   // can NEVER show a stale amount lower than what will be charged (e.g. a code applied
   // on the 50-50 plan, then switching to Full).
+  const previewEpoch = useRef(0)
   function resetPreview() {
+    previewEpoch.current += 1   // invalidates any preview request still in flight
     setFinalAmount(null)
     setDiscountApplied(0)
     setDiscountLabel('')
@@ -168,6 +172,7 @@ export function PaymentModal({
     setApplying(true)
     setDiscountNote('')
     setError('')
+    const epoch = previewEpoch.current
     try {
       const res = await fetch('/api/payments/create-order', {
         method:  'POST',
@@ -182,6 +187,9 @@ export function PaymentModal({
         }),
       })
       const j = await res.json().catch(() => ({}))
+      // An input changed while this request was in flight: drop the answer (it is for stale inputs).
+      // `applying` flips back to false in `finally`, which re-arms the auto-preview for the new inputs.
+      if (epoch !== previewEpoch.current) return
       if (res.ok && j.codeApplied) {
         setFinalAmount(typeof j.displayAmount === 'number' ? j.displayAmount : null)
         setDiscountApplied(j.discountApplied ?? 0)
@@ -195,11 +203,37 @@ export function PaymentModal({
         setDiscountNote('invalid')
       }
     } catch {
-      setDiscountNote('invalid')
+      if (epoch === previewEpoch.current) setDiscountNote('invalid')
     } finally {
       setApplying(false)
     }
   }
+
+  // A code arriving pre-filled from the link (?code= → defaultDiscountCode, e.g. a member-rate renewal
+  // link) must show its true post-discount price BEFORE the student presses Pay — otherwise the button
+  // reads the full price while Razorpay then charges the discounted one. Preview it as soon as a
+  // plausible email is present. One attempt per (email, code, plan): no retry loop on an invalid code,
+  // and any edit to those inputs (resetPreview) re-arms it. Typing is debounced.
+  const autoPreviewKey = useRef('')
+  // Closing the modal clears the preview (open-effect above), so re-arm the auto-preview for the next open.
+  useEffect(() => { if (!open) autoPreviewKey.current = '' }, [open])
+  useEffect(() => {
+    if (!open || !defaultDiscountCode) return
+    const code = discountCode.trim().toUpperCase()
+    const mail = email.trim().toLowerCase()
+    // Only the code that arrived pre-filled is auto-previewed; a code the student types themselves keeps
+    // the existing blur / Apply behaviour (no flash of "invalid" on a half-typed code).
+    if (!code || code !== defaultDiscountCode.trim().toUpperCase()) return
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(mail)) return
+    const key = `${mail}|${code}|${frequency}`
+    if (discountNote !== '' || applying || autoPreviewKey.current === key) return
+    const t = setTimeout(() => {
+      autoPreviewKey.current = key
+      void applyDiscount()
+    }, 600)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, email, discountCode, frequency, discountNote, applying, defaultDiscountCode])
 
   async function handlePay() {
     setError('')

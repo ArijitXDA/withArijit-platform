@@ -385,3 +385,17 @@ test('index.ts keeps the safety-critical v25 wiring', () => {
   assert.doesNotMatch(src, /`https:\/\/partner\.ostaran\.com\/unsubscribe/); // no template literal building the 404 host
   assert.match(src, /vars\.unsubscribe_url\s*= unsubscribeUrl\(enrolment\.id\);/);
 });
+
+test('isPastSendBy: opt-in, never blocks on absent/garbage, blocks strictly after the instant', () => {
+  const t0 = Date.parse('2026-10-04T09:00:00+05:30');
+  assert.equal(G.isPastSendBy(undefined, t0), false);
+  assert.equal(G.isPastSendBy(null, t0), false);
+  assert.equal(G.isPastSendBy('', t0), false);
+  assert.equal(G.isPastSendBy('   ', t0), false);
+  assert.equal(G.isPastSendBy('not a date', t0), false);
+  assert.equal(G.isPastSendBy(12345, t0), false);
+  assert.equal(G.isPastSendBy('2026-10-04T09:00:00+05:30', t0), false);        // exactly at the instant: still sendable
+  assert.equal(G.isPastSendBy('2026-10-04T09:00:00+05:30', t0 + 1), true);      // 1 ms later: stale
+  assert.equal(G.isPastSendBy('2026-10-04T09:00:00+05:30', t0 - 3600000), false);
+  assert.equal(G.isPastSendBy('2026-10-04T09:00:00+05:30', Number.NaN), false);
+});

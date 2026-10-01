@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { attributeBroadcast } from '@/lib/broadcastAttribution'
 import { notifyPartner, type PartnerNotice } from '@/lib/notifyPartner'
 import { allocateCascade } from '@/lib/cascade'
+import { computeMonthlyAccessEnd, furthestAccessEnd } from '@/lib/membershipAccess'
 import { publicPartnerCode, resolvePartnerByCode, resolvePartnerIdByCode } from '@/lib/partnerCode'
 import { getRazorpay, verifyPaymentSignature, verifyInternalEnrolmentSignature } from '@/lib/razorpay'
 
@@ -695,10 +696,9 @@ export async function POST(request: NextRequest) {
     let monthlyAccessStart: string | null = null
     let monthlyAccessEnd:   string | null = null
     if (isMonthlyMembership) {
-      const end = new Date(now)
-      end.setDate(end.getDate() + 30)
+      // Legacy window: payment date + 30. Stacking (below, once the carried batch is known) can extend it.
       monthlyAccessStart = today
-      monthlyAccessEnd   = end.toISOString().split('T')[0]
+      monthlyAccessEnd   = computeMonthlyAccessEnd(today, null).end
     }
 
     // Monthly-membership RENEWAL: if the student already has an enrolment for this
@@ -719,6 +719,33 @@ export async function POST(request: NextRequest) {
       carryBatchId = (prior?.batch_id as string | null) ?? null
     }
     const isRenewal = !!carryBatchId
+
+    // STACKING: a member who renews while still holding paid days keeps them — the new month is added
+    // after their furthest existing end instead of restarting from today (early renewal used to
+    // forfeit the remaining days). Applies ONLY to a renewal of a ROLLING membership (carried batch has
+    // variant 'rolling'): a first purchase, a batch-less returning member (who goes through select-batch,
+    // which re-stamps dates) and fixed-arc monthly courses (e.g. Agentic AI) keep the legacy window.
+    // A lapsed member (or one ending today) also gets the legacy window — see computeMonthlyAccessEnd.
+    if (isMonthlyMembership && carryBatchId) {
+      const { data: carriedBatch } = await supabase
+        .from('awa_batches').select('variant').eq('id', carryBatchId).maybeSingle()
+      if (carriedBatch?.variant === 'rolling') {
+        const { data: priorWindows } = await supabase
+          .from('student_enrolments')
+          .select('access_end_date, enrolment_status, payment_reference')
+          .eq('student_email', email.toLowerCase())
+          .eq('course_id', course_id)
+          .not('access_end_date', 'is', null)
+          .order('access_end_date', { ascending: false })
+          .limit(10)
+        // Idempotency: this payment's OWN row must never count as "days left". The dedupe check above is
+        // check-then-insert, so a replayed / concurrent call for the same payment_id can see the first
+        // call's row — without this filter it would stack on top of it (+30 free days per duplicate).
+        // Filter in JS (not .neq): .neq would also drop rows whose payment_reference is NULL.
+        const others = (priorWindows ?? []).filter(r => r.payment_reference !== payment_id)
+        monthlyAccessEnd = computeMonthlyAccessEnd(today, furthestAccessEnd(others)).end
+      }
+    }
 
     const mrp            = Number(course?.mrp ?? amount)
     const gstPct         = Number(course?.gst_percent ?? 18) / 100

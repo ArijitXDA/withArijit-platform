@@ -211,6 +211,37 @@ UPDATE lifecycle_sequence_steps st
 -- -------------------------------------------------------------------------------------
 ALTER TABLE public.qr_landing_registrations DISABLE TRIGGER wa_registration_confirmation_trigger;
 
+-- -------------------------------------------------------------------------------------
+-- 6. Cron-only emitter functions were EXECUTABLE BY THE PUBLIC anon KEY (Supabase default grants): anyone
+--    holding the publishable key could POST /rest/v1/rpc/lifecycle_emit_*_tick and trigger real WhatsApp/
+--    email sends (including the held p13 monthly tip). Lock every non-trigger tick function to
+--    service_role; cron runs as the owner (postgres) and no app/edge code calls them through the API.
+--    Trigger functions are not locked (they cannot be called directly and EXECUTE is only checked at
+--    CREATE TRIGGER time).
+-- -------------------------------------------------------------------------------------
+DO $lock$
+DECLARE r record;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p JOIN pg_namespace ns ON ns.oid = p.pronamespace
+     WHERE ns.nspname = 'public' AND p.prokind = 'f'
+       AND p.prorettype <> 'trigger'::regtype
+       AND (   (p.proname LIKE 'lifecycle\_emit\_%\_tick')
+            OR p.proname IN ('lifecycle_safety_net_emit_reg_events', 'membership_pause_lapsed_tick'))
+  LOOP
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated', r.sig);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role', r.sig);
+  END LOOP;
+END
+$lock$;
+
+-- -------------------------------------------------------------------------------------
+-- 7. p9 partner webinar invite: the pre-filled WhatsApp share text (wa_share_url) was hard-coded
+--    'this Sunday!' — now built from the actual next webinar date ('Wednesday, 7 Oct!').
+--    (Function body applied live 2026-10-01; see lifecycle_emit_partner_webinar_invite_tick in the database.)
+-- -------------------------------------------------------------------------------------
+
 -- =====================================================================================
 -- NOT in this file (cron.job state, applied with cron.alter_job; re-apply by hand if rebuilding):
 --   job 23 lifecycle-stale-cleanup   command -> exits only OVERDUE enrolments (exit_reason 'stale_overdue_14d'):

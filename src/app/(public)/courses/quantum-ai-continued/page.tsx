@@ -4,14 +4,25 @@
 // This is a STATIC route that intentionally OVERRIDES the dynamic /courses/[slug]
 // template for this one slug. The course is an endless monthly membership
 // (₹2,999/mo) — not a fixed one-time programme — so it needs its own layout:
-// monthly pricing, two weekly cohorts, evergreen topic spread, no curriculum/
+// monthly pricing, weekly cohorts, evergreen topic spread, no curriculum/
 // projects/50-50. The shared [slug] template and its 15 sub-components are NOT
-// touched. Data (price, cohort times) is read live so admin edits flow through.
+// touched.
+//
+// NOTHING about the schedule is typed on this page. Price, GST, session length, the cohorts a new
+// member can join (awa_batches: rolling + is_active + is_open), their day/time, and the next live
+// class date (skipped / rescheduled weeks honoured via awa_session_links) all come from the DB —
+// see src/lib/membershipCohorts.ts. Time-based ISR (revalidate) carries an admin change here: the
+// "next live class" line is computed at render time, so keep revalidate short.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { Metadata } from 'next'
-import { Suspense } from 'react'
+import { Suspense, cache } from 'react'
 import { notFound } from 'next/navigation'
 import { createServiceClient } from '@/lib/supabase/service'
+import { todayISO } from '@/lib/sessionSchedule'
+import {
+  buildOpenCohorts, describeCohorts, istNowMinutes, fmtClassDate,
+  type CohortBatchRow, type CohortLinkRow,
+} from '@/lib/membershipCohorts'
 import { PaymentModalTrigger } from '@/components/shared/PaymentModalTrigger'
 import { CourseVideos } from '@/components/CourseVideos'
 import { Price } from '@/lib/currency'
@@ -37,18 +48,77 @@ function EnrolCTA(props: { courseId: string; courseName: string; price: number; 
   )
 }
 
-export const revalidate = 600
+export const revalidate = 120
 const SLUG = 'quantum-ai-continued'
 
-export const metadata: Metadata = {
-  title: 'Quantum & AI — Continued Up-skilling | Monthly AI Membership | oStaran',
-  description:
-    'An endless monthly membership with one live 60-minute session every week on the latest in AI, Agentic AI, AI automation, MLOps/LLMOps, GPUs, GCC Ops and Quantum Computing. ₹2,999/month. Saturday & Sunday cohorts. For every learner, every level.',
-  alternates: { canonical: 'https://www.ostaran.com/courses/quantum-ai-continued' },
-  openGraph: {
-    title: 'Quantum & AI — Continued Up-skilling | Monthly AI Membership',
-    description: 'One live 60-min session every week on the frontier of AI & Quantum. ₹2,999/month. Ongoing, no end date.',
-  },
+// One loader shared by generateMetadata() and the page (React cache() = one DB round-trip per render).
+const loadMembership = cache(async () => {
+  const supabase = createServiceClient()
+
+  // A failed query must NEVER degrade into an empty result: ISR would cache a false "no cohorts / enrolment paused"
+  // page. Throwing keeps the last good page (and fails the very first render loudly).
+  const { data: course, error: courseErr } = await supabase
+    .from('awa_courses')
+    .select('id, name, description, mrp, gst_percent, session_duration_mins')
+    .eq('slug', SLUG)
+    .maybeSingle()
+  if (courseErr) throw new Error(`membership page: course query failed: ${courseErr.message}`)
+  if (!course) return null
+
+  // Cohorts a NEW member can join today: rolling AND active AND open. (is_active alone = existing members
+  // still attend; is_open=false = intake closed.) Never select meeting_link / label (public payload).
+  const { data: batches, error: batchErr } = await supabase
+    .from('awa_batches')
+    .select('id, day_of_week, start_time, start_date, end_date, duration_mins, timezone, sort_order, is_active, is_open, variant, max_seats, seats_filled')
+    .eq('course_id', course.id)
+    .eq('variant', 'rolling')
+    .eq('is_active', true)
+    .eq('is_open', true)
+    .order('sort_order')
+  if (batchErr) throw new Error(`membership page: batches query failed: ${batchErr.message}`)
+
+  const rows = (batches ?? []) as CohortBatchRow[]
+  const ids = rows.map(b => b.id)
+  // Per-session overrides only (skipped / rescheduled weeks): NOT select('*') — this table also holds
+  // transcripts and private recording links.
+  let links: CohortLinkRow[] = []
+  if (ids.length) {
+    const { data, error: linkErr } = await supabase
+      .from('awa_session_links')
+      .select('batch_id, session_number, status, override_date, override_time')
+      .in('batch_id', ids)
+    if (linkErr) throw new Error(`membership page: session links query failed: ${linkErr.message}`)
+    links = (data ?? []) as CohortLinkRow[]
+  }
+
+  const cohorts = buildOpenCohorts({
+    batches: rows,
+    links,
+    todayISO: todayISO(),              // IST business day (the server runs UTC)
+    nowMinutesIST: istNowMinutes(),
+    fallbackDurationMins: course.session_duration_mins ?? null,
+  })
+  const copy = describeCohorts(cohorts, { courseDurationMins: course.session_duration_mins ?? null })
+  const price    = Number(course.mrp ?? 0)
+  const priceStr = `₹${price.toLocaleString('en-IN')}`
+  return { course, cohorts, copy, price, priceStr, gstPct: Number(course.gst_percent ?? 18) }
+})
+
+export async function generateMetadata(): Promise<Metadata> {
+  const d = await loadMembership()
+  const title = 'Quantum & AI — Continued Up-skilling | Monthly AI Membership | oStaran'
+  if (!d) return { title }
+  const session = d.copy.durationPhrase ? `${d.copy.durationPhrase} session` : 'session'
+  return {
+    title,
+    description:
+      `Monthly AI membership: one live ${session} every week. ${d.copy.liveSentence}. ${d.priceStr}/month. Agentic AI, AI automation, MLOps/LLMOps, GPUs, GCC Ops and Quantum Computing — for every learner, every level.`,
+    alternates: { canonical: 'https://www.ostaran.com/courses/quantum-ai-continued' },
+    openGraph: {
+      title: 'Quantum & AI — Continued Up-skilling | Monthly AI Membership',
+      description: `One live ${session} every week on the frontier of AI & Quantum. ${d.priceStr}/month. Ongoing, no end date.`,
+    },
+  }
 }
 
 const TOPICS: { emoji: string; label: string; blurb: string }[] = [
@@ -63,42 +133,18 @@ const TOPICS: { emoji: string; label: string; blurb: string }[] = [
   { emoji: '⚛️', label: 'Quantum Computing',         blurb: 'Foundations and where it meets AI' },
 ]
 
-function fmtTime(t: string | null): string {
-  if (!t) return ''
-  const [h, m] = t.split(':').map(Number)
-  return `${h % 12 || 12}:${String(m || 0).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'} IST`
-}
-function fmtDate(iso: string | null): string {
-  if (!iso) return ''
-  return new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', {
-    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
-  })
-}
-
 export default async function QuantumAIContinuedPage() {
-  const supabase = createServiceClient()
+  const data = await loadMembership()
+  if (!data) notFound()
+  const { course, cohorts, copy, price, priceStr, gstPct } = data
+  const dur  = copy.durationMins                       // null when unknown / cohorts differ
+  const mins = dur ? `${dur} min` : ''
+  const durSession = copy.durationPhrase ? `${copy.durationPhrase} session` : 'session'
 
-  const { data: course } = await supabase
-    .from('awa_courses')
-    .select('id, name, description, mrp, gst_percent, session_duration_mins')
-    .eq('slug', SLUG)
-    .maybeSingle()
-
-  if (!course) notFound()
-
-  const { data: batches } = await supabase
-    .from('awa_batches')
-    .select('id, day_of_week, start_time, start_date, variant, sort_order')
-    .eq('course_id', course.id)
-    .eq('variant', 'rolling')
-    .order('sort_order')
-
-  const cohorts = batches ?? []
-  // IST "today" (server runs UTC) to label a running cohort vs an upcoming one.
-  const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-  const price   = Number(course.mrp ?? 2999)
-  const priceStr = `₹${price.toLocaleString('en-IN')}`
-  const gstPct   = Number(course.gst_percent ?? 18)
+  // Join CTA. With NO open cohort a new member cannot be placed in a batch, so the page says so and keeps a
+  // clearly-labelled renew button — existing members renew onto their carried batch (intake closed ≠ renewals closed).
+  const joinLabel   = copy.joinable ? `Join the membership — ${priceStr}/mo →` : `Existing member? Renew — ${priceStr}/mo →`
+  const joinLabel2  = copy.joinable ? `Join now — ${priceStr}/mo →` : `Existing member? Renew — ${priceStr}/mo →`
 
   return (
     <div>
@@ -119,7 +165,7 @@ export default async function QuantumAIContinuedPage() {
             }}>Continued Up-skilling</span>
           </h1>
           <p className="text-lg md:text-xl max-w-2xl mx-auto mb-8" style={{ color: '#94a3b8' }}>
-            One live <strong className="text-white">60-minute session every week</strong> on the very latest in AI &amp; Quantum —
+            One live <strong className="text-white">{durSession} every week</strong> on the very latest in AI &amp; Quantum —
             forever. Stay current as the field moves. For every learner, at every level.
           </p>
 
@@ -128,7 +174,7 @@ export default async function QuantumAIContinuedPage() {
           {/* Key facts */}
           <div className="flex flex-wrap justify-center gap-2.5 mb-10">
             {[
-              ['🗓️', '60 min · every week'],
+              ['🗓️', `${mins ? `${mins} · ` : ''}${copy.cadence}`],
               ['♾️', 'Ongoing — cancel/pause anytime'],
               ['🎥', 'Live + full recording archive'],
               ['📈', 'Always the latest topics'],
@@ -145,9 +191,20 @@ export default async function QuantumAIContinuedPage() {
               courseId={course.id}
               courseName={course.name}
               price={price}
-              label={`Join the membership — ${priceStr}/mo →`}
+              label={joinLabel}
               className="px-8 py-4 text-base font-bold shadow-2xl shadow-fuchsia-500/20"
             />
+            {copy.next && (
+              <p className="text-sm font-semibold" style={{ color: '#cbd5e1' }}>
+                📅 Next live class: {copy.next.dateLabel} · {copy.next.timeLabel}{copy.next.moved ? ' (rescheduled)' : ''}
+              </p>
+            )}
+            {!copy.joinable && (
+              <p className="text-sm max-w-md" style={{ color: '#fbbf24' }}>
+                The button above is for existing members renewing. New to the membership? The next cohort isn&apos;t open yet —{' '}
+                <a href="/contact" className="underline text-white">tell us and we&apos;ll let you know when it opens</a>.
+              </p>
+            )}
             <p className="text-xs" style={{ color: '#64748b' }}>
               <Price inr={price} /> / month · incl {gstPct}% GST · 🔒 Razorpay · GST invoice issued
             </p>
@@ -176,27 +233,31 @@ export default async function QuantumAIContinuedPage() {
         </div>
       </section>
 
-      {/* ── Two weekly cohorts ────────────────────────────────────────────── */}
+      {/* ── Weekly live session / cohorts (all from awa_batches) ───────────────────── */}
       <section className="py-20 px-4" style={{ background: '#f8fafc' }}>
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-3">Two weekly cohorts — pick what suits you</h2>
-            <p className="text-gray-500 text-lg">Choose your cohort after you join. Same membership, your preferred day.</p>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-3">{copy.heading}</h2>
+            <p className="text-gray-500 text-lg">{copy.sub}</p>
           </div>
-          <div className="grid sm:grid-cols-2 gap-5">
-            {cohorts.map(c => (
-              <div key={c.id} className="rounded-2xl border border-indigo-100 bg-white p-6 shadow-sm">
-                <p className="text-xs font-bold uppercase tracking-widest text-indigo-600 mb-2">{c.day_of_week} Cohort</p>
-                <p className="text-2xl font-extrabold text-gray-900">{fmtTime(c.start_time)}</p>
-                <p className="text-sm text-gray-500 mt-1">60 minutes live · every {c.day_of_week}</p>
-                <p className="text-sm text-gray-700 mt-3">
-                  {c.start_date && c.start_date <= todayIST
-                    ? <>🟢 Running since <strong>{fmtDate(c.start_date)}</strong> · join anytime</>
-                    : <>Starts <strong>{fmtDate(c.start_date)}</strong></>}
-                </p>
-              </div>
-            ))}
-          </div>
+          {cohorts.length > 0 && (
+            <div className={cohorts.length > 1 ? 'grid sm:grid-cols-2 gap-5' : 'max-w-md mx-auto'}>
+              {cohorts.map(c => (
+                <div key={c.batchId} className="rounded-2xl border border-indigo-100 bg-white p-6 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-widest text-indigo-600 mb-2">{c.dayName} Cohort</p>
+                  <p className="text-2xl font-extrabold text-gray-900">{c.timeLabel}</p>
+                  <p className="text-sm text-gray-500 mt-1">{c.durationMins ? `${c.durationMins} minutes live · ` : 'Live · '}every {c.dayName}</p>
+                  <p className="text-sm text-gray-700 mt-3">
+                    {!c.isRunning && c.startsOn
+                      ? <>Starts <strong>{fmtClassDate(c.startsOn)}</strong></>
+                      : c.next
+                        ? <>🟢 Next live class: <strong>{c.next.dateLabel}</strong>{c.next.moved ? ' (rescheduled)' : ''}</>
+                        : <>🟢 Running</>}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -233,10 +294,10 @@ export default async function QuantumAIContinuedPage() {
             <p className="text-xs text-slate-500 mt-1">incl {gstPct}% GST · cancel or pause anytime</p>
             <ul className="text-left text-sm text-slate-300 space-y-2 my-6">
               {[
-                'One live 60-min session every week',
+                `One live ${dur ? `${dur}-min ` : ''}session every week`,
                 'Always the latest AI & Quantum topics',
                 'Full archive of past recordings',
-                'Saturday or Sunday cohort — your choice',
+                copy.bullet,
                 'Certificate on request',
               ].map(t => (
                 <li key={t} className="flex items-start gap-2">
@@ -248,7 +309,7 @@ export default async function QuantumAIContinuedPage() {
               courseId={course.id}
               courseName={course.name}
               price={price}
-              label={`Join now — ${priceStr}/mo →`}
+              label={joinLabel2}
               className="w-full px-6 py-4 text-base font-bold"
             />
             <p className="text-xs text-slate-500 mt-3">🔒 Secured by Razorpay · GST invoice issued automatically</p>
@@ -262,11 +323,11 @@ export default async function QuantumAIContinuedPage() {
           <h2 className="text-3xl font-extrabold text-gray-900 mb-8 text-center">Questions</h2>
           <div className="space-y-4">
             {[
-              ['Is this a fixed course with an end date?', 'No — it\'s an ongoing membership. There\'s a live 60-minute session every single week, indefinitely, always covering the latest in AI & Quantum.'],
+              ['Is this a fixed course with an end date?', `No — it\'s an ongoing membership. There\'s a live ${durSession} every week, indefinitely, always covering the latest in AI & Quantum.`],
               ['Do I need a background in AI or Quantum?', 'No. It\'s open to every learner at every level — professionals, students, founders, leaders and the technically curious alike.'],
               ['What if I miss a session?', 'Every session is recorded. While your membership is active you can watch the full archive of past sessions any time.'],
               ['Can I cancel?', `Yes — just stop renewing. Your membership pauses and you keep nothing pending. Resume whenever you like by paying the next ${priceStr}.`],
-              ['Saturday or Sunday?', 'Both cohorts run weekly at 12:00 PM (noon) IST. You pick the day that suits you after joining, and can switch cohorts later.'],
+              [copy.faqQ, copy.faqA],
               ['Do I get a certificate?', 'You can request a certificate of your continued learning at any time and we\'ll issue it.'],
             ].map(([q, a]) => (
               <details key={q} className="rounded-2xl border border-gray-100 p-5 bg-gray-50/60 group">

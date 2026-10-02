@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient }        from '@/lib/supabase/service'
 import Anthropic                       from '@anthropic-ai/sdk'
+import { trackAnthropic }              from '@/lib/llmLog'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
@@ -46,17 +47,28 @@ function countWords(text: string): number {
 async function generateSummary(
   transcriptText: string,
   sessionNumber:  number,
+  batchId?:       string,
 ): Promise<{ summary: string; keyTopics: string[] }> {
   // Truncate to ~80k chars if very long (stays well within Claude's context)
   const truncated = transcriptText.slice(0, 80000)
 
-  const response = await anthropic.messages.create({
-    model:      'claude-sonnet-4-5',
-    max_tokens: 800,
-    system:     'You are a helpful assistant that summarises AI education class transcripts. Be concise and accurate.',
-    messages: [{
-      role:    'user',
-      content: `This is the transcript from Session ${sessionNumber} of an AI certification course.
+  // LLM call log (llm_usage_log): one row per summary — a large input (~20k tokens), so worth seeing. Logged on the
+  // side; the call, its errors and the parsed result are unchanged. Only ids/counters go in meta, never transcript text.
+  const response = await trackAnthropic(
+    {
+      feature:          'transcript_summary',
+      model:            'claude-sonnet-4-5',
+      actor_type:       'admin',
+      conversation_ref: batchId,
+      meta:             { session_number: sessionNumber, input_chars: truncated.length },
+    },
+    () => anthropic.messages.create({
+      model:      'claude-sonnet-4-5',
+      max_tokens: 800,
+      system:     'You are a helpful assistant that summarises AI education class transcripts. Be concise and accurate.',
+      messages: [{
+        role:    'user',
+        content: `This is the transcript from Session ${sessionNumber} of an AI certification course.
 
 Please provide:
 1. A 2-3 sentence summary of what was covered (for student reference)
@@ -70,8 +82,9 @@ Respond ONLY with valid JSON in this exact format:
 
 TRANSCRIPT:
 ${truncated}`,
-    }],
-  })
+      }],
+    }),
+  )
 
   const text = response.content[0]?.type === 'text' ? response.content[0].text : '{}'
   try {
@@ -138,7 +151,7 @@ export async function POST(req: NextRequest) {
 
     if (doSummary && process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_API_KEY.includes('placeholder')) {
       try {
-        const result = await generateSummary(plainText, sessionNum)
+        const result = await generateSummary(plainText, sessionNum, batchId)
         summary   = result.summary
         keyTopics = result.keyTopics
       } catch (summaryErr: any) {

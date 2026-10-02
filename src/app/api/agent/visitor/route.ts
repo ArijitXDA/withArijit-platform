@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getPlatformFacts, platformFactsBlock } from '@/lib/platformFacts'
+import { isAgentEvalCall, newLlmLogBatch, newTurnId, safePagePath, trackAnthropic } from '@/lib/llmLog'
 
 const claude = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY ?? 'placeholder',
@@ -356,6 +357,24 @@ export async function POST(request: NextRequest) {
       .slice(-14)
       .map((m: any) => ({ role: m.role, content: m.content }))
 
+    // ── LLM call log (llm_usage_log) ───────────────────────────────────────────
+    // One row per provider call — this loop makes several per visitor message. Logging is on the side:
+    // successes are written while the answer streams and awaited once before the stream closes; it can
+    // never change what the visitor receives. The in-app eval harness proves itself with a signed, short-lived
+    // x-agent-eval header (this endpoint is public, so nothing the caller can put in the body counts) → its spend is
+    // booked to agent_eval so real visitor cost stays clean. Never the token, email or message text.
+    const LOG_FLUSH_MS = 750   // the widget re-enables its input when the stream closes — never hold it for a slow log insert
+    const isEval = await isAgentEvalCall(request.headers)
+    const utmForLog = typeof attributionCode === 'string' && /^[A-Za-z0-9_.-]{1,40}$/.test(attributionCode) ? attributionCode : undefined
+    const logs = newLlmLogBatch()
+    const logBase = {
+      feature:          isEval ? 'agent_eval' : 'ask_ari',
+      actor_type:       (isEval ? 'system' : 'visitor') as 'system' | 'visitor',
+      actor_id:         isEval ? 'agent-evals' : (sessionId ?? undefined),
+      conversation_ref: newTurnId(),
+      meta:             { agent: 'ask_ari', page: safePagePath(pagePath), lang, utm: utmForLog },
+    }
+
     // ── Agentic tool loop ──────────────────────────────────────────────────────
     const encoder = new TextEncoder()
     const readable = new ReadableStream({
@@ -367,14 +386,18 @@ export async function POST(request: NextRequest) {
           while (loopCount < MAX_LOOPS) {
             loopCount++
 
-            const response = await claude.messages.create({
-              model:      'claude-sonnet-4-5',
-              max_tokens: 600,
-              system:     systemPrompt + depthHint,
-              tools:      ARI_TOOLS,
-              messages:   claudeMessages,
-              stream:     false,
-            })
+            const response = await trackAnthropic(
+              { ...logBase, model: 'claude-sonnet-4-5', iterations: loopCount },
+              () => claude.messages.create({
+                model:      'claude-sonnet-4-5',
+                max_tokens: 600,
+                system:     systemPrompt + depthHint,
+                tools:      ARI_TOOLS,
+                messages:   claudeMessages,
+                stream:     false,
+              }),
+              logs,
+            )
 
             if (response.stop_reason === 'tool_use') {
               const toolResults: Anthropic.ToolResultBlockParam[] = []
@@ -408,12 +431,14 @@ export async function POST(request: NextRequest) {
           }
 
           controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+          await logs.flush(LOG_FLUSH_MS)   // the answer is already out; only waits for in-flight log inserts (usually done), capped
           controller.close()
 
         } catch (err: any) {
           console.error('[Ask Ari stream error]', err?.message)
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: 'I ran into a brief issue. Please try again! If the problem persists, email us at ai@ostaran.com 🙏' })}\n\n`))
           controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+          await logs.flush(LOG_FLUSH_MS)
           controller.close()
         }
       },

@@ -10,6 +10,7 @@ import { getPlatformFacts, platformFactsBlock } from '@/lib/platformFacts'
 import { isContentLocked } from '@/lib/contentGate'
 import { ASSISTANT_PROFESSOR_TOOLS, buildSystemPrompt } from '@/lib/assistantProfessorPrompt'
 import { embedQuery, toVectorLiteral } from '@/lib/embeddings'
+import { embeddingCallLog, newLlmLogBatch, newTurnId, trackAnthropic, type CallBase, type EmbedCallReport } from '@/lib/llmLog'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
@@ -23,6 +24,8 @@ interface ToolCtx {
   courseId:     string | null
   variant:      string | null
   studentEmail: string
+  /** Observer for the RAG query-embedding call (llm_usage_log). Optional + side-effect only. */
+  onEmbed?:     (sessionNumber: number, report: EmbedCallReport) => void
 }
 
 // ── Execute tool calls ────────────────────────────────────────────────────────
@@ -90,7 +93,7 @@ async function executeTool(
             let excerpts = ''
             if (q) {
               try {
-                const emb = await embedQuery(q)
+                const emb = await embedQuery(q, ctx.onEmbed ? (r) => ctx.onEmbed!(n, r) : undefined)
                 const { data: matches } = await service.rpc('match_session_chunks', {
                   p_batch_id:        ctx.batchUuid,
                   p_session_number:  n,
@@ -387,12 +390,30 @@ export async function POST(req: NextRequest) {
     next,
   }
 
+  // ── LLM call log (llm_usage_log) ───────────────────────────────────────────
+  // One row per provider call: each loop iteration below + each RAG query embedding. The actor is the
+  // student's internal auth id — never the email. Writes overlap with the rest of the request and are
+  // awaited once, just before the reply is returned; logging cannot change the reply.
+  const logs = newLlmLogBatch()
+  const logBase: CallBase = {
+    feature:          'assistant_professor',
+    model:            'claude-sonnet-4-5',
+    actor_type:       'student',
+    actor_id:         user.id,
+    conversation_ref: newTurnId(),
+    meta:             { course_id: resolvedCourseId, batch_id: batchUuid },
+  }
+
   const toolCtx: ToolCtx = {
     schedule,
     batchUuid,
     courseId:     resolvedCourseId,
     variant:      activeBatch?.variant ?? null,
     studentEmail: email,
+    onEmbed: (sessionNumber, report) => logs.add(embeddingCallLog(
+      { ...logBase, feature: 'rag_embedding', model: 'text-embedding-3-small', meta: { ...logBase.meta, session_number: sessionNumber, via: 'get_session_transcript' } },
+      report,
+    )),
   }
 
   // ── Claude messages (cap at 20 turns for context) ─────────────────────────
@@ -409,36 +430,47 @@ export async function POST(req: NextRequest) {
   let   finalReply   = ''
   const MAX_LOOPS    = 4
 
-  for (let i = 0; i < MAX_LOOPS; i++) {
-    const response = await anthropic.messages.create({
-      model:      'claude-sonnet-4-5',
-      max_tokens: 1200,
-      system:     systemPrompt,
-      tools:      ASSISTANT_PROFESSOR_TOOLS,
-      messages:   workingMsgs,
-    })
+  try {
+    for (let i = 0; i < MAX_LOOPS; i++) {
+      const response = await trackAnthropic(
+        { ...logBase, iterations: i + 1 },
+        () => anthropic.messages.create({
+          model:      'claude-sonnet-4-5',
+          max_tokens: 1200,
+          system:     systemPrompt,
+          tools:      ASSISTANT_PROFESSOR_TOOLS,
+          messages:   workingMsgs,
+        }),
+        logs,
+      )
 
-    if (response.stop_reason === 'tool_use') {
-      const toolResults: Anthropic.ToolResultBlockParam[] = []
-      for (const block of response.content) {
-        if (block.type === 'tool_use') {
-          const result = await executeTool(block.name, block.input as Record<string, any>, toolCtx, service)
-          toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result })
+      if (response.stop_reason === 'tool_use') {
+        const toolResults: Anthropic.ToolResultBlockParam[] = []
+        for (const block of response.content) {
+          if (block.type === 'tool_use') {
+            const result = await executeTool(block.name, block.input as Record<string, any>, toolCtx, service)
+            toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result })
+          }
         }
+        workingMsgs = [
+          ...workingMsgs,
+          { role: 'assistant', content: response.content },
+          { role: 'user',      content: toolResults },
+        ]
+        continue
       }
-      workingMsgs = [
-        ...workingMsgs,
-        { role: 'assistant', content: response.content },
-        { role: 'user',      content: toolResults },
-      ]
-      continue
-    }
 
-    finalReply = response.content
-      .filter(b => b.type === 'text')
-      .map(b => (b as Anthropic.TextBlock).text)
-      .join('')
-    break
+      finalReply = response.content
+        .filter(b => b.type === 'text')
+        .map(b => (b as Anthropic.TextBlock).text)
+        .join('')
+      break
+    }
+  } catch (e) {
+    // trackAnthropic only QUEUES a failed call's row (so the error isn't held behind a log insert); get it written
+    // before the 500 goes out, capped so a slow insert can't hold the error either.
+    await logs.flush(750)
+    throw e
   }
 
   if (!finalReply) finalReply = "I had trouble generating a response. Please try again!"
@@ -470,5 +502,6 @@ export async function POST(req: NextRequest) {
     }, { onConflict: 'user_id' })
   }
 
+  await logs.flush(1000)   // in-flight log inserts (started during the loop) — normally already finished; capped
   return NextResponse.json({ reply: finalReply })
 }

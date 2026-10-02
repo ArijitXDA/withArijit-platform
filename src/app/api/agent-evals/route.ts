@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getPlatformFacts, platformFactsBlock } from '@/lib/platformFacts'
 import { buildSystemPrompt, ASSISTANT_PROFESSOR_TOOLS } from '@/lib/assistantProfessorPrompt'
+import { agentEvalHeaders, anthropicCallLog, callErrorLog, httpFailureLog, logLlmCall, type AnthropicMessageLike, type CallBase } from '@/lib/llmLog'
 
 type Assertion = { mustInclude?: RegExp[]; mustNotInclude?: RegExp[] }
 type Case = { agent: string; name: string; message: string } & Assertion
@@ -63,13 +64,35 @@ const PROF_CTX = {
 // return which tools the model chose to call.
 async function profToolNames(message: string): Promise<string[]> {
   const system = buildSystemPrompt(PROF_CTX) + '\n\n' + platformFactsBlock(await getPlatformFacts())
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 1024, system, tools: ASSISTANT_PROFESSOR_TOOLS, messages: [{ role: 'user', content: message }] }),
-  })
-  if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`)
-  const data = await res.json()
+  // LLM call log (llm_usage_log): eval spend is booked to agent_eval. Logging is on the side — the request,
+  // the thrown errors and the returned tool names are exactly as before.
+  const logBase: CallBase = { feature: 'agent_eval', model: 'claude-sonnet-4-5', actor_type: 'system', actor_id: 'agent-evals', meta: { agent: 'professor' } }
+  const t0 = Date.now()
+  let res: Response
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 1024, system, tools: ASSISTANT_PROFESSOR_TOOLS, messages: [{ role: 'user', content: message }] }),
+    })
+  } catch (e) {
+    await logLlmCall(callErrorLog('anthropic', logBase, t0, e))
+    throw e
+  }
+  const requestId = res.headers.get('request-id')
+  if (!res.ok) {
+    const errBody = (await res.text()).slice(0, 200)
+    await logLlmCall(httpFailureLog('anthropic', logBase, t0, res.status, errBody, { requestId }))
+    throw new Error(`anthropic ${res.status}: ${errBody}`)
+  }
+  let data: AnthropicMessageLike & { content?: { type?: string; name?: string }[] }
+  try {
+    data = await res.json()
+  } catch (e) {
+    await logLlmCall(callErrorLog('anthropic', logBase, t0, e))
+    throw e
+  }
+  await logLlmCall(anthropicCallLog(logBase, t0, data, { requestId }))
   return (data.content || []).filter((b: any) => b.type === 'tool_use').map((b: any) => b.name)
 }
 
@@ -77,7 +100,8 @@ async function profToolNames(message: string): Promise<string[]> {
 async function runAri(origin: string, message: string): Promise<string> {
   const res = await fetch(`${origin}/api/agent/visitor`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    // The signed x-agent-eval header is what books this spend to agent_eval (the endpoint is public, so a page path can't).
+    headers: { 'Content-Type': 'application/json', ...(await agentEvalHeaders()) },
     // No sessionToken → Ari doesn't persist a visitor_chat_sessions row.
     body: JSON.stringify({ messages: [{ role: 'user', content: message }], pagePath: '/__eval' }),
   })

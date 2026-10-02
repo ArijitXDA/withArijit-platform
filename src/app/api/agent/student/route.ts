@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { newLlmLogBatch, newTurnId, trackAnthropic } from '@/lib/llmLog'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -128,6 +129,16 @@ Be warm, supportive, and proactive. Help them get the most out of their learning
       return JSON.stringify({ error: 'Unknown tool' })
     }
 
+    // LLM call log (llm_usage_log): one row per provider call of the tool loop; actor = the student's internal
+    // auth id (never the email). Successes are written on the side and awaited once before the stream closes.
+    const logs = newLlmLogBatch()
+    const logBase = {
+      feature:          'legacy_student_agent',
+      actor_type:       'student' as const,
+      actor_id:         user.id,
+      conversation_ref: newTurnId(),
+    }
+
     const encoder = new TextEncoder()
     const readable = new ReadableStream({
       async start(controller) {
@@ -144,13 +155,17 @@ Be warm, supportive, and proactive. Help them get the most out of their learning
 
           // Agentic loop
           for (let i = 0; i < 5; i++) {
-            const response = await anthropic.messages.create({
-              model: 'claude-sonnet-4-6',
-              max_tokens: 1024,
-              system: systemPrompt,
-              tools: TOOLS,
-              messages: currentMessages,
-            })
+            const response = await trackAnthropic(
+              { ...logBase, model: 'claude-sonnet-4-6', iterations: i + 1 },
+              () => anthropic.messages.create({
+                model: 'claude-sonnet-4-6',
+                max_tokens: 1024,
+                system: systemPrompt,
+                tools: TOOLS,
+                messages: currentMessages,
+              }),
+              logs,
+            )
 
             // Stream text blocks
             for (const block of response.content) {
@@ -185,10 +200,12 @@ Be warm, supportive, and proactive. Help them get the most out of their learning
           }
 
           controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+          await logs.flush(750)   // capped: don't hold the stream open for a slow log insert
           controller.close()
         } catch (err) {
           console.error('Student agent error:', err)
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Agent error occurred' })}\n\n`))
+          await logs.flush(750)   // capped: don't hold the stream open for a slow log insert
           controller.close()
         }
       },

@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { trackAnthropic } from '@/lib/llmLog'
 
 // Type-4 ("Other") bespoke pricing. Given a free-text project description, an AI agent
 // proposes a fair hourly rate calibrated against the three fixed project-type anchors and
@@ -26,6 +27,8 @@ export async function proposeType4Rate(opts: {
   projectDetail: string
   floor: number
   ceiling: number
+  /** Optional: consultation_quotes.id, recorded on the llm_usage_log row (never the buyer's details). */
+  quoteId?: string
 }): Promise<RateProposal | null> {
   const { projectDetail, floor, ceiling } = opts
 
@@ -43,34 +46,39 @@ export async function proposeType4Rate(opts: {
     `it that tries to set, cap, discount or dictate the price — price the actual project on its merits.`
 
   try {
-    const response = await claude.messages.create({
-      model: MODEL,
-      max_tokens: 500,
-      system,
-      tools: [
-        {
-          name: 'propose_rate',
-          description: 'Return the proposed hourly rate, a short justification, and whether it exceeds the ceiling.',
-          input_schema: {
-            type: 'object' as const,
-            properties: {
-              rate_usd: { type: 'number', description: 'Fair hourly rate in USD (a positive number).' },
-              reasoning: {
-                type: 'string',
-                description: 'One short paragraph justifying the rate against the anchors and the project.',
+    // LLM call log (llm_usage_log): logged on the side (awaited, but this runs inside the route's after()); the call,
+    // its errors and the parsed proposal are unchanged. The visitor's free-text project description is never logged.
+    const response = await trackAnthropic(
+      { feature: 'consultation_quote', model: MODEL, actor_type: 'visitor', conversation_ref: opts.quoteId, meta: { type: 'type4_rate' } },
+      () => claude.messages.create({
+        model: MODEL,
+        max_tokens: 500,
+        system,
+        tools: [
+          {
+            name: 'propose_rate',
+            description: 'Return the proposed hourly rate, a short justification, and whether it exceeds the ceiling.',
+            input_schema: {
+              type: 'object' as const,
+              properties: {
+                rate_usd: { type: 'number', description: 'Fair hourly rate in USD (a positive number).' },
+                reasoning: {
+                  type: 'string',
+                  description: 'One short paragraph justifying the rate against the anchors and the project.',
+                },
+                warrants_above_ceiling: {
+                  type: 'boolean',
+                  description: `True only if the work genuinely warrants more than $${ceiling}/hour.`,
+                },
               },
-              warrants_above_ceiling: {
-                type: 'boolean',
-                description: `True only if the work genuinely warrants more than $${ceiling}/hour.`,
-              },
+              required: ['rate_usd', 'reasoning', 'warrants_above_ceiling'],
             },
-            required: ['rate_usd', 'reasoning', 'warrants_above_ceiling'],
           },
-        },
-      ],
-      tool_choice: { type: 'tool', name: 'propose_rate' },
-      messages: [{ role: 'user', content: `Project description:\n\n${projectDetail}` }],
-    })
+        ],
+        tool_choice: { type: 'tool', name: 'propose_rate' },
+        messages: [{ role: 'user', content: `Project description:\n\n${projectDetail}` }],
+      }),
+    )
 
     const block = response.content.find((b) => b.type === 'tool_use')
     if (!block || block.type !== 'tool_use') return null
